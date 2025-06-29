@@ -11,6 +11,10 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 
+// DEBUG: Log Supabase env vars
+console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+console.log('Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
