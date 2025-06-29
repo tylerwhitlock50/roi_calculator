@@ -24,6 +24,10 @@ The Product ROI Tool is now running at `http://localhost:3000`! Here's what you 
    - Copy and paste the entire contents of `database/schema.sql`
    - Run the SQL commands to create all tables, functions, and RLS policies
 
+4. **Test Invite Code Functionality (Optional)**
+   - Run the test script `database/test-invite-codes.sql` in the SQL Editor
+   - This will verify that the invite code system is working correctly
+
 ### 2. Test the Application
 
 1. **Visit the Application**
@@ -36,7 +40,9 @@ The Product ROI Tool is now running at `http://localhost:3000`! Here's what you 
 
 3. **Set Up Organization**
    - After signing in, you'll be prompted to create or join an organization
-   - Create a new organization or use an invite code
+   - **Create a new organization**: Enter your organization name
+   - **Join an existing organization**: Use an invite code from your admin
+   - After creating an organization, you'll see the invite code to share with team members
 
 4. **Create Your First Product Idea**
    - Use the "Create New Project" button
@@ -59,7 +65,9 @@ product-roi-tool/
 │       ├── supabase.ts        # Supabase client and types
 │       └── roi-calculations.ts # ROI calculation utilities
 ├── database/
-│   └── schema.sql            # Complete database schema
+│   ├── schema.sql            # Complete database schema
+│   ├── reset-schema.sql      # Reset script for RLS issues
+│   └── test-invite-codes.sql # Test script for invite codes
 ├── documentation/
 │   └── product_roi_tool_prd.md # Product requirements document
 ├── package.json              # Dependencies and scripts
@@ -75,6 +83,7 @@ product-roi-tool/
 - **Multi-tenancy**: Organization-based access control with RLS
 - **Product Idea Management**: Create and manage product concepts
 - **Organization Setup**: Create or join organizations with invite codes
+- **Invite Code System**: Generate, display, and share organization invite codes
 - **Project Dashboard**: View and filter product ideas
 - **Responsive UI**: Modern, mobile-friendly interface
 
@@ -87,7 +96,7 @@ product-roi-tool/
 
 ### 📋 Database Schema
 The application uses 6 main tables:
-- `organizations` - Multi-tenant organization management
+- `organizations` - Multi-tenant organization management with invite codes
 - `users` - User accounts with role-based permissions
 - `ideas` - Product idea definitions
 - `sales_forecasts` - Revenue projections
@@ -104,8 +113,8 @@ The application uses 6 main tables:
 
 ### Key Components
 1. **ProductIdeaForm**: Multi-step form for creating product ideas
-2. **ProjectDashboard**: Grid view of projects with filtering
-3. **OrganizationSetup**: Create or join organization flow
+2. **ProjectDashboard**: Grid view of projects with filtering and invite code display
+3. **OrganizationSetup**: Create or join organization flow with invite code sharing
 4. **Authentication**: Sign up/in forms with validation
 
 ## 🔧 Development
@@ -132,6 +141,7 @@ npm run type-check   # Run TypeScript type checking
 1. **Set up Supabase** with the provided schema
 2. **Test the authentication flow**
 3. **Create your first organization and product idea**
+4. **Test the invite code functionality**
 
 ### Upcoming Features
 1. **Sales Forecasting Module**
@@ -180,11 +190,47 @@ npm run type-check   # Run TypeScript type checking
    - Check that the user trigger is working
    - Verify RLS policies allow organization operations
 
+5. **Invite code issues**
+   - Run the test script `database/test-invite-codes.sql` to verify functions
+   - Check that RLS policies allow organization creation and joining
+   - Ensure the `generate_invite_code()` function exists
+   - Verify that admins can view their organization's invite code
+
+### Invite Code Troubleshooting
+
+If invite codes aren't working:
+
+1. **Check Database Functions**
+   ```sql
+   -- Run this in Supabase SQL Editor
+   SELECT routine_name FROM information_schema.routines 
+   WHERE routine_schema = 'public' 
+   AND routine_name IN ('create_organization', 'join_organization', 'generate_invite_code');
+   ```
+
+2. **Verify RLS Policies**
+   ```sql
+   -- Check organization policies
+   SELECT policyname, cmd, qual FROM pg_policies WHERE tablename = 'organizations';
+   ```
+
+3. **Test Organization Creation**
+   ```sql
+   -- Test creating an organization
+   SELECT create_organization('Test Org') as org_id;
+   ```
+
+4. **Check User Permissions**
+   - Ensure the user is authenticated
+   - Verify the user doesn't already have an organization_id
+   - Check that the user has the correct role
+
 ### Getting Help
 - Check the browser console for error messages
 - Review the Supabase logs in your project dashboard
 - Ensure all database functions and triggers are created
 - Verify RLS policies are correctly configured
+- Run the test scripts to verify functionality
 
 ## 📈 Success Metrics
 
@@ -194,6 +240,14 @@ The application is designed to track:
 - User engagement with forecasting tools
 - ROI calculations completed
 - Team collaboration metrics
+- Invite code usage and organization growth
+
+## 🔐 Security Features
+
+- **Row Level Security (RLS)**: Users can only access data from their organization
+- **Role-based Access**: Admins can manage users and view invite codes
+- **Invite Code System**: Secure organization joining with unique codes
+- **Multi-tenant Architecture**: Complete data isolation between organizations
 
 ---
 

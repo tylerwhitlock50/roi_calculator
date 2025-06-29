@@ -94,7 +94,7 @@ export default function ProductIdeaForm({ onComplete, initialData, isLoading = f
     <div className="max-w-4xl mx-auto">
       {/* Progress Bar */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex justify-center gap-x-12 max-w-xl mx-auto">
           {[1, 2, 3].map((step) => (
             <div key={step} className="flex items-center">
               <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
@@ -112,7 +112,7 @@ export default function ProductIdeaForm({ onComplete, initialData, isLoading = f
             </div>
           ))}
         </div>
-        <div className="flex justify-between mt-2 text-sm text-gray-600">
+        <div className="flex justify-center gap-x-32 mt-2 text-sm text-gray-600 max-w-xl mx-auto">
           <span>Basic Info</span>
           <span>Positioning</span>
           <span>Requirements</span>

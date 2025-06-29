@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatPercentage, getROIStatus } from '@/lib/roi-calculations'
 import { Database } from '@/lib/supabase'
+import LoadingSpinner from '@/components/LoadingSpinner'
 import Link from 'next/link'
 
 type Idea = Database['public']['Tables']['ideas']['Row']
@@ -37,17 +38,104 @@ export default function ProjectDashboard({ onCreateNew, onViewProject }: Project
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [organizationInviteCode, setOrganizationInviteCode] = useState<string | null>(null)
+  const [showInviteCode, setShowInviteCode] = useState(false)
 
   useEffect(() => {
     loadProjects()
+    checkUserRole()
   }, [])
+
+  // Add click outside handler for invite code dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element
+      if (showInviteCode && !target.closest('.invite-code-dropdown')) {
+        setShowInviteCode(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showInviteCode])
+
+  const checkUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Add timeout for the database query
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 5000)
+      )
+
+      const queryPromise = supabase
+        .from('users')
+        .select('role, organization_id')
+        .eq('id', user.id)
+        .single()
+
+      const { data: userData, error: userError } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]) as any
+
+      if (userError) {
+        console.error('Error checking user role:', userError)
+        return
+      }
+
+      if (userData?.role === 'admin' && userData?.organization_id) {
+        setUserRole('admin')
+        // Get the invite code for the organization
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .select('invite_code')
+          .eq('id', userData.organization_id)
+          .single()
+
+        if (orgError) {
+          console.error('Error fetching organization invite code:', orgError)
+          return
+        }
+
+        if (orgData) {
+          setOrganizationInviteCode(orgData.invite_code)
+        }
+      } else {
+        setUserRole(userData?.role || null)
+      }
+    } catch (error) {
+      console.error('Error checking user role:', error)
+    }
+  }
+
+  const copyInviteCode = async () => {
+    if (!organizationInviteCode) return
+    
+    try {
+      await navigator.clipboard.writeText(organizationInviteCode)
+      alert('Invite code copied to clipboard!')
+    } catch (error) {
+      console.error('Failed to copy invite code:', error)
+      alert('Failed to copy invite code. Please copy it manually.')
+    }
+  }
 
   const loadProjects = async () => {
     try {
       setLoading(true)
       
+      // Add a timeout for the database query
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 10000)
+      )
+      
       // Fetch ideas with ROI summaries and user info
-      const { data: ideas, error: ideasError } = await supabase
+      const queryPromise = supabase
         .from('ideas')
         .select(`
           *,
@@ -55,6 +143,11 @@ export default function ProjectDashboard({ onCreateNew, onViewProject }: Project
           created_by_user:users!ideas_created_by_fkey (full_name)
         `)
         .order('created_at', { ascending: false })
+
+      const { data: ideas, error: ideasError } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]) as any
 
       if (ideasError) {
         console.error('Error loading projects:', ideasError)
@@ -71,6 +164,7 @@ export default function ProjectDashboard({ onCreateNew, onViewProject }: Project
       setProjects(projectsWithROI)
     } catch (error) {
       console.error('Error loading projects:', error)
+      // Don't show error to user for now, just log it
     } finally {
       setLoading(false)
     }
@@ -117,26 +211,69 @@ export default function ProjectDashboard({ onCreateNew, onViewProject }: Project
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
+      <LoadingSpinner 
+        message="Loading projects..." 
+        size="md"
+      />
     )
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-start">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Product Projects</h2>
           <p className="text-gray-600">Manage and track your product ideas</p>
         </div>
-        <button
-          onClick={onCreateNew}
-          className="btn-primary"
-        >
-          Create New Project
-        </button>
+        <div className="flex items-center space-x-4">
+          {userRole === 'admin' && organizationInviteCode && (
+            <div className="relative invite-code-dropdown">
+              <button
+                onClick={() => setShowInviteCode(!showInviteCode)}
+                className="btn-secondary text-sm"
+              >
+                {showInviteCode ? 'Hide' : 'Show'} Invite Code
+              </button>
+              
+              {showInviteCode && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-10">
+                  <h4 className="font-medium text-gray-900 mb-2">Organization Invite Code</h4>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Share this code with team members to let them join your organization.
+                  </p>
+                  <div className="flex items-center space-x-2 mb-3">
+                    <input
+                      type="text"
+                      value={organizationInviteCode}
+                      readOnly
+                      className="flex-1 input-field bg-gray-50 text-sm"
+                    />
+                    <button
+                      onClick={copyInviteCode}
+                      className="btn-secondary px-3 py-2 text-sm"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowInviteCode(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <button
+            onClick={onCreateNew}
+            className="btn-primary"
+          >
+            Create New Project
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

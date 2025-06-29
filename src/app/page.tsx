@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import ProjectDashboard from '@/components/ProjectDashboard'
 import ProductIdeaForm from '@/components/ProductIdeaForm'
 import OrganizationSetup from '@/components/OrganizationSetup'
 import PasswordReset from '@/components/PasswordReset'
+import LoadingSpinner from '@/components/LoadingSpinner'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -18,36 +19,96 @@ export default function HomePage() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'create' | 'view' | 'org-setup'>('dashboard')
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [userOrganization, setUserOrganization] = useState<any>(null)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
   const params = useParams();
   const productId = params.id;
 
+  // Set a timeout to prevent infinite loading
   useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        checkUserOrganization(session.user.id)
-      } else {
+    loadingTimeoutRef.current = setTimeout(() => {
+      if (loading) {
+        console.warn('Loading timeout reached, forcing loading to false')
         setLoading(false)
+        setError('Loading timeout - please refresh the page')
       }
-    })
+    }, 10000) // 10 second timeout
+
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+      }
+    }
+  }, [loading])
+
+  useEffect(() => {
+    let mounted = true
+
+    const initializeAuth = async () => {
+      try {
+        // Check for existing session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (!mounted) return
+
+        if (sessionError) {
+          console.error('Session error:', sessionError)
+          setError('Authentication error - please refresh the page')
+          setLoading(false)
+          setAuthChecked(true)
+          return
+        }
+
+        setUser(session?.user ?? null)
+        
+        if (session?.user) {
+          await checkUserOrganization(session.user.id)
+        } else {
+          setLoading(false)
+          setAuthChecked(true)
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error)
+        if (mounted) {
+          setError('Failed to initialize authentication')
+          setLoading(false)
+          setAuthChecked(true)
+        }
+      }
+    }
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return
+
+      console.log('Auth state change:', event, session?.user?.email)
+      
       setUser(session?.user ?? null)
+      
       if (session?.user) {
         await checkUserOrganization(session.user.id)
       } else {
         setLoading(false)
+        setAuthChecked(true)
+        setUserOrganization(null)
+        setCurrentView('dashboard')
       }
     })
 
-    return () => subscription.unsubscribe()
+    initializeAuth()
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const checkUserOrganization = async (userId: string) => {
     try {
+      console.log('Checking user organization for:', userId)
+      
       const { data, error } = await supabase
         .from('users')
         .select('organization_id, role')
@@ -56,64 +117,103 @@ export default function HomePage() {
 
       if (error) {
         console.error('Error checking user organization:', error)
+        
+        // Handle specific error cases
+        if (error.code === 'PGRST116') {
+          // User not found in users table - this might happen if the trigger didn't work
+          console.log('User not found in users table, creating profile...')
+          setCurrentView('org-setup')
+          setLoading(false)
+          setAuthChecked(true)
+          return
+        }
+        
+        setError('Failed to load user data')
         setLoading(false)
+        setAuthChecked(true)
         return
       }
+
+      console.log('User organization data:', data)
 
       if (!data?.organization_id) {
         setCurrentView('org-setup')
       } else {
         setUserOrganization(data)
+        setCurrentView('dashboard')
       }
+      
       setLoading(false)
+      setAuthChecked(true)
     } catch (error) {
       console.error('Error checking user organization:', error)
+      setError('Failed to load user organization')
       setLoading(false)
+      setAuthChecked(true)
     }
   }
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setError(null)
+    
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
     const password = formData.get('password') as string
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) {
-      alert(error.message)
+      if (error) {
+        setError(error.message)
+      }
+    } catch (error) {
+      console.error('Sign in error:', error)
+      setError('Failed to sign in - please try again')
     }
   }
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setError(null)
+    
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
     const password = formData.get('password') as string
     const fullName = formData.get('fullName') as string
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
         },
-      },
-    })
+      })
 
-    if (error) {
-      alert(error.message)
-    } else {
-      alert('Check your email for the confirmation link!')
+      if (error) {
+        setError(error.message)
+      } else {
+        alert('Check your email for the confirmation link!')
+      }
+    } catch (error) {
+      console.error('Sign up error:', error)
+      setError('Failed to create account - please try again')
     }
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } catch (error) {
+      console.error('Sign out error:', error)
+      setError('Failed to sign out')
+    }
   }
 
   const handleCreateProject = () => {
@@ -134,6 +234,7 @@ export default function HomePage() {
     setCurrentView('dashboard')
     // Refresh user organization data
     if (user) {
+      setLoading(true)
       checkUserOrganization(user.id)
     }
   }
@@ -177,10 +278,34 @@ export default function HomePage() {
     }
   }
 
+  // Show loading spinner
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      <LoadingSpinner 
+        message="Loading application..." 
+        showError={!!error}
+        errorMessage={error || undefined}
+        onRetry={() => window.location.reload()}
+      />
+    )
+  }
+
+  // Show error state if authentication failed
+  if (error && !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md mx-auto text-center">
+          <div className="card">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Connection Error</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="btn-primary"
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -214,6 +339,12 @@ export default function HomePage() {
 
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
+            {error && (
+              <div className="mb-4 p-3 bg-danger-50 border border-danger-200 rounded-md">
+                <p className="text-sm text-danger-600">{error}</p>
+              </div>
+            )}
+
             {currentView === 'org-setup' && (
               <OrganizationSetup onComplete={handleOrganizationComplete} />
             )}
@@ -276,6 +407,12 @@ export default function HomePage() {
             Evaluate new product ideas with data-driven ROI analysis
           </p>
         </div>
+
+        {error && (
+          <div className="mt-4 p-3 bg-danger-50 border border-danger-200 rounded-md">
+            <p className="text-sm text-danger-600">{error}</p>
+          </div>
+        )}
 
         {showPasswordReset ? (
           <PasswordReset onBack={() => setShowPasswordReset(false)} />

@@ -116,6 +116,18 @@ CREATE POLICY "Admins can update their organization" ON organizations
         id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
     );
 
+-- Allow authenticated users to create organizations (for the create_organization function)
+CREATE POLICY "Authenticated users can create organizations" ON organizations
+    FOR INSERT WITH CHECK (
+        auth.uid() IS NOT NULL
+    );
+
+-- Allow users to view their organization's invite code (for admin sharing)
+CREATE POLICY "Admins can view their organization invite code" ON organizations
+    FOR SELECT USING (
+        id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
+    );
+
 -- RLS Policies for users (FIXED - using helper functions)
 CREATE POLICY "Users can view their own profile" ON users
     FOR SELECT USING (id = auth.uid());

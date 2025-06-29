@@ -1,6 +1,10 @@
 import React from 'react'
 import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
 import './globals.css'
+import ErrorBoundary from '@/components/ErrorBoundary'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Product ROI Tool',
@@ -14,8 +18,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-gray-50">
-        {children}
+      <body className={inter.className}>
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </body>
     </html>
   )
