@@ -13,8 +13,12 @@
     "@headlessui/react": "^1.7.17",
     "@heroicons/react": "^2.0.18",
     "@hookform/resolvers": "^3.3.2",
+    "@headlessui/react": "^1.7.17",
+    "@heroicons/react": "^2.0.18",
+    "@hookform/resolvers": "^3.3.2",
     "@supabase/auth-helpers-nextjs": "^0.8.7",
     "@supabase/auth-helpers-react": "^0.4.2",
+    "@supabase/supabase-js": "^2.38.5",
     "@supabase/supabase-js": "^2.38.5",
     "@types/node": "^20.10.5",
     "@types/react": "^18.2.45",
@@ -36,6 +40,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@types/nodemailer": "^6.4.17",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "eslint": "^8.56.0",

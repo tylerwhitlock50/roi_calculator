@@ -1033,8 +1033,30 @@ export default function ProductDetailPage() {
                   ...roi,
                   assumptions: roi.assumptions,
                 })
-                if (error) setSaveROIError(error.message)
-                else setRoiSummary(roi)
+                if (error) {
+                  setSaveROIError(error.message)
+                  setSavingROI(false)
+                  return
+                }
+                setRoiSummary(roi)
+                // Fetch organization members to email
+                const { data: users } = await supabase
+                  .from('users')
+                  .select('email')
+                  .eq('organization_id', product.organization_id!)
+                const recipients = users?.map(u => u.email).filter(Boolean) || []
+                if (recipients.length) {
+                  await fetch('/api/send-roi-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      product,
+                      roi,
+                      cost: costEstimates[0] || {},
+                      recipients,
+                    }),
+                  })
+                }
                 setSavingROI(false)
               }}
               saving={savingROI}
