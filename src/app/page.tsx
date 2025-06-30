@@ -1,193 +1,53 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
-import { User } from '@supabase/supabase-js'
+import React, { useEffect, useRef } from 'react'
+import { useAppStore } from '@/lib/store'
 import ProjectDashboard from '@/components/ProjectDashboard'
 import ProductIdeaForm from '@/components/ProductIdeaForm'
 import OrganizationSetup from '@/components/OrganizationSetup'
 import PasswordReset from '@/components/PasswordReset'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import Link from 'next/link'
-import { useRouter, useParams } from 'next/navigation'
+import DebugPanel from '@/components/DebugPanel'
+import { supabase } from '@/lib/supabase'
 
 export default function HomePage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [showSignUp, setShowSignUp] = useState(false)
-  const [showPasswordReset, setShowPasswordReset] = useState(false)
-  const [currentView, setCurrentView] = useState<'dashboard' | 'create' | 'view' | 'org-setup'>('dashboard')
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-  const [userOrganization, setUserOrganization] = useState<any>(null)
-  const [authChecked, setAuthChecked] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const router = useRouter()
-  const params = useParams();
-  const productId = params.id;
+  const {
+    user,
+    isAuthenticated,
+    authChecked,
+    isLoading,
+    currentView,
+    selectedProjectId,
+    userOrganization,
+    showSignUp,
+    showPasswordReset,
+    error,
+    initializeAuth,
+    setError,
+    setCurrentView,
+    setSelectedProjectId,
+    setShowSignUp,
+    setShowPasswordReset,
+    signOut,
+    setupAuthListener
+  } = useAppStore()
 
-  const handleSessionFailure = async () => {
-    try {
-      await supabase.auth.signOut()
-    } catch (err) {
-      console.error('Error during sign out:', err)
-    } finally {
-      window.location.reload()
-    }
-  }
+  const initialized = useRef(false)
 
-  // Set a timeout to prevent infinite loading
+  // Initialize auth and set up listener on component mount
   useEffect(() => {
-    loadingTimeoutRef.current = setTimeout(() => {
-      if (loading) {
-        console.warn('Loading timeout reached, forcing logout and reload')
-        handleSessionFailure()
-      }
-    }, 10000) // 10 second timeout
-
-    return () => {
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current)
-      }
+    if (initialized.current) return
+    
+    initialized.current = true
+    
+    // Set up auth listener only once
+    setupAuthListener()
+    
+    // Initialize auth only if not already checked
+    if (!authChecked) {
+      initializeAuth()
     }
-  }, [loading])
-
-  useEffect(() => {
-    let mounted = true
-
-    const initializeAuth = async () => {
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-
-        if (!mounted) return
-
-        if (sessionError) {
-          console.error('Session error:', sessionError)
-          await handleSessionFailure()
-          return
-        }
-
-        if (session?.user) {
-          const { data: { user: networkUser }, error: userError } = await supabase.auth.getUser()
-
-          if (userError || !networkUser) {
-            console.error('Failed to validate session:', userError)
-            await handleSessionFailure()
-            return
-          }
-
-          setUser(networkUser)
-          await checkUserOrganization(networkUser.id)
-        } else {
-          setLoading(false)
-          setAuthChecked(true)
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error)
-        await handleSessionFailure()
-      }
-    }
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return
-
-      console.log('Auth state change:', event, session?.user?.email)
-      
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        await checkUserOrganization(session.user.id)
-      } else {
-        setLoading(false)
-        setAuthChecked(true)
-        setUserOrganization(null)
-        setCurrentView('dashboard')
-      }
-    })
-
-    initializeAuth()
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
-  }, [])
-
-  const fetchUserOrganization = async (userId: string) => {
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Database query timeout')), 5000)
-    )
-
-    const queryPromise = supabase
-      .from('users')
-      .select('organization_id, role')
-      .eq('id', userId)
-      .single()
-
-    return Promise.race([queryPromise, timeoutPromise]) as Promise<any>
-  }
-
-  const checkUserOrganization = async (userId: string) => {
-    try {
-      console.log('Checking user organization for:', userId)
-
-      let attempts = 0
-      let data: any = null
-      let error: any = null
-
-      while (attempts < 3) {
-        try {
-          ;({ data, error } = await fetchUserOrganization(userId))
-          if (!error) break
-        } catch (err) {
-          error = err
-        }
-
-        attempts += 1
-        console.warn(`Organization check attempt ${attempts} failed:`, error)
-        // Small delay before retrying
-        await new Promise(res => setTimeout(res, 1000 * attempts))
-      }
-
-      if (error) {
-        console.error('Error checking user organization:', error)
-        
-        // Handle specific error cases
-        if (error.code === 'PGRST116') {
-          // User not found in users table - this might happen if the trigger didn't work
-          console.log('User not found in users table, creating profile...')
-          setCurrentView('org-setup')
-          setLoading(false)
-          setAuthChecked(true)
-          return
-        }
-
-        await handleSessionFailure()
-        return
-      }
-
-      if (!data) {
-        await handleSessionFailure()
-        return
-      }
-
-      console.log('User organization data:', data)
-
-      if (!data?.organization_id) {
-        setCurrentView('org-setup')
-      } else {
-        setUserOrganization(data)
-        setCurrentView('dashboard')
-      }
-
-      setLoading(false)
-      setAuthChecked(true)
-    } catch (error) {
-      console.error('Error checking user organization:', error)
-      await handleSessionFailure()
-    }
-  }
+  }, []) // Empty dependency array to run only once
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -208,7 +68,7 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error('Sign in error:', error)
-      setError('Failed to sign in - please try again')
+      setError('Failed to sign in')
     }
   }
 
@@ -235,20 +95,11 @@ export default function HomePage() {
       if (error) {
         setError(error.message)
       } else {
-        alert('Check your email for the confirmation link!')
+        setError('Please check your email for a confirmation link')
       }
     } catch (error) {
       console.error('Sign up error:', error)
-      setError('Failed to create account - please try again')
-    }
-  }
-
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut()
-    } catch (error) {
-      console.error('Sign out error:', error)
-      setError('Failed to sign out')
+      setError('Failed to create account')
     }
   }
 
@@ -270,8 +121,7 @@ export default function HomePage() {
     setCurrentView('dashboard')
     // Refresh user organization data
     if (user) {
-      setLoading(true)
-      checkUserOrganization(user.id)
+      useAppStore.getState().checkUserOrganization(user.id)
     }
   }
 
@@ -315,19 +165,25 @@ export default function HomePage() {
   }
 
   // Show loading spinner
-  if (loading) {
+  if (isLoading) {
     return (
-      <LoadingSpinner
-        message="Loading application..."
-        showError={!!error}
-        errorMessage={error || undefined}
-        onRetry={handleSessionFailure}
-      />
+      <>
+        <LoadingSpinner
+          message="Loading application..."
+          showError={!!error}
+          errorMessage={error || undefined}
+          onRetry={() => {
+            setError(null)
+            initializeAuth()
+          }}
+        />
+        <DebugPanel />
+      </>
     )
   }
 
   // Show error state if authentication failed
-  if (error && !user) {
+  if (error && !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="w-full max-w-md mx-auto text-center">
@@ -335,18 +191,22 @@ export default function HomePage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Connection Error</h2>
             <p className="text-gray-600 mb-6">{error}</p>
             <button
-              onClick={handleSessionFailure}
+              onClick={() => {
+                setError(null)
+                initializeAuth()
+              }}
               className="btn-primary"
             >
               Refresh Page
             </button>
           </div>
         </div>
+        <DebugPanel />
       </div>
     )
   }
 
-  if (user) {
+  if (isAuthenticated && user) {
     return (
       <div className="min-h-screen bg-gray-50">
         <nav className="bg-white shadow-sm border-b border-gray-200">
@@ -363,7 +223,7 @@ export default function HomePage() {
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-700">{user.email}</span>
                 <button
-                  onClick={handleSignOut}
+                  onClick={signOut}
                   className="btn-secondary"
                 >
                   Sign Out
@@ -428,6 +288,7 @@ export default function HomePage() {
             )}
           </div>
         </main>
+        <DebugPanel />
       </div>
     )
   }
@@ -563,6 +424,7 @@ export default function HomePage() {
           </div>
         )}
       </div>
+      <DebugPanel />
     </div>
   )
 } 
