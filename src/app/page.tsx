@@ -114,24 +114,41 @@ export default function HomePage() {
     }
   }, [])
 
+  const fetchUserOrganization = async (userId: string) => {
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Database query timeout')), 5000)
+    )
+
+    const queryPromise = supabase
+      .from('users')
+      .select('organization_id, role')
+      .eq('id', userId)
+      .single()
+
+    return Promise.race([queryPromise, timeoutPromise]) as Promise<any>
+  }
+
   const checkUserOrganization = async (userId: string) => {
     try {
       console.log('Checking user organization for:', userId)
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Database query timeout')), 5000)
-      )
+      let attempts = 0
+      let data: any = null
+      let error: any = null
 
-      const queryPromise = supabase
-        .from('users')
-        .select('organization_id, role')
-        .eq('id', userId)
-        .single()
+      while (attempts < 3) {
+        try {
+          ;({ data, error } = await fetchUserOrganization(userId))
+          if (!error) break
+        } catch (err) {
+          error = err
+        }
 
-      const { data, error } = await Promise.race([
-        queryPromise,
-        timeoutPromise
-      ]) as any
+        attempts += 1
+        console.warn(`Organization check attempt ${attempts} failed:`, error)
+        // Small delay before retrying
+        await new Promise(res => setTimeout(res, 1000 * attempts))
+      }
 
       if (error) {
         console.error('Error checking user organization:', error)
