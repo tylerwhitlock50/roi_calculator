@@ -11,10 +11,6 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 
-// DEBUG: Log Supabase env vars
-console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-console.log('Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -30,13 +26,22 @@ export default function HomePage() {
   const params = useParams();
   const productId = params.id;
 
+  const handleSessionFailure = async () => {
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('Error during sign out:', err)
+    } finally {
+      window.location.reload()
+    }
+  }
+
   // Set a timeout to prevent infinite loading
   useEffect(() => {
     loadingTimeoutRef.current = setTimeout(() => {
       if (loading) {
-        console.warn('Loading timeout reached, forcing loading to false')
-        setLoading(false)
-        setError('Loading timeout - please refresh the page')
+        console.warn('Loading timeout reached, forcing logout and reload')
+        handleSessionFailure()
       }
     }, 10000) // 10 second timeout
 
@@ -52,34 +57,34 @@ export default function HomePage() {
 
     const initializeAuth = async () => {
       try {
-        // Check for existing session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
+
         if (!mounted) return
 
         if (sessionError) {
           console.error('Session error:', sessionError)
-          setError('Authentication error - please refresh the page')
-          setLoading(false)
-          setAuthChecked(true)
+          await handleSessionFailure()
           return
         }
 
-        setUser(session?.user ?? null)
-        
         if (session?.user) {
-          await checkUserOrganization(session.user.id)
+          const { data: { user: networkUser }, error: userError } = await supabase.auth.getUser()
+
+          if (userError || !networkUser) {
+            console.error('Failed to validate session:', userError)
+            await handleSessionFailure()
+            return
+          }
+
+          setUser(networkUser)
+          await checkUserOrganization(networkUser.id)
         } else {
           setLoading(false)
           setAuthChecked(true)
         }
       } catch (error) {
         console.error('Auth initialization error:', error)
-        if (mounted) {
-          setError('Failed to initialize authentication')
-          setLoading(false)
-          setAuthChecked(true)
-        }
+        await handleSessionFailure()
       }
     }
 
@@ -112,12 +117,21 @@ export default function HomePage() {
   const checkUserOrganization = async (userId: string) => {
     try {
       console.log('Checking user organization for:', userId)
-      
-      const { data, error } = await supabase
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database query timeout')), 5000)
+      )
+
+      const queryPromise = supabase
         .from('users')
         .select('organization_id, role')
         .eq('id', userId)
         .single()
+
+      const { data, error } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]) as any
 
       if (error) {
         console.error('Error checking user organization:', error)
@@ -131,10 +145,13 @@ export default function HomePage() {
           setAuthChecked(true)
           return
         }
-        
-        setError('Failed to load user data')
-        setLoading(false)
-        setAuthChecked(true)
+
+        await handleSessionFailure()
+        return
+      }
+
+      if (!data) {
+        await handleSessionFailure()
         return
       }
 
@@ -146,14 +163,12 @@ export default function HomePage() {
         setUserOrganization(data)
         setCurrentView('dashboard')
       }
-      
+
       setLoading(false)
       setAuthChecked(true)
     } catch (error) {
       console.error('Error checking user organization:', error)
-      setError('Failed to load user organization')
-      setLoading(false)
-      setAuthChecked(true)
+      await handleSessionFailure()
     }
   }
 
@@ -285,11 +300,11 @@ export default function HomePage() {
   // Show loading spinner
   if (loading) {
     return (
-      <LoadingSpinner 
-        message="Loading application..." 
+      <LoadingSpinner
+        message="Loading application..."
         showError={!!error}
         errorMessage={error || undefined}
-        onRetry={() => window.location.reload()}
+        onRetry={handleSessionFailure}
       />
     )
   }
@@ -302,8 +317,8 @@ export default function HomePage() {
           <div className="card">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Connection Error</h2>
             <p className="text-gray-600 mb-6">{error}</p>
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={handleSessionFailure}
               className="btn-primary"
             >
               Refresh Page
