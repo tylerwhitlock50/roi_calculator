@@ -107,6 +107,18 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
+### Admin Invitation Script
+
+Admins can pre-create users and generate invite links with a service role key. A
+simple helper script is included in `scripts/invite_user.py`:
+
+```bash
+python scripts/invite_user.py user@example.com tempPassword ORGANIZATION_ID
+```
+
+The script creates the user, assigns them to the specified organization and out
+puts an invite link they can use to finish the sign‑up process.
+
 ## Deployment
 
 The application can be deployed to Vercel, Netlify, or any other Next.js-compatible platform.
