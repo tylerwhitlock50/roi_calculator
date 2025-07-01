@@ -68,39 +68,34 @@ export function calculateNPV(cashFlows: CashFlow[], discountRate: number = 0.10)
  * @returns IRR as decimal (e.g., 0.15 for 15%)
  */
 export function calculateIRR(
-  cashFlows: CashFlow[], 
-  maxIterations: number = 100, 
+  cashFlows: CashFlow[],
+  maxIterations: number = 100,
   tolerance: number = 0.0001
 ): number {
-  if (cashFlows.length === 0) return 0;
-  
-  let guess = 0.1; // Start with 10%
-  
+  if (cashFlows.length === 0) return 0
+
+  // Work with monthly rate
+  let rate = 0.01
+
   for (let i = 0; i < maxIterations; i++) {
-    const npv = calculateNPV(cashFlows, guess);
-    
+    const npv = cashFlows.reduce((sum, flow, idx) => {
+      return sum + flow.netCashFlow / Math.pow(1 + rate, idx)
+    }, 0)
+
     if (Math.abs(npv) < tolerance) {
-      return guess;
+      return Math.pow(1 + rate, 12) - 1
     }
-    
-    // Calculate derivative (simplified)
-    const derivative = cashFlows.reduce((sum, flow, month) => {
-      const discountFactor = Math.pow(1 + guess, month);
-      return sum - (flow.netCashFlow * month) / (discountFactor * (1 + guess));
-    }, 0);
-    
-    if (Math.abs(derivative) < tolerance) {
-      break; // Avoid division by zero
-    }
-    
-    guess = guess - npv / derivative;
-    
-    // Keep guess reasonable
-    if (guess < -0.99) guess = -0.99;
-    if (guess > 10) guess = 10;
+
+    const derivative = cashFlows.reduce((sum, flow, idx) => {
+      return sum - (idx * flow.netCashFlow) / Math.pow(1 + rate, idx + 1)
+    }, 0)
+
+    if (Math.abs(derivative) < tolerance) break
+
+    rate = rate - npv / derivative
   }
-  
-  return guess;
+
+  return Math.pow(1 + rate, 12) - 1
 }
 
 /**

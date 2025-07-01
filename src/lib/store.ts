@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
-export type AppView = 'dashboard' | 'create' | 'view' | 'org-setup' | 'auth'
+export type AppView = 'dashboard' | 'create' | 'view' | 'org-setup' | 'admin' | 'auth'
 
 export interface UserOrganization {
   organization_id: string | null

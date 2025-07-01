@@ -1,9 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { supabase } from '@/lib/supabase'
+import { useAppStore } from '@/lib/store'
 
 const productIdeaSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100, 'Title must be less than 100 characters'),
@@ -22,27 +24,23 @@ interface ProductIdeaFormProps {
   isLoading?: boolean
 }
 
-const PRODUCT_CATEGORIES = [
-  'Electronics',
-  'Software',
-  'Hardware',
-  'Consumer Goods',
-  'Industrial',
-  'Healthcare',
-  'Automotive',
-  'Aerospace',
-  'Food & Beverage',
-  'Fashion',
-  'Home & Garden',
-  'Sports & Recreation',
-  'Education',
-  'Finance',
-  'Other'
-]
-
 export default function ProductIdeaForm({ onComplete, initialData, isLoading = false }: ProductIdeaFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const totalSteps = 3
+  const [categories, setCategories] = useState<string[]>([])
+  const { userOrganization } = useAppStore()
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      if (!userOrganization?.organization_id) return
+      const { data } = await supabase
+        .from('project_categories')
+        .select('name')
+        .eq('organization_id', userOrganization.organization_id)
+      if (data) setCategories(data.map(c => c.name))
+    }
+    loadCategories()
+  }, [userOrganization])
 
   const {
     register,
@@ -167,7 +165,7 @@ export default function ProductIdeaForm({ onComplete, initialData, isLoading = f
                 className={`input-field ${errors.category ? 'border-danger-500' : ''}`}
               >
                 <option value="">Select a category</option>
-                {PRODUCT_CATEGORIES.map((category) => (
+                {categories.map((category) => (
                   <option key={category} value={category}>
                     {category}
                   </option>

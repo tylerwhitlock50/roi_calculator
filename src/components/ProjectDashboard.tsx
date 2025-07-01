@@ -21,6 +21,7 @@ interface ProjectWithROI {
   title: string
   description: string
   category: string
+  status: string
   positioning_statement: string
   required_attributes: string
   competitor_overview: string
@@ -428,6 +429,36 @@ export default function ProjectDashboard({ onCreateNew, onViewProject }: Project
                     <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
                     <span className="text-primary-600 hover:text-primary-700">View Details →</span>
                   </div>
+                  {userRole === 'admin' && project.status === 'pending' && (
+                    <div className="flex space-x-2 mt-2">
+                      <button
+                        onClick={async (e) => {
+                          e.preventDefault()
+                          await fetch('/api/update-idea-status', {
+                            method: 'POST',
+                            body: JSON.stringify({ ideaId: project.id, status: 'approved' })
+                          })
+                          loadProjects()
+                        }}
+                        className="btn-primary btn-sm"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.preventDefault()
+                          await fetch('/api/update-idea-status', {
+                            method: 'POST',
+                            body: JSON.stringify({ ideaId: project.id, status: 'archived' })
+                          })
+                          loadProjects()
+                        }}
+                        className="btn-secondary btn-sm"
+                      >
+                        Archive
+                      </button>
+                    </div>
+                  )}
                 </div>
               </Link>
             )
