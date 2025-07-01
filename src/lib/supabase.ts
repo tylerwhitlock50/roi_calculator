@@ -137,9 +137,18 @@ export type Database = {
             cost: number
             quantity: number
           }>
+          labor_lines: Array<{
+            activity_id: string
+            hours: number
+            minutes: number
+            seconds: number
+          }>
           tooling_cost: number
           engineering_hours: number
           marketing_budget: number
+          marketing_cost_per_unit: number
+          overhead_rate: number
+          support_time_pct: number
           ppc_budget: number
           created_by: string
           created_at: string
@@ -152,9 +161,18 @@ export type Database = {
             cost: number
             quantity: number
           }>
+          labor_lines?: Array<{
+            activity_id: string
+            hours: number
+            minutes: number
+            seconds: number
+          }>
           tooling_cost: number
           engineering_hours: number
           marketing_budget: number
+          marketing_cost_per_unit?: number
+          overhead_rate?: number
+          support_time_pct?: number
           ppc_budget: number
           created_by: string
           created_at?: string
@@ -167,11 +185,43 @@ export type Database = {
             cost: number
             quantity: number
           }>
+          labor_lines?: Array<{
+            activity_id: string
+            hours: number
+            minutes: number
+            seconds: number
+          }>
           tooling_cost?: number
           engineering_hours?: number
           marketing_budget?: number
+          marketing_cost_per_unit?: number
+          overhead_rate?: number
+          support_time_pct?: number
           ppc_budget?: number
           created_by?: string
+          created_at?: string
+        }
+      }
+      activity_rates: {
+        Row: {
+          id: string
+          organization_id: string
+          activity_name: string
+          rate_per_hour: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          activity_name: string
+          rate_per_hour: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          activity_name?: string
+          rate_per_hour?: number
           created_at?: string
         }
       }
@@ -183,6 +233,8 @@ export type Database = {
           irr: number
           break_even_month: number
           payback_period: number
+          contribution_margin_per_unit: number
+          profit_per_unit: number
           assumptions: Record<string, any>
           created_at: string
         }
@@ -193,6 +245,8 @@ export type Database = {
           irr: number
           break_even_month: number
           payback_period: number
+          contribution_margin_per_unit: number
+          profit_per_unit: number
           assumptions: Record<string, any>
           created_at?: string
         }
@@ -203,6 +257,8 @@ export type Database = {
           irr?: number
           break_even_month?: number
           payback_period?: number
+          contribution_margin_per_unit?: number
+          profit_per_unit?: number
           assumptions?: Record<string, any>
           created_at?: string
         }

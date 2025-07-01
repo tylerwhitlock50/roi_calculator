@@ -54,14 +54,27 @@ CREATE TABLE sales_forecasts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Table of activity rates by organization
+CREATE TABLE activity_rates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    activity_name TEXT NOT NULL,
+    rate_per_hour DECIMAL(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create cost_estimates table
 CREATE TABLE cost_estimates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
     bom_lines JSONB NOT NULL DEFAULT '[]',
+    labor_lines JSONB NOT NULL DEFAULT '[]',
     tooling_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
     engineering_hours INTEGER NOT NULL DEFAULT 0,
     marketing_budget DECIMAL(12,2) NOT NULL DEFAULT 0,
+    marketing_cost_per_unit DECIMAL(12,2) NOT NULL DEFAULT 0,
+    overhead_rate DECIMAL(5,4) NOT NULL DEFAULT 0,
+    support_time_pct DECIMAL(5,4) NOT NULL DEFAULT 0,
     ppc_budget DECIMAL(12,2) NOT NULL DEFAULT 0,
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -75,6 +88,8 @@ CREATE TABLE roi_summaries (
     irr DECIMAL(5,4) NOT NULL DEFAULT 0,
     break_even_month INTEGER NOT NULL DEFAULT 0,
     payback_period DECIMAL(5,2) NOT NULL DEFAULT 0,
+    contribution_margin_per_unit DECIMAL(12,2) NOT NULL DEFAULT 0,
+    profit_per_unit DECIMAL(12,2) NOT NULL DEFAULT 0,
     assumptions JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -112,6 +127,7 @@ ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ideas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_forecasts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_rates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cost_estimates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE roi_summaries ENABLE ROW LEVEL SECURITY;
 
@@ -241,6 +257,17 @@ CREATE POLICY "Users can update their own cost estimates" ON cost_estimates
             SELECT i.id FROM ideas i
             WHERE i.organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
         )
+    );
+
+-- RLS Policies for activity_rates
+CREATE POLICY "Users can view activity rates for their organization" ON activity_rates
+    FOR SELECT USING (
+        organization_id = public.get_organization_id_for_current_user()
+    );
+
+CREATE POLICY "Admins can manage activity rates" ON activity_rates
+    FOR ALL USING (
+        organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
     );
 
 -- RLS Policies for roi_summaries
@@ -395,7 +422,9 @@ CREATE INDEX idx_users_organization_id ON users(organization_id);
 CREATE INDEX idx_ideas_organization_id ON ideas(organization_id);
 CREATE INDEX idx_ideas_created_by ON ideas(created_by);
 CREATE INDEX idx_sales_forecasts_idea_id ON sales_forecasts(idea_id);
+CREATE INDEX idx_activity_rates_org_id ON activity_rates(organization_id);
 CREATE INDEX idx_cost_estimates_idea_id ON cost_estimates(idea_id);
 CREATE INDEX idx_roi_summaries_idea_id ON roi_summaries(idea_id);
 CREATE INDEX idx_organizations_invite_code ON organizations(invite_code);
 CREATE INDEX idx_project_categories_org_id ON project_categories(organization_id);
+
