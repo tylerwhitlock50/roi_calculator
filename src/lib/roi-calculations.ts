@@ -14,6 +14,8 @@ export interface ROIMetrics {
   paybackPeriod: number;
   totalRevenue: number;
   totalCosts: number;
+  contributionMarginPerUnit: number;
+  profitPerUnit: number;
 }
 
 export interface SalesForecast {
@@ -28,9 +30,18 @@ export interface CostEstimate {
     cost: number;
     quantity: number;
   }>;
+  laborLines: Array<{
+    activityId: string;
+    hours: number;
+    minutes: number;
+    seconds: number;
+  }>;
   toolingCost: number;
   engineeringHours: number;
   marketingBudget: number;
+  marketingCostPerUnit: number;
+  overheadRate: number;
+  supportTimePct: number;
   ppcBudget: number;
 }
 
@@ -206,6 +217,28 @@ export function calculateROIMetrics(
   // Calculate total revenue and costs
   const totalRevenue = cashFlows.reduce((sum, flow) => sum + flow.revenue, 0);
   const totalCosts = cashFlows.reduce((sum, flow) => sum + flow.costs, 0);
+
+  const totalUnits = salesForecasts.reduce((sum, f) => {
+    return sum + Object.values(f.monthlyVolume).reduce((s, v) => s + v, 0);
+  }, 0);
+  const avgPrice = totalUnits > 0 ? totalRevenue / totalUnits : 0;
+  const bomCost = costEstimate.bomLines.reduce((t, l) => t + l.cost * l.quantity, 0);
+  const laborHours = costEstimate.laborLines.reduce(
+    (t, l) => t + l.hours + l.minutes / 60 + l.seconds / 3600,
+    0
+  );
+  const laborCost = laborHours * 100; // placeholder rate
+  const overheadCost = laborCost * costEstimate.overheadRate;
+  const supportCost = laborCost * costEstimate.supportTimePct;
+  const marketingCost = costEstimate.marketingCostPerUnit * totalUnits;
+  const unitCost =
+    totalUnits > 0
+      ?
+          (bomCost + laborCost + overheadCost + supportCost + marketingCost) /
+        totalUnits
+      : 0;
+  const contributionMarginPerUnit = avgPrice - unitCost;
+  const profitPerUnit = contributionMarginPerUnit;
   
   // Calculate metrics
   const npv = calculateNPV(cashFlows, discountRate);
@@ -224,7 +257,9 @@ export function calculateROIMetrics(
     breakEvenMonth,
     paybackPeriod,
     totalRevenue,
-    totalCosts
+    totalCosts,
+    contributionMarginPerUnit,
+    profitPerUnit
   };
 }
 

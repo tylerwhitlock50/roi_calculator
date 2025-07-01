@@ -7,8 +7,8 @@ A web application for evaluating new product ideas with data-driven ROI analysis
 - **Authentication & Multi-tenancy**: Secure user management with organization-based access control
 - **Product Idea Management**: Create and manage product concepts with detailed specifications
 - **Sales Forecasting**: Collaborative revenue forecasting across customers and channels
-- **Cost Estimation**: Comprehensive cost modeling including BOM, tooling, and marketing
-- **ROI Calculations**: Automatic calculation of NPV, IRR, and break-even analysis
+- **Cost Estimation**: Detailed cost modeling with BOM parts, labor by activity rates, overhead and support factors
+- **ROI Calculations**: Automatic calculation of NPV, IRR, break-even, and per-unit profitability
 - **Team Collaboration**: Multi-user support with role-based permissions
 
 ## Tech Stack

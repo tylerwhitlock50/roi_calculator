@@ -115,20 +115,32 @@ This web app enables product owners and cross-functional teams to assess the via
    - id (PK)
    - idea_id (FK)
    - bom_lines (JSON array)
+   - labor_lines (JSON array)
    - tooling_cost
    - engineering_hours
    - marketing_budget
+   - marketing_cost_per_unit
+   - overhead_rate
+   - support_time_pct
    - ppc_budget
    - created_by (FK to users)
    - created_at
 
-6. **roi_summaries** (optional - could be calculated on-the-fly)
+6. **activity_rates**
+   - id (PK)
+   - organization_id (FK)
+   - activity_name
+   - rate_per_hour
+   - created_at
+7. **roi_summaries** (optional - could be calculated on-the-fly)
    - id (PK)
    - idea_id (FK)
    - npv
    - irr
    - break_even_month
    - payback_period
+   - contribution_margin_per_unit
+   - profit_per_unit
    - assumptions (JSON)
    - created_at
 

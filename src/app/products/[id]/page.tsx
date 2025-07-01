@@ -1274,12 +1274,35 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
     months,
     note: 'All engineering/tooling costs incurred in month 0. Sales start in earliest forecast month. Marketing/PPC are monthly.'
   }
+
+  const totalUnits = forecasts.reduce((sum, f) => {
+    if (Array.isArray(f.monthly_volume_estimate)) {
+      f.monthly_volume_estimate.forEach((m: any) => {
+        if (m.units) sum += m.units
+      })
+    }
+    return sum
+  }, 0)
+  const totalRevenue = Object.values(salesByMonth).reduce((a, b) => a + b, 0)
+  const avgPrice = totalUnits ? totalRevenue / totalUnits : 0
+  const laborHours = Array.isArray(cost.labor_lines)
+    ? cost.labor_lines.reduce((t: number, l: any) => t + (l.hours || 0) + (l.minutes || 0) / 60 + (l.seconds || 0) / 3600, 0)
+    : 0
+  const laborCost = laborHours * 100
+  const overheadCost = laborCost * (Number(cost.overhead_rate) || 0)
+  const supportCost = laborCost * (Number(cost.support_time_pct) || 0)
+  const marketingUnitCost = Number(cost.marketing_cost_per_unit) || 0
+  const unitCost = totalUnitCost + (laborCost + overheadCost + supportCost) / (totalUnits || 1) + marketingUnitCost
+  const contributionMarginPerUnit = avgPrice - unitCost
+  const profitPerUnit = contributionMarginPerUnit
   // Compare calculated ROI to saved ROI
   const isDifferent = !roiSummary ||
     Number(roiSummary.npv).toFixed(2) !== npv.toFixed(2) ||
     Number(roiSummary.irr).toFixed(4) !== irr.toFixed(4) ||
     Number(roiSummary.break_even_month) !== breakEvenMonth ||
-    Number(roiSummary.payback_period).toFixed(2) !== paybackPeriod.toFixed(2)
+    Number(roiSummary.payback_period).toFixed(2) !== paybackPeriod.toFixed(2) ||
+    Number(roiSummary.contribution_margin_per_unit).toFixed(2) !== contributionMarginPerUnit.toFixed(2) ||
+    Number(roiSummary.profit_per_unit).toFixed(2) !== profitPerUnit.toFixed(2)
   // Save handler
   const handleSave = () => {
     onSave({
@@ -1287,6 +1310,8 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
       irr: Number(irr.toFixed(4)),
       break_even_month: breakEvenMonth,
       payback_period: Number(paybackPeriod.toFixed(2)),
+      contribution_margin_per_unit: Number(contributionMarginPerUnit.toFixed(2)),
+      profit_per_unit: Number(profitPerUnit.toFixed(2)),
       assumptions,
     })
   }
@@ -1310,6 +1335,14 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
           <div className="bg-gray-50 rounded-lg p-4 text-center">
             <div className="text-xs text-gray-500">Payback</div>
             <div className="text-xl font-bold text-cyan-700">{paybackPeriod.toFixed(2)} yr</div>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4 text-center col-span-2 sm:col-span-1">
+            <div className="text-xs text-gray-500">Contribution Margin / Unit</div>
+            <div className="text-xl font-bold text-cyan-700">${contributionMarginPerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4 text-center col-span-2 sm:col-span-1">
+            <div className="text-xs text-gray-500">Profit / Unit</div>
+            <div className="text-xl font-bold text-cyan-700">${profitPerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
           </div>
         </div>
         <div className="text-xs text-gray-500 mb-2">Assumptions: {assumptions.note}</div>
