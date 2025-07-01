@@ -36,6 +36,7 @@ export type Database = {
           full_name: string
           organization_id: string
           role: 'admin' | 'member'
+          is_active: boolean
           created_at: string
         }
         Insert: {
@@ -44,6 +45,7 @@ export type Database = {
           full_name: string
           organization_id: string
           role?: 'admin' | 'member'
+          is_active?: boolean
           created_at?: string
         }
         Update: {
@@ -52,6 +54,7 @@ export type Database = {
           full_name?: string
           organization_id?: string
           role?: 'admin' | 'member'
+          is_active?: boolean
           created_at?: string
         }
       }
@@ -62,6 +65,7 @@ export type Database = {
           title: string
           description: string
           category: string
+          status: 'pending' | 'approved' | 'archived'
           positioning_statement: string
           required_attributes: string
           competitor_overview: string
@@ -74,6 +78,7 @@ export type Database = {
           title: string
           description: string
           category: string
+          status?: 'pending' | 'approved' | 'archived'
           positioning_statement: string
           required_attributes: string
           competitor_overview: string
@@ -86,6 +91,7 @@ export type Database = {
           title?: string
           description?: string
           category?: string
+          status?: 'pending' | 'approved' | 'archived'
           positioning_statement?: string
           required_attributes?: string
           competitor_overview?: string
@@ -201,6 +207,26 @@ export type Database = {
           created_at?: string
         }
       }
+      project_categories: {
+        Row: {
+          id: string
+          organization_id: string
+          name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          name: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          name?: string
+          created_at?: string
+        }
+      }
     }
   }
-} 
+}

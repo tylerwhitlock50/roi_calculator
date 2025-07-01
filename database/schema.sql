@@ -16,6 +16,15 @@ CREATE TABLE users (
     full_name TEXT NOT NULL,
     organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
     role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create project_categories table for custom categories
+CREATE TABLE project_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -26,6 +35,7 @@ CREATE TABLE ideas (
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     category TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','archived')),
     positioning_statement TEXT NOT NULL,
     required_attributes TEXT NOT NULL,
     competitor_overview TEXT NOT NULL,
@@ -141,6 +151,19 @@ CREATE POLICY "Users can update their own profile" ON users
     FOR UPDATE USING (id = auth.uid());
 
 CREATE POLICY "Admins can manage users in their organization" ON users
+    FOR ALL USING (
+        organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
+    );
+
+-- RLS Policies for project_categories
+ALTER TABLE project_categories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view categories in their organization" ON project_categories
+    FOR SELECT USING (
+        organization_id = public.get_organization_id_for_current_user()
+    );
+
+CREATE POLICY "Admins can manage categories" ON project_categories
     FOR ALL USING (
         organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
     );
@@ -374,4 +397,5 @@ CREATE INDEX idx_ideas_created_by ON ideas(created_by);
 CREATE INDEX idx_sales_forecasts_idea_id ON sales_forecasts(idea_id);
 CREATE INDEX idx_cost_estimates_idea_id ON cost_estimates(idea_id);
 CREATE INDEX idx_roi_summaries_idea_id ON roi_summaries(idea_id);
-CREATE INDEX idx_organizations_invite_code ON organizations(invite_code); 
+CREATE INDEX idx_organizations_invite_code ON organizations(invite_code);
+CREATE INDEX idx_project_categories_org_id ON project_categories(organization_id);

@@ -8,6 +8,7 @@ import OrganizationSetup from '@/components/OrganizationSetup'
 import PasswordReset from '@/components/PasswordReset'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import DebugPanel from '@/components/DebugPanel'
+import AdminDashboard from '@/components/AdminDashboard'
 import { supabase } from '@/lib/supabase'
 
 export default function HomePage() {
@@ -222,6 +223,14 @@ export default function HomePage() {
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-700">{user.email}</span>
+                {userOrganization?.role === 'admin' && (
+                  <button
+                    onClick={() => setCurrentView('admin')}
+                    className="btn-secondary"
+                  >
+                    Admin
+                  </button>
+                )}
                 <button
                   onClick={signOut}
                   className="btn-secondary"
@@ -250,6 +259,10 @@ export default function HomePage() {
                 onCreateNew={handleCreateProject}
                 onViewProject={handleViewProject}
               />
+            )}
+
+            {currentView === 'admin' && userOrganization && (
+              <AdminDashboard organizationId={userOrganization.organization_id!} />
             )}
 
             {currentView === 'create' && (
