@@ -176,21 +176,27 @@ export default function ProjectDashboard({ onCreateNew, onViewProject }: Project
     const matchesCategory = !categoryFilter || project.category === categoryFilter
     
     // Map database fields to ROIMetrics interface
-    const roiMetrics = project.roi_summary ? {
-      npv: project.roi_summary.npv || 0,
-      irr: project.roi_summary.irr || 0,
-      breakEvenMonth: project.roi_summary.break_even_month || 0,
-      paybackPeriod: project.roi_summary.payback_period || 0,
-      totalRevenue: 0, // Not stored in database, default to 0
-      totalCosts: 0    // Not stored in database, default to 0
-    } : {
-      npv: 0,
-      irr: 0,
-      breakEvenMonth: 0,
-      paybackPeriod: 0,
-      totalRevenue: 0,
-      totalCosts: 0
-    }
+    const roiMetrics = project.roi_summary
+      ? {
+          npv: project.roi_summary.npv || 0,
+          irr: project.roi_summary.irr || 0,
+          breakEvenMonth: project.roi_summary.break_even_month || 0,
+          paybackPeriod: project.roi_summary.payback_period || 0,
+          totalRevenue: 0, // Not stored in database, default to 0
+          totalCosts: 0, // Not stored in database, default to 0
+          contributionMarginPerUnit: 0,
+          profitPerUnit: 0,
+        }
+      : {
+          npv: 0,
+          irr: 0,
+          breakEvenMonth: 0,
+          paybackPeriod: 0,
+          totalRevenue: 0,
+          totalCosts: 0,
+          contributionMarginPerUnit: 0,
+          profitPerUnit: 0,
+        }
     
     const matchesStatus = !statusFilter || getROIStatus(roiMetrics) === statusFilter
     
@@ -348,21 +354,27 @@ export default function ProjectDashboard({ onCreateNew, onViewProject }: Project
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => {
             // Map database fields to ROIMetrics interface for status calculation
-            const roiMetrics = project.roi_summary ? {
-              npv: project.roi_summary.npv || 0,
-              irr: project.roi_summary.irr || 0,
-              breakEvenMonth: project.roi_summary.break_even_month || 0,
-              paybackPeriod: project.roi_summary.payback_period || 0,
-              totalRevenue: 0, // Not stored in database, default to 0
-              totalCosts: 0    // Not stored in database, default to 0
-            } : {
-              npv: 0,
-              irr: 0,
-              breakEvenMonth: 0,
-              paybackPeriod: 0,
-              totalRevenue: 0,
-              totalCosts: 0
-            }
+            const roiMetrics = project.roi_summary
+              ? {
+                  npv: project.roi_summary.npv || 0,
+                  irr: project.roi_summary.irr || 0,
+                  breakEvenMonth: project.roi_summary.break_even_month || 0,
+                  paybackPeriod: project.roi_summary.payback_period || 0,
+                  totalRevenue: 0, // Not stored in database, default to 0
+                  totalCosts: 0, // Not stored in database, default to 0
+                  contributionMarginPerUnit: 0,
+                  profitPerUnit: 0,
+                }
+              : {
+                  npv: 0,
+                  irr: 0,
+                  breakEvenMonth: 0,
+                  paybackPeriod: 0,
+                  totalRevenue: 0,
+                  totalCosts: 0,
+                  contributionMarginPerUnit: 0,
+                  profitPerUnit: 0,
+                }
             
             const status = getROIStatus(roiMetrics)
 
