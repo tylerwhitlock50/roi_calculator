@@ -117,4 +117,33 @@ export async function createTestUserProfile(userId: string) {
     console.error('Error in createTestUserProfile:', error)
     return false
   }
+}
+
+export async function debugOrganizations() {
+  console.log('=== Debugging Organizations ===')
+  
+  // Check all organizations
+  const { data: orgs, error: orgError } = await supabase
+    .from('organizations')
+    .select('id, name, invite_code, created_at')
+    .order('created_at', { ascending: false })
+  
+  if (orgError) {
+    console.error('Error fetching organizations:', orgError)
+    return
+  }
+  
+  console.log('All organizations:', orgs)
+  
+  // Check specific invite code
+  const testCode = 'ORG-C236D9BA'
+  const { data: specificOrg, error: specificError } = await supabase
+    .from('organizations')
+    .select('id, name, invite_code')
+    .eq('invite_code', testCode)
+    .single()
+  
+  console.log(`Looking for invite code "${testCode}":`, { data: specificOrg, error: specificError })
+  
+  return { orgs, specificOrg }
 } 

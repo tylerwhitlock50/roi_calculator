@@ -1543,6 +1543,8 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
     return x0
   }
   const irr = cashFlows.length > 1 ? calcIRR(cashFlows.map(cf => cf.total)) : 0
+  // Cap IRR at 3 (300%) for display
+  const irrCapped = Math.min(irr, 3)
   // Break-even month
   let cumulative = 0, breakEvenMonth = 0
   for (let i = 0; i < cashFlows.length; i++) {
@@ -1584,7 +1586,7 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
   const handleSave = () => {
     onSave({
       npv: Number(npv.toFixed(2)),
-      irr: Number(irr.toFixed(4)),
+      irr: Math.min(Number(irr.toFixed(4)), 3), // Cap at 3 (300%) before saving
       break_even_month: breakEvenMonth,
       payback_period: Number(paybackPeriod.toFixed(2)),
       contribution_margin_per_unit: Number(contributionMarginPerUnit.toFixed(2)),
@@ -1603,7 +1605,7 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
           </div>
           <div className="bg-gray-50 rounded-lg p-4 text-center">
             <div className="text-xs text-gray-500">IRR</div>
-            <div className="text-xl font-bold text-cyan-700">{(irr * 100).toFixed(1)}%</div>
+            <div className="text-xl font-bold text-cyan-700">{irr > 3 ? '300%+' : (irrCapped * 100).toFixed(1) + '%'}</div>
           </div>
           <div className="bg-gray-50 rounded-lg p-4 text-center">
             <div className="text-xs text-gray-500">Break Even</div>

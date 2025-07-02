@@ -14,6 +14,7 @@ const productIdeaSchema = z.object({
   positioning_statement: z.string().min(10, 'Positioning statement must be at least 10 characters').max(500, 'Positioning statement must be less than 500 characters'),
   required_attributes: z.string().min(10, 'Required attributes must be at least 10 characters').max(1000, 'Required attributes must be less than 1000 characters'),
   competitor_overview: z.string().min(10, 'Competitor overview must be at least 10 characters').max(1000, 'Competitor overview must be less than 1000 characters'),
+  submitter_email: z.string().email('Invalid email').optional(),
 })
 
 type ProductIdeaFormData = z.infer<typeof productIdeaSchema>
@@ -22,9 +23,11 @@ interface ProductIdeaFormProps {
   onComplete: (data: ProductIdeaFormData) => void
   initialData?: Partial<ProductIdeaFormData>
   isLoading?: boolean
+  organizationId?: string
+  includeEmail?: boolean
 }
 
-export default function ProductIdeaForm({ onComplete, initialData, isLoading = false }: ProductIdeaFormProps) {
+export default function ProductIdeaForm({ onComplete, initialData, isLoading = false, organizationId, includeEmail = false }: ProductIdeaFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const totalSteps = 3
   const [categories, setCategories] = useState<string[]>([])
@@ -32,15 +35,16 @@ export default function ProductIdeaForm({ onComplete, initialData, isLoading = f
 
   useEffect(() => {
     const loadCategories = async () => {
-      if (!userOrganization?.organization_id) return
+      const orgId = organizationId || userOrganization?.organization_id
+      if (!orgId) return
       const { data } = await supabase
         .from('project_categories')
         .select('name')
-        .eq('organization_id', userOrganization.organization_id)
+        .eq('organization_id', orgId)
       if (data) setCategories(data.map(c => c.name))
     }
     loadCategories()
-  }, [userOrganization])
+  }, [organizationId, userOrganization])
 
   const {
     register,
@@ -78,7 +82,14 @@ export default function ProductIdeaForm({ onComplete, initialData, isLoading = f
   const isStepValid = (step: number) => {
     switch (step) {
       case 1:
-        return watchedValues.title && watchedValues.description && !errors.title && !errors.description
+        return (
+          watchedValues.title &&
+          watchedValues.description &&
+          (!includeEmail || watchedValues.submitter_email) &&
+          !errors.title &&
+          !errors.description &&
+          (!includeEmail || !errors.submitter_email)
+        )
       case 2:
         return watchedValues.category && watchedValues.positioning_statement && !errors.category && !errors.positioning_statement
       case 3:
@@ -122,6 +133,24 @@ export default function ProductIdeaForm({ onComplete, initialData, isLoading = f
         {currentStep === 1 && (
           <div className="form-section">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Basic Product Information</h3>
+
+            {includeEmail && (
+              <div className="form-group">
+                <label htmlFor="submitter_email" className="form-label">
+                  Your Email (optional)
+                </label>
+                <input
+                  id="submitter_email"
+                  type="email"
+                  {...register('submitter_email')}
+                  className={`input-field ${errors.submitter_email ? 'border-danger-500' : ''}`}
+                  placeholder="you@example.com"
+                />
+                {errors.submitter_email && (
+                  <p className="form-error">{errors.submitter_email.message}</p>
+                )}
+              </div>
+            )}
             
             <div className="form-group">
               <label htmlFor="title" className="form-label">

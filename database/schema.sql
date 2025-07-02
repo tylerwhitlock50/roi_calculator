@@ -28,6 +28,24 @@ CREATE TABLE if not exists project_categories (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Table for anonymous idea submissions collected via public form
+CREATE TABLE IF NOT EXISTS idea_submissions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    category TEXT NOT NULL,
+    positioning_statement TEXT NOT NULL,
+    required_attributes TEXT NOT NULL,
+    competitor_overview TEXT NOT NULL,
+    submitter_email TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for idea_submissions
+CREATE INDEX IF NOT EXISTS idx_idea_submissions_organization_id ON idea_submissions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_idea_submissions_created_at ON idea_submissions(created_at);
+
 -- Create ideas table
 CREATE TABLE if not exists ideas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -147,6 +165,7 @@ $$;
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE idea_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ideas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_forecasts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_rates ENABLE ROW LEVEL SECURITY;
@@ -178,6 +197,12 @@ CREATE POLICY "Admins can view their organization invite code" ON organizations
         id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
     );
 
+-- Allow anyone to view organizations by invite code (for public submission form)
+CREATE POLICY "Anyone can view organizations by invite code" ON organizations
+    FOR SELECT USING (
+        invite_code IS NOT NULL
+    );
+
 -- RLS Policies for users (FIXED - using helper functions)
 CREATE POLICY "Users can view their own profile" ON users
     FOR SELECT USING (id = auth.uid());
@@ -201,6 +226,14 @@ CREATE POLICY "Users can view categories in their organization" ON project_categ
         organization_id = public.get_organization_id_for_current_user()
     );
 
+-- Allow anyone to view categories for organizations with invite codes (for public submission form)
+CREATE POLICY "Anyone can view categories for organizations with invite codes" ON project_categories
+    FOR SELECT USING (
+        organization_id IN (
+            SELECT id FROM organizations WHERE invite_code IS NOT NULL
+        )
+    );
+
 CREATE POLICY "Admins can create categories" ON project_categories
     FOR INSERT WITH CHECK (
         organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
@@ -212,6 +245,20 @@ CREATE POLICY "Admins can update categories" ON project_categories
     );
 
 CREATE POLICY "Admins can delete categories" ON project_categories
+    FOR DELETE USING (
+        organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
+    );
+
+-- RLS Policies for idea_submissions
+CREATE POLICY "Anyone can submit ideas" ON idea_submissions
+    FOR INSERT WITH CHECK ( true );
+
+CREATE POLICY "Org users can view submissions" ON idea_submissions
+    FOR SELECT USING (
+        organization_id = public.get_organization_id_for_current_user()
+    );
+
+CREATE POLICY "Admins can delete submissions" ON idea_submissions
     FOR DELETE USING (
         organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
     );
@@ -550,4 +597,5 @@ CREATE INDEX idx_labor_entries_activity_id ON labor_entries(activity_id);
 CREATE INDEX idx_roi_summaries_idea_id ON roi_summaries(idea_id);
 CREATE INDEX idx_organizations_invite_code ON organizations(invite_code);
 CREATE INDEX idx_project_categories_org_id ON project_categories(organization_id);
+CREATE INDEX idx_idea_submissions_org_id ON idea_submissions(organization_id);
 
