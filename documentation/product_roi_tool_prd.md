@@ -114,8 +114,6 @@ This web app enables product owners and cross-functional teams to assess the via
 5. **cost_estimates**
    - id (PK)
    - idea_id (FK)
-   - bom_lines (JSON array)
-   - labor_lines (JSON array)
    - tooling_cost
    - engineering_hours
    - marketing_budget
@@ -126,13 +124,30 @@ This web app enables product owners and cross-functional teams to assess the via
    - created_by (FK to users)
    - created_at
 
-6. **activity_rates**
+6. **bom_parts**
+   - id (PK)
+   - cost_estimate_id (FK)
+   - item
+   - unit_cost
+   - quantity
+   - created_at
+
+7. **labor_entries**
+   - id (PK)
+   - cost_estimate_id (FK)
+   - activity_id (FK to activity_rates)
+   - hours
+   - minutes
+   - seconds
+   - created_at
+
+8. **activity_rates**
    - id (PK)
    - organization_id (FK)
    - activity_name
    - rate_per_hour
    - created_at
-7. **roi_summaries** (optional - could be calculated on-the-fly)
+9. **roi_summaries** (optional - could be calculated on-the-fly)
    - id (PK)
    - idea_id (FK)
    - npv

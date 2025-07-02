@@ -132,17 +132,6 @@ export type Database = {
         Row: {
           id: string
           idea_id: string
-          bom_lines: Array<{
-            item: string
-            cost: number
-            quantity: number
-          }>
-          labor_lines: Array<{
-            activity_id: string
-            hours: number
-            minutes: number
-            seconds: number
-          }>
           tooling_cost: number
           engineering_hours: number
           marketing_budget: number
@@ -156,17 +145,6 @@ export type Database = {
         Insert: {
           id?: string
           idea_id: string
-          bom_lines: Array<{
-            item: string
-            cost: number
-            quantity: number
-          }>
-          labor_lines?: Array<{
-            activity_id: string
-            hours: number
-            minutes: number
-            seconds: number
-          }>
           tooling_cost: number
           engineering_hours: number
           marketing_budget: number
@@ -180,17 +158,6 @@ export type Database = {
         Update: {
           id?: string
           idea_id?: string
-          bom_lines?: Array<{
-            item: string
-            cost: number
-            quantity: number
-          }>
-          labor_lines?: Array<{
-            activity_id: string
-            hours: number
-            minutes: number
-            seconds: number
-          }>
           tooling_cost?: number
           engineering_hours?: number
           marketing_budget?: number
@@ -199,6 +166,63 @@ export type Database = {
           support_time_pct?: number
           ppc_budget?: number
           created_by?: string
+          created_at?: string
+        }
+      }
+
+      bom_parts: {
+        Row: {
+          id: string
+          cost_estimate_id: string
+          item: string
+          unit_cost: number
+          quantity: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          cost_estimate_id: string
+          item: string
+          unit_cost: number
+          quantity?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          cost_estimate_id?: string
+          item?: string
+          unit_cost?: number
+          quantity?: number
+          created_at?: string
+        }
+      }
+
+      labor_entries: {
+        Row: {
+          id: string
+          cost_estimate_id: string
+          activity_id: string
+          hours: number
+          minutes: number
+          seconds: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          cost_estimate_id: string
+          activity_id: string
+          hours?: number
+          minutes?: number
+          seconds?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          cost_estimate_id?: string
+          activity_id?: string
+          hours?: number
+          minutes?: number
+          seconds?: number
           created_at?: string
         }
       }

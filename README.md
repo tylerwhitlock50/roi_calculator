@@ -71,7 +71,10 @@ The application uses the following main tables:
 - `users` - User accounts with role-based permissions
 - `ideas` - Product idea definitions
 - `sales_forecasts` - Revenue projections
-- `cost_estimates` - Cost modeling data
+- `cost_estimates` - Cost estimate summary
+- `bom_parts` - Purchased part line items
+- `labor_entries` - Labor by activity
+- `activity_rates` - Hourly rates per organization
 - `roi_summaries` - Calculated financial metrics
 
 ## Project Structure

@@ -67,8 +67,6 @@ CREATE TABLE activity_rates (
 CREATE TABLE cost_estimates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
-    bom_lines JSONB NOT NULL DEFAULT '[]',
-    labor_lines JSONB NOT NULL DEFAULT '[]',
     tooling_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
     engineering_hours INTEGER NOT NULL DEFAULT 0,
     marketing_budget DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -77,6 +75,27 @@ CREATE TABLE cost_estimates (
     support_time_pct DECIMAL(5,4) NOT NULL DEFAULT 0,
     ppc_budget DECIMAL(12,2) NOT NULL DEFAULT 0,
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Detailed BOM parts associated with a cost estimate
+CREATE TABLE bom_parts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    cost_estimate_id UUID NOT NULL REFERENCES cost_estimates(id) ON DELETE CASCADE,
+    item TEXT NOT NULL,
+    unit_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Labor line items tied to activity rates
+CREATE TABLE labor_entries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    cost_estimate_id UUID NOT NULL REFERENCES cost_estimates(id) ON DELETE CASCADE,
+    activity_id UUID NOT NULL REFERENCES activity_rates(id) ON DELETE CASCADE,
+    hours INTEGER NOT NULL DEFAULT 0,
+    minutes INTEGER NOT NULL DEFAULT 0,
+    seconds INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -129,6 +148,8 @@ ALTER TABLE ideas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_forecasts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_rates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cost_estimates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bom_parts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE labor_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE roi_summaries ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for organizations
@@ -256,6 +277,64 @@ CREATE POLICY "Users can update their own cost estimates" ON cost_estimates
         idea_id IN (
             SELECT i.id FROM ideas i
             WHERE i.organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
+        )
+    );
+
+-- RLS Policies for bom_parts
+CREATE POLICY "Users can view BOM parts for ideas in their organization" ON bom_parts
+    FOR SELECT USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+        )
+    );
+
+CREATE POLICY "Users can create BOM parts for ideas in their organization" ON bom_parts
+    FOR INSERT WITH CHECK (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+        )
+    );
+
+CREATE POLICY "Users can update their own BOM parts" ON bom_parts
+    FOR UPDATE USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+              AND (ce.created_by = auth.uid() OR public.is_admin_for_current_user())
+        )
+    );
+
+-- RLS Policies for labor_entries
+CREATE POLICY "Users can view labor entries for ideas in their organization" ON labor_entries
+    FOR SELECT USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+        )
+    );
+
+CREATE POLICY "Users can create labor entries for ideas in their organization" ON labor_entries
+    FOR INSERT WITH CHECK (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+        )
+    );
+
+CREATE POLICY "Users can update their own labor entries" ON labor_entries
+    FOR UPDATE USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+              AND (ce.created_by = auth.uid() OR public.is_admin_for_current_user())
         )
     );
 
@@ -424,6 +503,9 @@ CREATE INDEX idx_ideas_created_by ON ideas(created_by);
 CREATE INDEX idx_sales_forecasts_idea_id ON sales_forecasts(idea_id);
 CREATE INDEX idx_activity_rates_org_id ON activity_rates(organization_id);
 CREATE INDEX idx_cost_estimates_idea_id ON cost_estimates(idea_id);
+CREATE INDEX idx_bom_parts_cost_estimate_id ON bom_parts(cost_estimate_id);
+CREATE INDEX idx_labor_entries_cost_estimate_id ON labor_entries(cost_estimate_id);
+CREATE INDEX idx_labor_entries_activity_id ON labor_entries(activity_id);
 CREATE INDEX idx_roi_summaries_idea_id ON roi_summaries(idea_id);
 CREATE INDEX idx_organizations_invite_code ON organizations(invite_code);
 CREATE INDEX idx_project_categories_org_id ON project_categories(organization_id);

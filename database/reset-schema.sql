@@ -21,6 +21,12 @@ DROP POLICY IF EXISTS "Users can update their own forecasts" ON sales_forecasts;
 DROP POLICY IF EXISTS "Users can view cost estimates for ideas in their organization" ON cost_estimates;
 DROP POLICY IF EXISTS "Users can create cost estimates for ideas in their organization" ON cost_estimates;
 DROP POLICY IF EXISTS "Users can update their own cost estimates" ON cost_estimates;
+DROP POLICY IF EXISTS "Users can view BOM parts for ideas in their organization" ON bom_parts;
+DROP POLICY IF EXISTS "Users can create BOM parts for ideas in their organization" ON bom_parts;
+DROP POLICY IF EXISTS "Users can update their own BOM parts" ON bom_parts;
+DROP POLICY IF EXISTS "Users can view labor entries for ideas in their organization" ON labor_entries;
+DROP POLICY IF EXISTS "Users can create labor entries for ideas in their organization" ON labor_entries;
+DROP POLICY IF EXISTS "Users can update their own labor entries" ON labor_entries;
 
 DROP POLICY IF EXISTS "Users can view ROI summaries for ideas in their organization" ON roi_summaries;
 DROP POLICY IF EXISTS "Users can create ROI summaries for ideas in their organization" ON roi_summaries;
@@ -159,6 +165,64 @@ CREATE POLICY "Users can update their own cost estimates" ON cost_estimates
         idea_id IN (
             SELECT i.id FROM ideas i
             WHERE i.organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
+        )
+    );
+
+-- RLS Policies for bom_parts
+CREATE POLICY "Users can view BOM parts for ideas in their organization" ON bom_parts
+    FOR SELECT USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+        )
+    );
+
+CREATE POLICY "Users can create BOM parts for ideas in their organization" ON bom_parts
+    FOR INSERT WITH CHECK (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+        )
+    );
+
+CREATE POLICY "Users can update their own BOM parts" ON bom_parts
+    FOR UPDATE USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+              AND (ce.created_by = auth.uid() OR public.is_admin_for_current_user())
+        )
+    );
+
+-- RLS Policies for labor_entries
+CREATE POLICY "Users can view labor entries for ideas in their organization" ON labor_entries
+    FOR SELECT USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+        )
+    );
+
+CREATE POLICY "Users can create labor entries for ideas in their organization" ON labor_entries
+    FOR INSERT WITH CHECK (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+        )
+    );
+
+CREATE POLICY "Users can update their own labor entries" ON labor_entries
+    FOR UPDATE USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+              AND (ce.created_by = auth.uid() OR public.is_admin_for_current_user())
         )
     );
 
