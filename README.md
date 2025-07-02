@@ -122,6 +122,19 @@ python scripts/invite_user.py user@example.com tempPassword ORGANIZATION_ID
 The script creates the user, assigns them to the specified organization and out
 puts an invite link they can use to finish the sign‑up process.
 
+
+### Database Utility Script
+
+A helper CLI at `scripts/db_cli.py` can apply or reset the database schema. It reads `SUPABASE_DB_URL` for the connection string.
+
+```bash
+# Apply the schema
+python scripts/db_cli.py apply
+
+# Reset RLS policies
+python scripts/db_cli.py reset
+```
+
 ## Deployment
 
 The application can be deployed to Vercel, Netlify, or any other Next.js-compatible platform.
