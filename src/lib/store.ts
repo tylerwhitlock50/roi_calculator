@@ -120,73 +120,27 @@ export const useAppStore = create<AppState>((set, get) => {
 
     // Actions
     initializeAuth: async () => {
-      console.log('Initializing auth...')
+      if (get().authChecked) return
       set({ isLoading: true, error: null })
       
-      // Add a timeout to prevent getting stuck
-      const timeout = setTimeout(() => {
-        console.log('Auth initialization timeout, forcing completion')
-        set({ 
-          isLoading: false, 
-          authChecked: true, 
-          error: 'Authentication timeout - please refresh the page' 
-        })
-      }, 10000) // 10 second timeout
-      
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession()
         
-        if (sessionError) {
-          console.error('Session error:', sessionError)
-          set({ 
-            isLoading: false, 
-            authChecked: true, 
-            error: 'Failed to get session' 
-          })
-          return
-        }
-
         if (session?.user) {
-          const { data: { user: networkUser }, error: userError } = await supabase.auth.getUser()
-          
-          if (userError || !networkUser) {
-            console.error('Failed to validate session:', userError)
-            clearTimeout(timeout)
-            set({ 
-              isLoading: false, 
-              authChecked: true, 
-              error: 'Failed to validate session' 
-            })
-            return
-          }
-
           set({
-            user: networkUser,
+            user: session.user,
             isAuthenticated: true,
             currentView: 'dashboard',
             isLoading: false,
             authChecked: true
           })
-          
-          // Check user organization
-          await get().checkUserOrganization(networkUser.id)
-          clearTimeout(timeout)
+          await get().checkUserOrganization(session.user.id)
         } else {
-          clearTimeout(timeout)
-          set({ 
-            isLoading: false, 
-            authChecked: true, 
-            currentView: 'auth' 
-          })
+          set({ isLoading: false, authChecked: true, currentView: 'auth' })
         }
       } catch (error) {
         console.error('Auth initialization error:', error)
-        clearTimeout(timeout)
-        set({ 
-          isLoading: false, 
-          authChecked: true, 
-          error: 'Authentication failed' 
-        })
+        set({ isLoading: false, authChecked: true, error: 'Authentication failed' })
       }
     },
 
@@ -317,34 +271,20 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     setupAuthListener: () => {
-      if (authListenerSetup) {
-        console.log('Auth listener already setup, skipping...')
-        return
-      }
-      
-      console.log('Setting up auth listener...')
+      if (authListenerSetup) return
       authListenerSetup = true
-      
-      // Set up auth state listener
+
       supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email)
-
-        const store = useAppStore.getState()
-
-        if (event === 'INITIAL_SESSION' && session?.user) {
-          // For initial session, use the proper initialization flow
-          store.setUser(session.user)
-          await store.checkUserOrganization(session.user.id)
-        } else if (event === 'SIGNED_IN' && session?.user) {
-          // For sign in, only update if not already authenticated to avoid race conditions
-          if (!store.isAuthenticated) {
-            store.setUser(session.user)
-            await store.checkUserOrganization(session.user.id)
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+          if (session?.user) {
+            get().setUser(session.user)
+            await get().checkUserOrganization(session.user.id)
           }
-        } else if (event === 'SIGNED_OUT') {
-          store.resetState()
+        }
+        if (event === 'SIGNED_OUT') {
+          get().resetState()
         }
       })
     }
   }
-}) 
+})
