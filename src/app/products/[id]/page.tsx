@@ -632,7 +632,7 @@ export default function ProductDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">{product?.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{product?.title}</h1>
           <div className="flex items-center gap-3 text-sm text-gray-500">
             <span className="inline-block px-3 py-1 rounded-full bg-gray-100 font-medium text-cyan-700 border border-cyan-100">{product?.status}</span>
             <span>{product?.category}</span>
@@ -1072,7 +1072,7 @@ export default function ProductDetailPage() {
             {/* Cost Modal */}
             {showCostModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-                <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+                <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative max-h-[90vh] overflow-y-auto">
                   <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={handleCloseCostModal}>&times;</button>
                   <h3 className="text-lg font-semibold mb-4">{editingCost ? 'Edit Cost Estimate' : 'Add Cost Estimate'}</h3>
                   <div className="space-y-4">
