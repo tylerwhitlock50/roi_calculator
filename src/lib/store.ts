@@ -123,6 +123,16 @@ export const useAppStore = create<AppState>((set, get) => {
       console.log('Initializing auth...')
       set({ isLoading: true, error: null })
       
+      // Add a timeout to prevent getting stuck
+      const timeout = setTimeout(() => {
+        console.log('Auth initialization timeout, forcing completion')
+        set({ 
+          isLoading: false, 
+          authChecked: true, 
+          error: 'Authentication timeout - please refresh the page' 
+        })
+      }, 10000) // 10 second timeout
+      
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
@@ -141,6 +151,7 @@ export const useAppStore = create<AppState>((set, get) => {
           
           if (userError || !networkUser) {
             console.error('Failed to validate session:', userError)
+            clearTimeout(timeout)
             set({ 
               isLoading: false, 
               authChecked: true, 
@@ -153,12 +164,15 @@ export const useAppStore = create<AppState>((set, get) => {
             user: networkUser,
             isAuthenticated: true,
             currentView: 'dashboard',
-            isLoading: false
+            isLoading: false,
+            authChecked: true
           })
           
           // Check user organization
           await get().checkUserOrganization(networkUser.id)
+          clearTimeout(timeout)
         } else {
+          clearTimeout(timeout)
           set({ 
             isLoading: false, 
             authChecked: true, 
@@ -167,6 +181,7 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       } catch (error) {
         console.error('Auth initialization error:', error)
+        clearTimeout(timeout)
         set({ 
           isLoading: false, 
           authChecked: true, 
@@ -179,7 +194,9 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ 
         user, 
         isAuthenticated: !!user,
-        currentView: user ? 'dashboard' : 'auth'
+        currentView: user ? 'dashboard' : 'auth',
+        authChecked: true,
+        isLoading: false
       })
     },
 
@@ -314,9 +331,16 @@ export const useAppStore = create<AppState>((set, get) => {
 
         const store = useAppStore.getState()
 
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        if (event === 'INITIAL_SESSION' && session?.user) {
+          // For initial session, use the proper initialization flow
           store.setUser(session.user)
           await store.checkUserOrganization(session.user.id)
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          // For sign in, only update if not already authenticated to avoid race conditions
+          if (!store.isAuthenticated) {
+            store.setUser(session.user)
+            await store.checkUserOrganization(session.user.id)
+          }
         } else if (event === 'SIGNED_OUT') {
           store.resetState()
         }

@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create organizations table
-CREATE TABLE organizations (
+CREATE TABLE if not exists organizations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     invite_code TEXT UNIQUE NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE organizations (
 );
 
 -- Create users table
-CREATE TABLE users (
+CREATE TABLE if not exists users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT NOT NULL,
     full_name TEXT NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE users (
 );
 
 -- Create project_categories table for custom categories
-CREATE TABLE project_categories (
+CREATE TABLE if not exists project_categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE project_categories (
 );
 
 -- Create ideas table
-CREATE TABLE ideas (
+CREATE TABLE if not exists ideas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE ideas (
 );
 
 -- Create sales_forecasts table
-CREATE TABLE sales_forecasts (
+CREATE TABLE if not exists sales_forecasts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
     contributor_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -55,7 +55,7 @@ CREATE TABLE sales_forecasts (
 );
 
 -- Table of activity rates by organization
-CREATE TABLE activity_rates (
+CREATE TABLE if not exists activity_rates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     activity_name TEXT NOT NULL,
@@ -64,32 +64,34 @@ CREATE TABLE activity_rates (
 );
 
 -- Create cost_estimates table
-CREATE TABLE cost_estimates (
+CREATE TABLE if not exists cost_estimates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+    bom_lines JSONB NOT NULL DEFAULT '[]'::jsonb,
     tooling_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
     engineering_hours INTEGER NOT NULL DEFAULT 0,
     marketing_budget DECIMAL(12,2) NOT NULL DEFAULT 0,
-    marketing_cost_per_unit DECIMAL(12,2) NOT NULL DEFAULT 0,
-    overhead_rate DECIMAL(5,4) NOT NULL DEFAULT 0,
-    support_time_pct DECIMAL(5,4) NOT NULL DEFAULT 0,
     ppc_budget DECIMAL(12,2) NOT NULL DEFAULT 0,
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    marketing_cost_per_unit DOUBLE PRECISION,
+    overhead_rate DOUBLE PRECISION,
+    support_time_pct DOUBLE PRECISION
 );
 
 -- Detailed BOM parts associated with a cost estimate
-CREATE TABLE bom_parts (
+CREATE TABLE if not exists bom_parts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     cost_estimate_id UUID NOT NULL REFERENCES cost_estimates(id) ON DELETE CASCADE,
     item TEXT NOT NULL,
     unit_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
     quantity INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    cash_effect BOOLEAN DEFAULT TRUE
 );
 
 -- Labor line items tied to activity rates
-CREATE TABLE labor_entries (
+CREATE TABLE if not exists labor_entries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     cost_estimate_id UUID NOT NULL REFERENCES cost_estimates(id) ON DELETE CASCADE,
     activity_id UUID NOT NULL REFERENCES activity_rates(id) ON DELETE CASCADE,
@@ -100,7 +102,7 @@ CREATE TABLE labor_entries (
 );
 
 -- Create roi_summaries table
-CREATE TABLE roi_summaries (
+CREATE TABLE if not exists roi_summaries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
     npv DECIMAL(15,2) NOT NULL DEFAULT 0,
@@ -144,6 +146,7 @@ $$;
 -- Enable Row Level Security on all tables
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE project_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ideas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_forecasts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_rates ENABLE ROW LEVEL SECURITY;
@@ -193,15 +196,23 @@ CREATE POLICY "Admins can manage users in their organization" ON users
     );
 
 -- RLS Policies for project_categories
-ALTER TABLE project_categories ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Users can view categories in their organization" ON project_categories
     FOR SELECT USING (
         organization_id = public.get_organization_id_for_current_user()
     );
 
-CREATE POLICY "Admins can manage categories" ON project_categories
-    FOR ALL USING (
+CREATE POLICY "Admins can create categories" ON project_categories
+    FOR INSERT WITH CHECK (
+        organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
+    );
+
+CREATE POLICY "Admins can update categories" ON project_categories
+    FOR UPDATE USING (
+        organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
+    );
+
+CREATE POLICY "Admins can delete categories" ON project_categories
+    FOR DELETE USING (
         organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
     );
 
@@ -309,6 +320,16 @@ CREATE POLICY "Users can update their own BOM parts" ON bom_parts
         )
     );
 
+CREATE POLICY "Users can delete their own BOM parts" ON bom_parts
+    FOR DELETE USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+              AND (ce.created_by = auth.uid() OR public.is_admin_for_current_user())
+        )
+    );
+
 -- RLS Policies for labor_entries
 CREATE POLICY "Users can view labor entries for ideas in their organization" ON labor_entries
     FOR SELECT USING (
@@ -338,14 +359,34 @@ CREATE POLICY "Users can update their own labor entries" ON labor_entries
         )
     );
 
+CREATE POLICY "Users can delete their own labor entries" ON labor_entries
+    FOR DELETE USING (
+        cost_estimate_id IN (
+            SELECT ce.id FROM cost_estimates ce
+            JOIN ideas i ON ce.idea_id = i.id
+            WHERE i.organization_id = public.get_organization_id_for_current_user()
+              AND (ce.created_by = auth.uid() OR public.is_admin_for_current_user())
+        )
+    );
+
 -- RLS Policies for activity_rates
 CREATE POLICY "Users can view activity rates for their organization" ON activity_rates
     FOR SELECT USING (
         organization_id = public.get_organization_id_for_current_user()
     );
 
-CREATE POLICY "Admins can manage activity rates" ON activity_rates
-    FOR ALL USING (
+CREATE POLICY "Admins can create activity rates" ON activity_rates
+    FOR INSERT WITH CHECK (
+        organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
+    );
+
+CREATE POLICY "Admins can update activity rates" ON activity_rates
+    FOR UPDATE USING (
+        organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
+    );
+
+CREATE POLICY "Admins can delete activity rates" ON activity_rates
+    FOR DELETE USING (
         organization_id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
     );
 

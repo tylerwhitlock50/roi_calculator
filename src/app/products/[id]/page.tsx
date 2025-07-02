@@ -69,12 +69,20 @@ export default function ProductDetailPage() {
   const [showCostModal, setShowCostModal] = useState(false)
   const [editingCost, setEditingCost] = useState<any | null>(null)
   const [costForm, setCostForm] = useState({
-    bom_lines: [ { item: '', cost: 0, quantity: 1 } ],
     tooling_cost: 0,
-    engineering_hours: 0,
     marketing_budget: 0,
+    marketing_cost_per_unit: 0,
+    overhead_rate: 60, // Default $60
+    support_time_pct: 0.2, // Default 20%
     ppc_budget: 0,
   })
+  const [bomParts, setBomParts] = useState<Array<{ item: string; unit_cost: number; quantity: number; cash_effect?: boolean }>>([
+    { item: '', unit_cost: 0, quantity: 1, cash_effect: true }
+  ])
+  const [laborEntries, setLaborEntries] = useState<Array<{ activity_id: string; hours: number; minutes: number; seconds: number }>>([
+    { activity_id: '', hours: 0, minutes: 0, seconds: 0 }
+  ])
+  const [activityRates, setActivityRates] = useState<any[]>([])
   const [costFormError, setCostFormError] = useState<string | null>(null)
   const [costFormLoading, setCostFormLoading] = useState(false)
   // ROI summary state
@@ -151,7 +159,15 @@ export default function ProductDetailPage() {
     setCostError(null)
     supabase
       .from('cost_estimates')
-      .select(`*, contributor:users!cost_estimates_created_by_fkey(full_name)`)
+      .select(`
+        *,
+        contributor:users!cost_estimates_created_by_fkey(full_name),
+        bom_parts(*),
+        labor_entries(
+          *,
+          activity:activity_rates(*)
+        )
+      `)
       .eq('idea_id', product.id)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
@@ -338,42 +354,112 @@ export default function ProductDetailPage() {
     }
   }
 
+  // Load activity rates when component mounts
+  useEffect(() => {
+    if (!product?.organization_id) return
+    supabase
+      .from('activity_rates')
+      .select('*')
+      .eq('organization_id', product.organization_id)
+      .order('activity_name')
+      .then(({ data }) => setActivityRates(data || []))
+  }, [product?.organization_id])
+
   // Open modal for add/edit
   const handleAddCost = () => {
     setEditingCost(null)
-    setCostForm({ bom_lines: [ { item: '', cost: 0, quantity: 1 } ], tooling_cost: 0, engineering_hours: 0, marketing_budget: 0, ppc_budget: 0 })
+    setCostForm({ tooling_cost: 0, marketing_budget: 0, marketing_cost_per_unit: 0, overhead_rate: 60, support_time_pct: 0.2, ppc_budget: 0 })
+    setBomParts([{ item: '', unit_cost: 0, quantity: 1, cash_effect: true }])
+    setLaborEntries([{ activity_id: '', hours: 0, minutes: 0, seconds: 0 }])
     setShowCostModal(true)
   }
   const handleEditCost = (cost: any) => {
     setEditingCost(cost)
     setCostForm({
-      bom_lines: Array.isArray(cost.bom_lines) && cost.bom_lines.length ? cost.bom_lines : [ { item: '', cost: 0, quantity: 1 } ],
       tooling_cost: cost.tooling_cost || 0,
-      engineering_hours: cost.engineering_hours || 0,
       marketing_budget: cost.marketing_budget || 0,
+      marketing_cost_per_unit: cost.marketing_cost_per_unit || 0,
+      overhead_rate: cost.overhead_rate || 60,
+      support_time_pct: cost.support_time_pct || 0.2,
       ppc_budget: cost.ppc_budget || 0,
     })
+    // Load BOM parts and labor entries for this cost estimate
+    if (cost.id) {
+      loadBomParts(cost.id)
+      loadLaborEntries(cost.id)
+    }
     setShowCostModal(true)
   }
   const handleCloseCostModal = () => {
     setShowCostModal(false)
     setEditingCost(null)
-    setCostForm({ bom_lines: [ { item: '', cost: 0, quantity: 1 } ], tooling_cost: 0, engineering_hours: 0, marketing_budget: 0, ppc_budget: 0 })
+    setCostForm({ tooling_cost: 0, marketing_budget: 0, marketing_cost_per_unit: 0, overhead_rate: 60, support_time_pct: 0.2, ppc_budget: 0 })
+    setBomParts([{ item: '', unit_cost: 0, quantity: 1, cash_effect: true }])
+    setLaborEntries([{ activity_id: '', hours: 0, minutes: 0, seconds: 0 }])
     setCostFormError(null)
     setCostFormLoading(false)
   }
-  // BOM lines handlers
-  const handleBomLineChange = (idx: number, field: string, value: any) => {
-    setCostForm(prev => {
-      const updated = prev.bom_lines.map((line, i) => i === idx ? { ...line, [field]: value } : line)
-      return { ...prev, bom_lines: updated }
+
+  const loadBomParts = async (costEstimateId: string) => {
+    const { data } = await supabase
+      .from('bom_parts')
+      .select('*')
+      .eq('cost_estimate_id', costEstimateId)
+    if (data && data.length > 0) {
+      setBomParts(data.map(part => ({
+        item: part.item,
+        unit_cost: part.unit_cost,
+        quantity: part.quantity,
+        cash_effect: part.cash_effect !== false
+      })))
+    } else {
+      setBomParts([{ item: '', unit_cost: 0, quantity: 1, cash_effect: true }])
+    }
+  }
+
+  const loadLaborEntries = async (costEstimateId: string) => {
+    const { data } = await supabase
+      .from('labor_entries')
+      .select('*')
+      .eq('cost_estimate_id', costEstimateId)
+    if (data && data.length > 0) {
+      setLaborEntries(data.map(entry => ({
+        activity_id: entry.activity_id,
+        hours: entry.hours,
+        minutes: entry.minutes,
+        seconds: entry.seconds
+      })))
+    } else {
+      setLaborEntries([{ activity_id: '', hours: 0, minutes: 0, seconds: 0 }])
+    }
+  }
+
+  // BOM parts handlers
+  const handleBomPartChange = (idx: number, field: string, value: any) => {
+    setBomParts(prev => {
+      const updated = prev.map((part, i) => i === idx ? { ...part, [field]: value } : part)
+      return updated
     })
   }
-  const handleAddBomLine = () => {
-    setCostForm(prev => ({ ...prev, bom_lines: [ ...prev.bom_lines, { item: '', cost: 0, quantity: 1 } ] }))
+  const handleAddBomPart = () => {
+    setBomParts(prev => [...prev, { item: '', unit_cost: 0, quantity: 1, cash_effect: true }])
   }
-  const handleRemoveBomLine = (idx: number) => {
-    setCostForm(prev => ({ ...prev, bom_lines: prev.bom_lines.filter((_, i) => i !== idx) }))
+  const handleRemoveBomPart = (idx: number) => {
+    setBomParts(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  // Labor entries handlers
+  const handleLaborEntryChange = (idx: number, field: string, value: any) => {
+    setLaborEntries(prev => {
+      const updated = prev.map((entry, i) => i === idx ? { ...entry, [field]: value } : entry)
+      return updated
+    })
+  }
+  const handleAddLaborEntry = () => {
+    setLaborEntries(prev => [...prev, { activity_id: '', hours: 0, minutes: 0, seconds: 0 }])
+  }
+  const handleRemoveLaborEntry = (idx: number) => {
+    setLaborEntries(prev => prev.filter((_, i) => i !== idx))
   }
   // Add or update cost estimate
   const handleSaveCost = async () => {
@@ -384,9 +470,15 @@ export default function ProductDetailPage() {
       setCostFormLoading(false)
       return
     }
-    // Validate
-    if (!costForm.bom_lines.every(line => line.item && line.cost >= 0 && line.quantity > 0)) {
-      setCostFormError('All BOM lines must have item, cost >= 0, and quantity > 0')
+    // Validate BOM parts
+    if (!bomParts.every(part => part.item && part.unit_cost >= 0 && part.quantity > 0)) {
+      setCostFormError('All BOM parts must have item, cost >= 0, and quantity > 0')
+      setCostFormLoading(false)
+      return
+    }
+    // Validate labor entries
+    if (!laborEntries.every(entry => entry.activity_id && (entry.hours > 0 || entry.minutes > 0 || entry.seconds > 0))) {
+      setCostFormError('All labor entries must have an activity selected and time > 0')
       setCostFormLoading(false)
       return
     }
@@ -398,45 +490,106 @@ export default function ProductDetailPage() {
       return
     }
     let error
+    let costEstimateId: string
     if (editingCost) {
       // Update
       const { error: updateError } = await supabase.from('cost_estimates').update({
-        bom_lines: costForm.bom_lines,
         tooling_cost: costForm.tooling_cost,
-        engineering_hours: costForm.engineering_hours,
         marketing_budget: costForm.marketing_budget,
+        marketing_cost_per_unit: costForm.marketing_cost_per_unit,
+        overhead_rate: costForm.overhead_rate,
+        support_time_pct: costForm.support_time_pct,
         ppc_budget: costForm.ppc_budget,
       }).eq('id', editingCost.id)
       error = updateError
+      costEstimateId = editingCost.id
     } else {
       // Insert
-      const { error: insertError } = await supabase.from('cost_estimates').insert({
+      const { data: insertData, error: insertError } = await supabase.from('cost_estimates').insert({
         idea_id: product.id,
         created_by,
-        bom_lines: costForm.bom_lines,
         tooling_cost: costForm.tooling_cost,
-        engineering_hours: costForm.engineering_hours,
         marketing_budget: costForm.marketing_budget,
+        marketing_cost_per_unit: costForm.marketing_cost_per_unit,
+        overhead_rate: costForm.overhead_rate,
+        support_time_pct: costForm.support_time_pct,
         ppc_budget: costForm.ppc_budget,
-      })
+      }).select('id').single()
       error = insertError
+      costEstimateId = insertData?.id
     }
     if (error) {
       setCostFormError(error.message)
       setCostFormLoading(false)
       return
     }
+    // Save BOM parts
+    if (costEstimateId) {
+      // Delete existing BOM parts if editing
+      if (editingCost) {
+        await supabase.from('bom_parts').delete().eq('cost_estimate_id', costEstimateId)
+      }
+      // Insert new BOM parts
+      const bomPartsToInsert = bomParts.filter(part => part.item && part.unit_cost > 0).map(part => ({
+        cost_estimate_id: costEstimateId,
+        item: part.item,
+        unit_cost: part.unit_cost,
+        quantity: part.quantity,
+        cash_effect: part.cash_effect !== false
+      }))
+      if (bomPartsToInsert.length > 0) {
+        const { error: bomError } = await supabase.from('bom_parts').insert(
+          bomPartsToInsert.map(part => ({
+            cost_estimate_id: costEstimateId,
+            item: part.item,
+            unit_cost: part.unit_cost,
+            quantity: part.quantity,
+            cash_effect: part.cash_effect !== false
+          }))
+        )
+        if (bomError) {
+          setCostFormError('Failed to save BOM parts: ' + bomError.message)
+          setCostFormLoading(false)
+          return
+        }
+      }
+      // Save labor entries
+      if (editingCost) {
+        await supabase.from('labor_entries').delete().eq('cost_estimate_id', costEstimateId)
+      }
+      const laborEntriesToInsert = laborEntries.filter(entry => entry.activity_id && (entry.hours > 0 || entry.minutes > 0 || entry.seconds > 0))
+      if (laborEntriesToInsert.length > 0) {
+        const { error: laborError } = await supabase.from('labor_entries').insert(
+          laborEntriesToInsert.map(entry => ({
+            cost_estimate_id: costEstimateId,
+            activity_id: entry.activity_id,
+            hours: entry.hours,
+            minutes: entry.minutes,
+            seconds: entry.seconds
+          }))
+        )
+        if (laborError) {
+          setCostFormError('Failed to save labor entries: ' + laborError.message)
+          setCostFormLoading(false)
+          return
+        }
+      }
+    }
     setShowCostModal(false)
     setEditingCost(null)
-    setCostForm({ bom_lines: [ { item: '', cost: 0, quantity: 1 } ], tooling_cost: 0, engineering_hours: 0, marketing_budget: 0, ppc_budget: 0 })
+    setCostForm({ tooling_cost: 0, marketing_budget: 0, marketing_cost_per_unit: 0, overhead_rate: 0.2, support_time_pct: 0.2, ppc_budget: 0 })
+    setBomParts([{ item: '', unit_cost: 0, quantity: 1, cash_effect: true }])
+    setLaborEntries([{ activity_id: '', hours: 0, minutes: 0, seconds: 0 }])
     setCostFormLoading(false)
     // Refresh cost estimates
     supabase
       .from('cost_estimates')
-      .select(`*, contributor:users!cost_estimates_created_by_fkey(full_name)`)
+      .select(`*, contributor:users!cost_estimates_created_by_fkey(full_name), bom_parts(*), labor_entries(*, activity:activity_rates(*))`)
       .eq('idea_id', product.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => setCostEstimates(data || []))
+    // Force a full page reload to ensure all state is fresh
+    window.location.reload();
   }
   // Delete cost estimate
   const handleDeleteCost = async (costId: string) => {
@@ -446,7 +599,7 @@ export default function ProductDetailPage() {
     if (product?.id) {
       supabase
         .from('cost_estimates')
-        .select(`*, contributor:users!cost_estimates_created_by_fkey(full_name)`)
+        .select(`*, contributor:users!cost_estimates_created_by_fkey(full_name), bom_parts(*), labor_entries(*, activity:activity_rates(*))`)
         .eq('idea_id', product.id)
         .order('created_at', { ascending: false })
         .then(({ data }) => setCostEstimates(data || []))
@@ -850,6 +1003,8 @@ export default function ProductDetailPage() {
               <h2 className="text-xl font-semibold">Cost Estimates</h2>
               <button className="btn-primary" onClick={handleAddCost}>Add Cost Estimate</button>
             </div>
+            {/* Suggested MSRP */}
+            <SuggestedMSRP costEstimates={costEstimates} />
             {/* Cost summary */}
             <CostSummary costEstimates={costEstimates} />
             {loadingCosts ? (
@@ -866,7 +1021,7 @@ export default function ProductDetailPage() {
                       <th className="px-4 py-2 text-left font-semibold">Contributor</th>
                       <th className="px-4 py-2 text-left font-semibold">Created</th>
                       <th className="px-4 py-2 text-left font-semibold">Tooling</th>
-                      <th className="px-4 py-2 text-left font-semibold">Engineering</th>
+                      <th className="px-4 py-2 text-left font-semibold">Labor</th>
                       <th className="px-4 py-2 text-left font-semibold">Marketing</th>
                       <th className="px-4 py-2 text-left font-semibold">PPC</th>
                       <th className="px-4 py-2 text-left font-semibold">BOM Total</th>
@@ -876,21 +1031,29 @@ export default function ProductDetailPage() {
                   </thead>
                   <tbody>
                     {costEstimates.map(cost => {
-                      const bomTotal = Array.isArray(cost.bom_lines)
-                        ? cost.bom_lines.reduce((sum: number, line: any) => sum + (line.cost || 0) * (line.quantity || 1), 0)
-                        : 0
+                      // Calculate BOM total from bom_parts
+                      const bomTotal = cost.bom_parts?.reduce((sum: number, part: any) => 
+                        sum + (part.unit_cost || 0) * (part.quantity || 1), 0) || 0
+                      
+                      // Calculate labor total from labor_entries
+                      const laborTotal = cost.labor_entries?.reduce((sum: number, entry: any) => {
+                        const totalHours = (entry.hours || 0) + (entry.minutes || 0) / 60 + (entry.seconds || 0) / 3600
+                        return sum + (totalHours * (entry.activity?.rate_per_hour || 0))
+                      }, 0) || 0
+                      
                       const total =
                         (Number(cost.tooling_cost) || 0) +
-                        (Number(cost.engineering_hours) || 0) * 100 +
+                        bomTotal +
+                        laborTotal +
                         (Number(cost.marketing_budget) || 0) +
-                        (Number(cost.ppc_budget) || 0) +
-                        bomTotal
+                        (Number(cost.ppc_budget) || 0)
+                      
                       return (
                         <tr key={cost.id} className="border-b">
                           <td className="px-4 py-2">{cost.contributor?.full_name || 'Unknown'}</td>
                           <td className="px-4 py-2">{cost.created_at ? new Date(cost.created_at).toLocaleDateString() : ''}</td>
                           <td className="px-4 py-2">${Number(cost.tooling_cost).toLocaleString()}</td>
-                          <td className="px-4 py-2">{cost.engineering_hours} hrs</td>
+                          <td className="px-4 py-2">${laborTotal.toLocaleString()}</td>
                           <td className="px-4 py-2">${Number(cost.marketing_budget).toLocaleString()}</td>
                           <td className="px-4 py-2">${Number(cost.ppc_budget).toLocaleString()}</td>
                           <td className="px-4 py-2">${bomTotal.toLocaleString()}</td>
@@ -914,94 +1077,198 @@ export default function ProductDetailPage() {
                   <h3 className="text-lg font-semibold mb-4">{editingCost ? 'Edit Cost Estimate' : 'Add Cost Estimate'}</h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium mb-1">BOM Lines</label>
+                      <label className="block text-sm font-medium mb-1">Bill of Materials (BOM)</label>
                       <div className="space-y-2">
                         <div className="flex gap-2 items-center font-semibold text-xs text-gray-600 mb-1">
                           <span className="w-32">Item</span>
-                          <span className="w-20">Cost</span>
+                          <span className="w-20">Unit Cost</span>
                           <span className="w-20">Quantity</span>
                           <span className="w-8"></span>
                         </div>
-                        {costForm.bom_lines.map((line, idx) => (
+                        {bomParts.map((part, idx) => (
                           <div key={idx} className="flex gap-2 items-center">
                             <input
                               className="input-field w-32"
-                              value={line.item}
-                              onChange={e => handleBomLineChange(idx, 'item', e.target.value)}
+                              value={part.item}
+                              onChange={e => handleBomPartChange(idx, 'item', e.target.value)}
                               placeholder="Item name"
                             />
                             <input
                               type="number"
                               className="input-field w-20"
                               min={0}
-                              value={line.cost}
-                              onChange={e => handleBomLineChange(idx, 'cost', Number(e.target.value))}
-                              placeholder="Cost"
+                              step={0.01}
+                              value={part.unit_cost}
+                              onChange={e => handleBomPartChange(idx, 'unit_cost', Number(e.target.value))}
+                              placeholder="Unit Cost"
                             />
                             <input
                               type="number"
                               className="input-field w-20"
                               min={1}
-                              value={line.quantity}
-                              onChange={e => handleBomLineChange(idx, 'quantity', Number(e.target.value))}
+                              value={part.quantity}
+                              onChange={e => handleBomPartChange(idx, 'quantity', Number(e.target.value))}
                               placeholder="Qty"
                             />
+                            <label className="flex items-center text-xs ml-2">
+                              <input
+                                type="checkbox"
+                                checked={part.cash_effect !== false}
+                                onChange={e => handleBomPartChange(idx, 'cash_effect', e.target.checked)}
+                                className="mr-1"
+                              />
+                              Affects Cash Flow
+                            </label>
                             <button
                               className="text-red-500 hover:text-red-700 text-lg px-2"
-                              onClick={() => handleRemoveBomLine(idx)}
-                              disabled={costForm.bom_lines.length === 1}
-                              title="Remove BOM line"
+                              onClick={() => handleRemoveBomPart(idx)}
+                              disabled={bomParts.length === 1}
+                              title="Remove BOM part"
                             >
                               &times;
                             </button>
                           </div>
                         ))}
-                        <button className="btn text-xs mt-2" type="button" onClick={handleAddBomLine}>+ Add BOM Line</button>
+                        <button className="btn text-xs mt-2" type="button" onClick={handleAddBomPart}>+ Add BOM Part</button>
                       </div>
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Labor Entries</label>
+                      <div className="space-y-2">
+                        <div className="flex gap-2 items-center font-semibold text-xs text-gray-600 mb-1">
+                          <span className="w-32">Activity</span>
+                          <span className="w-16">Hours</span>
+                          <span className="w-16">Minutes</span>
+                          <span className="w-16">Seconds</span>
+                          <span className="w-8"></span>
+                        </div>
+                        {laborEntries.map((entry, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <select
+                              className="input-field w-32"
+                              value={entry.activity_id}
+                              onChange={e => handleLaborEntryChange(idx, 'activity_id', e.target.value)}
+                            >
+                              <option value="">Select Activity</option>
+                              {activityRates.map(rate => (
+                                <option key={rate.id} value={rate.id}>
+                                  {rate.activity_name} (${rate.rate_per_hour}/hr)
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              className="input-field w-16"
+                              min={0}
+                              value={entry.hours}
+                              onChange={e => handleLaborEntryChange(idx, 'hours', Number(e.target.value))}
+                              placeholder="Hrs"
+                            />
+                            <input
+                              type="number"
+                              className="input-field w-16"
+                              min={0}
+                              max={59}
+                              value={entry.minutes}
+                              onChange={e => handleLaborEntryChange(idx, 'minutes', Number(e.target.value))}
+                              placeholder="Min"
+                            />
+                            <input
+                              type="number"
+                              className="input-field w-16"
+                              min={0}
+                              max={59}
+                              value={entry.seconds}
+                              onChange={e => handleLaborEntryChange(idx, 'seconds', Number(e.target.value))}
+                              placeholder="Sec"
+                            />
+                            <button
+                              className="text-red-500 hover:text-red-700 text-lg px-2"
+                              onClick={() => handleRemoveLaborEntry(idx)}
+                              disabled={laborEntries.length === 1}
+                              title="Remove labor entry"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                        <button className="btn text-xs mt-2" type="button" onClick={handleAddLaborEntry}>+ Add Labor Entry</button>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium mb-1">Tooling Cost</label>
+                        <label className="block text-sm font-medium mb-1">Tooling Cost / Inventory Investment</label>
                         <input
                           type="number"
                           className="input-field w-full"
                           min={0}
+                          step={0.01}
                           value={costForm.tooling_cost}
                           onChange={e => setCostForm(f => ({ ...f, tooling_cost: Number(e.target.value) }))}
                           placeholder="Tooling Cost"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-1">Engineering Hours</label>
+                        <label className="block text-sm font-medium mb-1">Marketing Budget per Month</label>
                         <input
                           type="number"
                           className="input-field w-full"
                           min={0}
-                          value={costForm.engineering_hours}
-                          onChange={e => setCostForm(f => ({ ...f, engineering_hours: Number(e.target.value) }))}
-                          placeholder="Engineering Hours"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Marketing Budget</label>
-                        <input
-                          type="number"
-                          className="input-field w-full"
-                          min={0}
+                          step={0.01}
                           value={costForm.marketing_budget}
                           onChange={e => setCostForm(f => ({ ...f, marketing_budget: Number(e.target.value) }))}
                           placeholder="Marketing Budget"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">PPC Budget</label>
+                      {/* <div>
+                        <label className="block text-sm font-medium mb-1">Marketing Cost per Unit</label>
                         <input
                           type="number"
                           className="input-field w-full"
                           min={0}
+                          step={0.01}
+                          value={costForm.marketing_cost_per_unit}
+                          onChange={e => setCostForm(f => ({ ...f, marketing_cost_per_unit: Number(e.target.value) }))}
+                          placeholder="Marketing Cost per Unit"
+                        />
+                      </div> */}
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Customer Acquisition Cost (CAC) per Unit ($)</label>
+                        <input
+                          type="number"
+                          className="input-field w-full"
+                          min={0}
+                          step={0.01}
                           value={costForm.ppc_budget}
                           onChange={e => setCostForm(f => ({ ...f, ppc_budget: Number(e.target.value) }))}
-                          placeholder="PPC Budget"
+                          placeholder="CAC per unit"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Overhead Rate ($/hr)</label>
+                        <input
+                          type="number"
+                          className="input-field w-full"
+                          min={0}
+                          step={0.01}
+                          value={costForm.overhead_rate}
+                          onChange={e => setCostForm(f => ({ ...f, overhead_rate: Number(e.target.value) }))}
+                          placeholder="Overhead Rate $/hr"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Support Time (%)</label>
+                        <input
+                          type="number"
+                          className="input-field w-full"
+                          min={0}
+                          max={100}
+                          step={0.1}
+                          value={costForm.support_time_pct * 100}
+                          onChange={e => setCostForm(f => ({ ...f, support_time_pct: Number(e.target.value) / 100 }))}
+                          placeholder="Support Time %"
                         />
                       </div>
                     </div>
@@ -1120,19 +1387,30 @@ function CostSummary({ costEstimates }: { costEstimates: any[] }) {
   if (!costEstimates.length) return null
   // Use the latest estimate for summary
   const latest = costEstimates[0]
-  const bomTotal = Array.isArray(latest.bom_lines)
-    ? latest.bom_lines.reduce((sum: number, line: any) => sum + (line.cost || 0) * (line.quantity || 1), 0)
-    : 0
+  
+  // Calculate BOM total from bom_parts table
+  const bomTotal = latest.bom_parts?.reduce((sum: number, part: any) => 
+    sum + (part.unit_cost || 0) * (part.quantity || 1), 0) || 0
+  
+  // Calculate labor total from labor_entries table
+  const laborTotal = latest.labor_entries?.reduce((sum: number, entry: any) => {
+    const totalHours = (entry.hours || 0) + (entry.minutes || 0) / 60 + (entry.seconds || 0) / 3600
+    return sum + (totalHours * (entry.activity?.rate_per_hour || 0))
+  }, 0) || 0
+  
   const total =
     (Number(latest.tooling_cost) || 0) +
-    (Number(latest.engineering_hours) || 0) * 100 +
+    bomTotal +
+    laborTotal +
     (Number(latest.marketing_budget) || 0) +
-    (Number(latest.ppc_budget) || 0) +
-    bomTotal
+    (Number(latest.ppc_budget) || 0)
+  
   return (
     <div className="mb-4">
       <div className="text-lg font-bold text-cyan-700 mb-1">Latest Total Cost Estimate: ${total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
-      <div className="text-xs text-gray-500">Includes BOM, tooling, engineering, marketing, and PPC.</div>
+      <div className="text-xs text-gray-500">
+        Includes BOM (${bomTotal.toLocaleString()}), Labor (${laborTotal.toLocaleString()}), Tooling (${Number(latest.tooling_cost || 0).toLocaleString()}), Marketing (${Number(latest.marketing_budget || 0).toLocaleString()}), and PPC (${Number(latest.ppc_budget || 0).toLocaleString()}).
+      </div>
     </div>
   )
 }
@@ -1146,81 +1424,100 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
   saving: boolean,
   saveError: string | null,
 }) {
-  // Aggregate all forecasted sales by month (YYYY-MM)
   const salesByMonth = useMemo(() => {
-    const map: Record<string, number> = {}
+    const map: Record<string, { units: number, sales: number }> = {}
     forecasts.forEach(forecast => {
       if (Array.isArray(forecast.monthly_volume_estimate)) {
         forecast.monthly_volume_estimate.forEach((m: any) => {
           if (m.month_date && m.units && m.price) {
-            map[m.month_date] = (map[m.month_date] || 0) + m.units * m.price
+            if (!map[m.month_date]) map[m.month_date] = { units: 0, sales: 0 }
+            map[m.month_date].units += m.units
+            map[m.month_date].sales += m.units * m.price
           }
         })
       }
     })
     return map
   }, [forecasts])
-  // Find earliest month
   const months = Object.keys(salesByMonth).sort()
   const firstMonth = months[0]
-  // Use latest cost estimate
   const cost = costEstimates[0] || {}
-  const bomTotal = Array.isArray(cost.bom_lines)
-    ? cost.bom_lines.reduce((sum: number, line: any) => sum + (line.cost || 0) * (line.quantity || 1), 0)
-    : 0
-  const upfrontCost =
-    (Number(cost.tooling_cost) || 0) +
-    (Number(cost.engineering_hours) || 0) * 100 +
-    bomTotal
-  const monthlyCost =
-    (Number(cost.marketing_budget) || 0) +
-    (Number(cost.ppc_budget) || 0)
-  // Calculate total unit cost from BOM
-  const totalUnitCost = Array.isArray(cost.bom_lines)
-    ? cost.bom_lines.reduce((sum: number, line: any) => sum + (line.cost || 0), 0)
-    : 0
-  // Build cash flows: month 0 = -upfrontCost, then monthly sales - monthlyCost - costOfSales
-  const engineeringCost = (Number(cost.engineering_hours) || 0) * 100
-  const toolingCost = Number(cost.tooling_cost) || 0
-  const cashFlows: { month: string, total: number, sales: number, marketing: number, ppc: number, costOfSales: number, engineering: number, tooling: number }[] = []
+  // BOM cost per unit (sum of all parts * their quantity)
+  const bomUnitCost = cost.bom_parts?.filter((part: any) => part.cash_effect !== false).reduce((sum: number, part: any) => sum + (part.unit_cost || 0) * (part.quantity || 1), 0) || 0
+  // Calculate labor cost per unit (sum of all labor entries per unit)
+  const laborCostPerUnit = cost.labor_entries?.reduce((sum: number, entry: any) => {
+    const timePerUnit = (entry.hours || 0) + (entry.minutes || 0) / 60 + (entry.seconds || 0) / 3600;
+    return sum + timePerUnit * (entry.activity?.rate_per_hour || 0);
+  }, 0) || 0;
+  // We'll distribute total labor hours across all forecasted units
+  const totalLaborHours = cost.labor_entries?.reduce((sum: number, entry: any) => {
+    return sum + ((entry.hours || 0) + (entry.minutes || 0) / 60 + (entry.seconds || 0) / 3600)
+  }, 0) || 0
+  const totalLaborCost = cost.labor_entries?.reduce((sum: number, entry: any) => {
+    const hours = (entry.hours || 0) + (entry.minutes || 0) / 60 + (entry.seconds || 0) / 3600
+    return sum + hours * (entry.activity?.rate_per_hour || 0)
+  }, 0) || 0
+  const totalUnits = Object.values(salesByMonth).reduce((sum, m) => sum + m.units, 0) || 1
+  const laborUnitCost = totalLaborCost / totalUnits
+  // Overhead and support rates
+  const overheadRate = Number(cost.overhead_rate) || 60
+  const supportPct = Number(cost.support_time_pct) || 0.2
+  // Upfront cost (tooling only in month 0)
+  const upfrontCost = Number(cost.tooling_cost) || 0
+  // Marketing and PPC (flat per month)
+  const marketingPerMonth = Number(cost.marketing_budget) || 0
+  const ppcPerMonth = Number(cost.ppc_budget) || 0
+  // Cash flows
+  const cashFlows: { month: string, total: number, sales: number, marketing: number, cac: number, costOfSales: number, labor: number, overhead: number, support: number, tooling: number }[] = []
   if (firstMonth) {
-    // Month 0: upfront costs
+    // Month 0: upfront costs only
     cashFlows.push({
       month: 'Month 0 (Upfront)',
       total: -upfrontCost,
       sales: 0,
       marketing: 0,
-      ppc: 0,
-      costOfSales: -bomTotal,
-      engineering: -engineeringCost,
-      tooling: -toolingCost,
+      cac: 0,
+      costOfSales: 0,
+      labor: 0,
+      overhead: 0,
+      support: 0,
+      tooling: -upfrontCost,
     })
     months.forEach((month, i) => {
-      const sales = salesByMonth[month] || 0
-      const marketing = Number(cost.marketing_budget) || 0
-      const ppc = Number(cost.ppc_budget) || 0
-      // Calculate units sold in this month
-      let unitsSold = 0
-      forecasts.forEach(forecast => {
-        if (Array.isArray(forecast.monthly_volume_estimate)) {
-          forecast.monthly_volume_estimate.forEach((m: any) => {
-            if (m.month_date === month && m.units) {
-              unitsSold += m.units
-            }
-          })
-        }
-      })
-      const costOfSales = unitsSold * totalUnitCost
-      const total = sales - marketing - ppc - costOfSales
+      const { units, sales } = salesByMonth[month] || { units: 0, sales: 0 }
+      // BOM cost for this month
+      const bomCost = units * bomUnitCost
+      // Labor cost for this month (per-unit labor cost * units sold)
+      const laborCost = units * laborCostPerUnit
+      // Total labor hours for this month (for overhead/support)
+      const laborHoursMonth = cost.labor_entries?.reduce((sum: number, entry: any) => {
+        const timePerUnit = (entry.hours || 0) + (entry.minutes || 0) / 60 + (entry.seconds || 0) / 3600;
+        return sum + timePerUnit * units;
+      }, 0) || 0;
+      // Overhead for this month
+      const overhead = laborHoursMonth * overheadRate
+      // Support for this month (use same rate as overhead)
+      const support = laborHoursMonth * supportPct * overheadRate
+      // Cost of sales (BOM only)
+      const costOfSales = bomCost
+      // Marketing and CAC (per month and per unit)
+      const marketing = marketingPerMonth
+      const cac = ppcPerMonth * units
+      // Tooling is only in month 0
+      const tooling = 0
+      // Total cash flow
+      const total = sales - marketing - cac - costOfSales - laborCost - overhead - support - tooling
       cashFlows.push({
         month: new Date(month + '-01').toLocaleString('default', { year: 'numeric', month: 'short' }),
         total,
         sales,
         marketing,
-        ppc,
+        cac,
         costOfSales,
-        engineering: 0,
-        tooling: 0,
+        labor: laborCost,
+        overhead,
+        support,
+        tooling,
       })
     })
   }
@@ -1268,34 +1565,15 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
   // Assumptions
   const assumptions = {
     upfrontCost,
-    monthlyCost,
     discountRate,
     firstMonth,
     months,
-    note: 'All engineering/tooling costs incurred in month 0. Sales start in earliest forecast month. Marketing/PPC are monthly.'
+    note: 'Tooling cost is upfront. Cost of sales = BOM + labor. Overhead and support are based on labor hours. Marketing and PPC are monthly.'
   }
-
-  const totalUnits = forecasts.reduce((sum, f) => {
-    if (Array.isArray(f.monthly_volume_estimate)) {
-      f.monthly_volume_estimate.forEach((m: any) => {
-        if (m.units) sum += m.units
-      })
-    }
-    return sum
-  }, 0)
-  const totalRevenue = Object.values(salesByMonth).reduce((a, b) => a + b, 0)
-  const avgPrice = totalUnits ? totalRevenue / totalUnits : 0
-  const laborHours = Array.isArray(cost.labor_lines)
-    ? cost.labor_lines.reduce((t: number, l: any) => t + (l.hours || 0) + (l.minutes || 0) / 60 + (l.seconds || 0) / 3600, 0)
-    : 0
-  const laborCost = laborHours * 100
-  const overheadCost = laborCost * (Number(cost.overhead_rate) || 0)
-  const supportCost = laborCost * (Number(cost.support_time_pct) || 0)
-  const marketingUnitCost = Number(cost.marketing_cost_per_unit) || 0
-  const unitCost = totalUnitCost + (laborCost + overheadCost + supportCost) / (totalUnits || 1) + marketingUnitCost
-  const contributionMarginPerUnit = avgPrice - unitCost
+  // Per-unit summary
+  const avgPrice = totalUnits ? Object.values(salesByMonth).reduce((a, m) => a + m.sales, 0) / totalUnits : 0
+  const contributionMarginPerUnit = avgPrice - (bomUnitCost + laborUnitCost)
   const profitPerUnit = contributionMarginPerUnit
-  // Compare calculated ROI to saved ROI
   const isDifferent = !roiSummary ||
     Number(roiSummary.npv).toFixed(2) !== npv.toFixed(2) ||
     Number(roiSummary.irr).toFixed(4) !== irr.toFixed(4) ||
@@ -1303,7 +1581,6 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
     Number(roiSummary.payback_period).toFixed(2) !== paybackPeriod.toFixed(2) ||
     Number(roiSummary.contribution_margin_per_unit).toFixed(2) !== contributionMarginPerUnit.toFixed(2) ||
     Number(roiSummary.profit_per_unit).toFixed(2) !== profitPerUnit.toFixed(2)
-  // Save handler
   const handleSave = () => {
     onSave({
       npv: Number(npv.toFixed(2)),
@@ -1348,7 +1625,7 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
         <div className="text-xs text-gray-500 mb-2">Assumptions: {assumptions.note}</div>
         <div className="text-xs text-gray-500 mb-2">Discount Rate: {(discountRate * 100).toFixed(1)}%</div>
         <div className="text-xs text-gray-500 mb-2">Upfront Cost: ${upfrontCost.toLocaleString()}</div>
-        <div className="text-xs text-gray-500 mb-2">Monthly Cost: ${monthlyCost.toLocaleString()}</div>
+        <div className="text-xs text-gray-500 mb-2">Monthly Cost: ${marketingPerMonth.toLocaleString()}</div>
       </div>
       <div className="mb-4">
         <div className="font-semibold text-sm mb-1">Cash Flows</div>
@@ -1358,9 +1635,11 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
               <th className="px-2 py-1 text-right">Total Cash Flow</th>
               <th className="px-2 py-1 text-right">Sales</th>
               <th className="px-2 py-1 text-right">Marketing</th>
-              <th className="px-2 py-1 text-right">PPC</th>
+              <th className="px-2 py-1 text-right">CAC</th>
               <th className="px-2 py-1 text-right">Cost of Sales</th>
-              <th className="px-2 py-1 text-right">Engineering</th>
+              <th className="px-2 py-1 text-right">Labor</th>
+              <th className="px-2 py-1 text-right">Overhead</th>
+              <th className="px-2 py-1 text-right">Support</th>
               <th className="px-2 py-1 text-right">Tooling</th>
               <th className="px-2 py-1 text-left">Month</th>
             </tr>
@@ -1371,9 +1650,11 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
                 <td className="px-2 py-1 text-right font-bold">${cf.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                 <td className="px-2 py-1 text-right">{cf.sales ? `$${cf.sales.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
                 <td className="px-2 py-1 text-right">{cf.marketing ? `$${cf.marketing.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
-                <td className="px-2 py-1 text-right">{cf.ppc ? `$${cf.ppc.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
+                <td className="px-2 py-1 text-right">{cf.cac ? `$${cf.cac.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
                 <td className="px-2 py-1 text-right">{cf.costOfSales ? `$${cf.costOfSales.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
-                <td className="px-2 py-1 text-right">{cf.engineering ? `$${cf.engineering.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
+                <td className="px-2 py-1 text-right">{cf.labor ? `$${cf.labor.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
+                <td className="px-2 py-1 text-right">{cf.overhead ? `$${cf.overhead.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
+                <td className="px-2 py-1 text-right">{cf.support ? `$${cf.support.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
                 <td className="px-2 py-1 text-right">{cf.tooling ? `$${cf.tooling.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
                 <td className="px-2 py-1">{cf.month}</td>
               </tr>
@@ -1392,3 +1673,37 @@ function ROICalculator({ forecasts, costEstimates, roiSummary, onSave, saving, s
     </div>
   )
 } 
+
+// Add this component above CostSummary
+function SuggestedMSRP({ costEstimates }: { costEstimates: any[] }) {
+  if (!costEstimates.length) return null
+  const latest = costEstimates[0]
+  // Calculate BOM total from bom_parts (only those with cash_effect !== false)
+  const bomTotal = latest.bom_parts?.filter((part: any) => part.cash_effect !== false).reduce((sum: number, part: any) => 
+    sum + (part.unit_cost || 0) * (part.quantity || 1), 0) || 0
+  // Calculate labor total from labor_entries
+  const laborTotal = latest.labor_entries?.reduce((sum: number, entry: any) => {
+    const totalHours = (entry.hours || 0) + (entry.minutes || 0) / 60 + (entry.seconds || 0) / 3600
+    return sum + (totalHours * (entry.activity?.rate_per_hour || 0))
+  }, 0) || 0
+  // Calculate total labor hours for support/overhead
+  const totalLaborHours = latest.labor_entries?.reduce((sum: number, entry: any) => {
+    return sum + ((entry.hours || 0) + (entry.minutes || 0) / 60 + (entry.seconds || 0) / 3600)
+  }, 0) || 0
+  const overheadRate = Number(latest.overhead_rate) || 60
+  const supportPct = Number(latest.support_time_pct) || 0.2
+  const overhead = totalLaborHours * overheadRate
+  const support = totalLaborHours * supportPct * overheadRate
+  // MSRP calculation
+  const msrp = (bomTotal + laborTotal + support + overhead) / 0.45
+  return (
+    <div className="mb-4">
+      <div className="text-lg font-bold text-cyan-700 mb-1">
+        Suggested MSRP: ${msrp.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+      </div>
+      <div className="text-xs text-gray-500 mb-2">
+        (Calculated as (BOM + Labor + Support + Overhead) / 0.45 for a 55% gross margin)
+      </div>
+    </div>
+  )
+}
