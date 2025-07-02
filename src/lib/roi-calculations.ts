@@ -204,6 +204,7 @@ export function generateCashFlows(
 export function calculateROIMetrics(
   salesForecasts: SalesForecast[],
   costEstimate: CostEstimate,
+  activityRates: Record<string, number> = {},
   discountRate: number = 0.10,
   months: number = 36
 ): ROIMetrics {
@@ -222,7 +223,11 @@ export function calculateROIMetrics(
     (t, l) => t + l.hours + l.minutes / 60 + l.seconds / 3600,
     0
   );
-  const laborCost = laborHours * 100; // placeholder rate
+  const laborCost = costEstimate.laborLines.reduce((t, l) => {
+    const hours = l.hours + l.minutes / 60 + l.seconds / 3600;
+    const rate = activityRates[l.activityId] ?? 0;
+    return t + hours * rate;
+  }, 0);
   const overheadCost = laborCost * costEstimate.overheadRate;
   const supportCost = laborCost * costEstimate.supportTimePct;
   const marketingCost = costEstimate.marketingCostPerUnit * totalUnits;
