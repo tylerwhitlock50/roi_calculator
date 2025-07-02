@@ -42,6 +42,10 @@ CREATE TABLE IF NOT EXISTS idea_submissions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create indexes for idea_submissions
+CREATE INDEX IF NOT EXISTS idx_idea_submissions_organization_id ON idea_submissions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_idea_submissions_created_at ON idea_submissions(created_at);
+
 -- Create ideas table
 CREATE TABLE if not exists ideas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -193,6 +197,12 @@ CREATE POLICY "Admins can view their organization invite code" ON organizations
         id = public.get_organization_id_for_current_user() AND public.is_admin_for_current_user()
     );
 
+-- Allow anyone to view organizations by invite code (for public submission form)
+CREATE POLICY "Anyone can view organizations by invite code" ON organizations
+    FOR SELECT USING (
+        invite_code IS NOT NULL
+    );
+
 -- RLS Policies for users (FIXED - using helper functions)
 CREATE POLICY "Users can view their own profile" ON users
     FOR SELECT USING (id = auth.uid());
@@ -214,6 +224,14 @@ CREATE POLICY "Admins can manage users in their organization" ON users
 CREATE POLICY "Users can view categories in their organization" ON project_categories
     FOR SELECT USING (
         organization_id = public.get_organization_id_for_current_user()
+    );
+
+-- Allow anyone to view categories for organizations with invite codes (for public submission form)
+CREATE POLICY "Anyone can view categories for organizations with invite codes" ON project_categories
+    FOR SELECT USING (
+        organization_id IN (
+            SELECT id FROM organizations WHERE invite_code IS NOT NULL
+        )
     );
 
 CREATE POLICY "Admins can create categories" ON project_categories

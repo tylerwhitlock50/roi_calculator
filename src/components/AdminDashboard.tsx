@@ -30,6 +30,8 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
   const [newActivityRate, setNewActivityRate] = useState({ name: '', rate: 0 })
   const [editingRate, setEditingRate] = useState<ActivityRate | null>(null)
   const [organizationInviteCode, setOrganizationInviteCode] = useState('')
+  const [selectedSubmission, setSelectedSubmission] = useState<Database['public']['Tables']['idea_submissions']['Row'] | null>(null)
+  const [convertingSubmission, setConvertingSubmission] = useState(false)
 
   useEffect(() => {
     loadUsers()
@@ -166,6 +168,81 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
     }
   }
 
+  const convertSubmissionToIdea = async (submission: Database['public']['Tables']['idea_submissions']['Row']) => {
+    if (!confirm('Convert this submission to an internal idea?')) return
+    
+    setConvertingSubmission(true)
+    
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        alert('You must be logged in to convert submissions')
+        return
+      }
+
+      // Create the idea
+      const { error: ideaError } = await supabase.from('ideas').insert({
+        organization_id: submission.organization_id,
+        title: submission.title,
+        description: submission.description,
+        category: submission.category,
+        positioning_statement: submission.positioning_statement,
+        required_attributes: submission.required_attributes,
+        competitor_overview: submission.competitor_overview,
+        created_by: user.id,
+        status: 'pending',
+        submitter_email: submission.submitter_email // Store the original submitter email
+      })
+
+      if (ideaError) {
+        console.error('Error creating idea:', ideaError)
+        alert('Failed to convert submission to idea')
+        return
+      }
+
+      // Delete the submission
+      const { error: deleteError } = await supabase
+        .from('idea_submissions')
+        .delete()
+        .eq('id', submission.id)
+
+      if (deleteError) {
+        console.error('Error deleting submission:', deleteError)
+        alert('Idea created but failed to delete original submission')
+      } else {
+        alert('Submission successfully converted to idea!')
+      }
+
+      // Reload data
+      loadSubmissions()
+      loadProjects()
+      setSelectedSubmission(null)
+    } catch (error) {
+      console.error('Error converting submission:', error)
+      alert('An error occurred while converting the submission')
+    } finally {
+      setConvertingSubmission(false)
+    }
+  }
+
+  const deleteSubmission = async (id: string) => {
+    if (!confirm('Delete this submission? This action cannot be undone.')) return
+    
+    const { error } = await supabase
+      .from('idea_submissions')
+      .delete()
+      .eq('id', id)
+    
+    if (error) {
+      console.error('Error deleting submission:', error)
+      alert('Failed to delete submission')
+    } else {
+      loadSubmissions()
+      setSelectedSubmission(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Submitted Ideas</h2>
@@ -194,17 +271,67 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
       {submissions.length === 0 ? (
         <p className="text-gray-500">No submissions yet.</p>
       ) : (
-        <ul className="divide-y divide-gray-200 mb-6">
+        <div className="space-y-4 mb-6">
           {submissions.map(s => (
-            <li key={s.id} className="py-2">
-              <div className="font-medium">{s.title}</div>
-              {s.submitter_email && (
-                <div className="text-sm text-gray-500">{s.submitter_email}</div>
+            <div key={s.id} className="border rounded-lg p-4 bg-white shadow-sm">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg">{s.title}</h3>
+                  {s.submitter_email && (
+                    <p className="text-sm text-gray-500">From: {s.submitter_email}</p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Submitted: {new Date(s.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setSelectedSubmission(selectedSubmission?.id === s.id ? null : s)}
+                    className="btn-secondary text-sm"
+                  >
+                    {selectedSubmission?.id === s.id ? 'Hide Details' : 'View Details'}
+                  </button>
+                  <button
+                    onClick={() => convertSubmissionToIdea(s)}
+                    disabled={convertingSubmission}
+                    className="btn-primary text-sm"
+                  >
+                    {convertingSubmission ? 'Converting...' : 'Convert to Idea'}
+                  </button>
+                  <button
+                    onClick={() => deleteSubmission(s.id)}
+                    className="text-red-600 text-sm hover:text-red-800"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+              
+              <p className="text-gray-700 mb-2">{s.description}</p>
+              
+              {selectedSubmission?.id === s.id && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-3">
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-700">Category</h4>
+                    <p className="text-sm">{s.category}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-700">Positioning Statement</h4>
+                    <p className="text-sm">{s.positioning_statement}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-700">Required Attributes</h4>
+                    <p className="text-sm">{s.required_attributes}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-700">Competitor Overview</h4>
+                    <p className="text-sm">{s.competitor_overview}</p>
+                  </div>
+                </div>
               )}
-              <div className="text-sm text-gray-600 line-clamp-2">{s.description}</div>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
       <h2 className="text-2xl font-bold">Organization Users</h2>
 
