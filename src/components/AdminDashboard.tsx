@@ -26,12 +26,15 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
   const [activityRates, setActivityRates] = useState<ActivityRate[]>([])
   const [newActivityRate, setNewActivityRate] = useState({ name: '', rate: 0 })
   const [editingRate, setEditingRate] = useState<ActivityRate | null>(null)
+  const [submissionSlug, setSubmissionSlug] = useState<string | null>(null)
+  const [qrCode, setQrCode] = useState<string | null>(null)
 
   useEffect(() => {
     loadUsers()
     loadProjects()
     loadCategories()
     loadActivityRates()
+    loadSubmissionSlug()
   }, [])
 
   const loadUsers = async () => {
@@ -74,6 +77,26 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
       .eq('organization_id', organizationId)
       .order('activity_name')
     if (data) setActivityRates(data)
+  }
+
+  const loadSubmissionSlug = async () => {
+    const { data } = await supabase
+      .from('organizations')
+      .select('submission_slug')
+      .eq('id', organizationId)
+      .single()
+    if (data) setSubmissionSlug(data.submission_slug)
+  }
+
+  const generateQrCode = async () => {
+    if (!submissionSlug) return
+    const res = await fetch(`/api/organizations/${submissionSlug}/qr`, {
+      method: 'POST'
+    })
+    if (res.ok) {
+      const j = await res.json()
+      setQrCode(j.qr)
+    }
   }
 
   const inviteUser = async () => {
@@ -144,6 +167,18 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
 
   return (
     <div className="space-y-6">
+      {submissionSlug && (
+        <div className="card space-y-2">
+          <h3 className="font-semibold">Idea Collection Link</h3>
+          <p className="text-sm break-all">
+            {(process.env.NEXT_PUBLIC_BASE_URL || window.location.origin) + `/submit/${submissionSlug}`}
+          </p>
+          <button onClick={generateQrCode} className="btn-secondary text-sm">
+            Generate QR Code
+          </button>
+          {qrCode && <img src={qrCode} alt="QR code" className="w-32 h-32 mt-2" />}
+        </div>
+      )}
       <h2 className="text-2xl font-bold">Organization Users</h2>
 
       <div className="flex space-x-2 items-center">

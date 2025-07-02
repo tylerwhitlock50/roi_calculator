@@ -6,6 +6,7 @@ CREATE TABLE if not exists organizations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     invite_code TEXT UNIQUE NOT NULL,
+    submission_slug TEXT UNIQUE NOT NULL DEFAULT generate_submission_slug(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -39,7 +40,8 @@ CREATE TABLE if not exists ideas (
     positioning_statement TEXT NOT NULL,
     required_attributes TEXT NOT NULL,
     competitor_overview TEXT NOT NULL,
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    submitter_email TEXT,
+    created_by UUID REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -225,6 +227,11 @@ CREATE POLICY "Users can view ideas in their organization" ON ideas
 CREATE POLICY "Users can create ideas in their organization" ON ideas
     FOR INSERT WITH CHECK (
         organization_id = public.get_organization_id_for_current_user()
+    );
+
+CREATE POLICY "Anonymous idea submission" ON ideas
+    FOR INSERT WITH CHECK (
+        auth.role() = 'anon'
     );
 
 CREATE POLICY "Users can update their own ideas" ON ideas
@@ -433,6 +440,14 @@ CREATE OR REPLACE FUNCTION generate_invite_code()
 RETURNS TEXT AS $$
 BEGIN
     RETURN 'ORG-' || upper(substring(md5(random()::text) from 1 for 8));
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to generate organization submission slugs
+CREATE OR REPLACE FUNCTION generate_submission_slug()
+RETURNS TEXT AS $$
+BEGIN
+    RETURN lower(substring(md5(random()::text) from 1 for 16));
 END;
 $$ LANGUAGE plpgsql;
 

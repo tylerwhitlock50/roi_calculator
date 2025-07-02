@@ -14,18 +14,21 @@ export type Database = {
           id: string
           name: string
           invite_code: string
+          submission_slug: string
           created_at: string
         }
         Insert: {
           id?: string
           name: string
           invite_code: string
+          submission_slug?: string
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
           invite_code?: string
+          submission_slug?: string
           created_at?: string
         }
       }
@@ -69,7 +72,8 @@ export type Database = {
           positioning_statement: string
           required_attributes: string
           competitor_overview: string
-          created_by: string
+          submitter_email: string | null
+          created_by: string | null
           created_at: string
         }
         Insert: {
@@ -82,7 +86,8 @@ export type Database = {
           positioning_statement: string
           required_attributes: string
           competitor_overview: string
-          created_by: string
+          submitter_email?: string | null
+          created_by?: string | null
           created_at?: string
         }
         Update: {
@@ -95,7 +100,8 @@ export type Database = {
           positioning_statement?: string
           required_attributes?: string
           competitor_overview?: string
-          created_by?: string
+          submitter_email?: string | null
+          created_by?: string | null
           created_at?: string
         }
       }
