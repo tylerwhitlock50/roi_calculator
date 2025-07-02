@@ -48,7 +48,7 @@ export default function HomePage() {
     if (!authChecked) {
       initializeAuth()
     }
-  }, []) // Empty dependency array to run only once
+  }, [authChecked, initializeAuth, setupAuthListener]) // Include all dependencies
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -374,7 +374,7 @@ export default function HomePage() {
                   onClick={() => setShowSignUp(true)}
                   className="text-cyan-600 hover:text-cyan-700 text-sm font-medium"
                 >
-                  Don't have an account? Sign up
+                  Don&apos;t have an account? Sign up
                 </button>
               </div>
             </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/lib/supabase'
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip } from 'recharts'
@@ -32,7 +32,7 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
     loadProjects()
     loadCategories()
     loadActivityRates()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadUsers = async () => {
     const { data } = await supabase
