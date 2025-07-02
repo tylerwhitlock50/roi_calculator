@@ -4,6 +4,8 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/lib/supabase'
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip } from 'recharts'
+import { QRCodeSVG } from 'qrcode.react'
+import { getSubmissionUrl } from '@/lib/getSubmissionUrl'
 
 interface AdminDashboardProps {
   organizationId: string
@@ -19,6 +21,7 @@ type ActivityRate = {
 export default function AdminDashboard({ organizationId }: AdminDashboardProps) {
   const [users, setUsers] = useState<Database['public']['Tables']['users']['Row'][]>([])
   const [projects, setProjects] = useState<any[]>([])
+  const [submissions, setSubmissions] = useState<Database['public']['Tables']['idea_submissions']['Row'][]>([])
   const [inviteEmail, setInviteEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [newCategory, setNewCategory] = useState('')
@@ -26,12 +29,15 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
   const [activityRates, setActivityRates] = useState<ActivityRate[]>([])
   const [newActivityRate, setNewActivityRate] = useState({ name: '', rate: 0 })
   const [editingRate, setEditingRate] = useState<ActivityRate | null>(null)
+  const [organizationInviteCode, setOrganizationInviteCode] = useState('')
 
   useEffect(() => {
     loadUsers()
     loadProjects()
     loadCategories()
     loadActivityRates()
+    loadSubmissions()
+    loadInviteCode()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadUsers = async () => {
@@ -74,6 +80,24 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
       .eq('organization_id', organizationId)
       .order('activity_name')
     if (data) setActivityRates(data)
+  }
+
+  const loadSubmissions = async () => {
+    const { data } = await supabase
+      .from('idea_submissions')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
+    if (data) setSubmissions(data)
+  }
+
+  const loadInviteCode = async () => {
+    const { data } = await supabase
+      .from('organizations')
+      .select('invite_code')
+      .eq('id', organizationId)
+      .single()
+    if (data) setOrganizationInviteCode(data.invite_code)
   }
 
   const inviteUser = async () => {
@@ -144,6 +168,44 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
 
   return (
     <div className="space-y-6">
+      <h2 className="text-2xl font-bold">Submitted Ideas</h2>
+      <div className="mb-4">
+        <label className="form-label">Idea submission URL</label>
+        <div className="flex items-center space-x-2">
+          <input
+            className="input-field flex-1"
+            type="text"
+            readOnly
+            value={getSubmissionUrl(organizationInviteCode || '')}
+          />
+          <button
+            onClick={() => navigator.clipboard.writeText(getSubmissionUrl(organizationInviteCode || ''))}
+            className="btn-secondary text-sm"
+          >
+            Copy
+          </button>
+        </div>
+        {organizationInviteCode && (
+          <div className="mt-2">
+            <QRCodeSVG value={getSubmissionUrl(organizationInviteCode)} size={128} />
+          </div>
+        )}
+      </div>
+      {submissions.length === 0 ? (
+        <p className="text-gray-500">No submissions yet.</p>
+      ) : (
+        <ul className="divide-y divide-gray-200 mb-6">
+          {submissions.map(s => (
+            <li key={s.id} className="py-2">
+              <div className="font-medium">{s.title}</div>
+              {s.submitter_email && (
+                <div className="text-sm text-gray-500">{s.submitter_email}</div>
+              )}
+              <div className="text-sm text-gray-600 line-clamp-2">{s.description}</div>
+            </li>
+          ))}
+        </ul>
+      )}
       <h2 className="text-2xl font-bold">Organization Users</h2>
 
       <div className="flex space-x-2 items-center">

@@ -315,6 +315,44 @@ export type Database = {
           created_at?: string
         }
       }
+      idea_submissions: {
+        Row: {
+          id: string
+          organization_id: string
+          title: string
+          description: string
+          category: string
+          positioning_statement: string
+          required_attributes: string
+          competitor_overview: string
+          submitter_email: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          title: string
+          description: string
+          category: string
+          positioning_statement: string
+          required_attributes: string
+          competitor_overview: string
+          submitter_email?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          title?: string
+          description?: string
+          category?: string
+          positioning_statement?: string
+          required_attributes?: string
+          competitor_overview?: string
+          submitter_email?: string | null
+          created_at?: string
+        }
+      }
     }
   }
 }
