@@ -149,10 +149,11 @@ export const useAppStore = create<AppState>((set, get) => {
             return
           }
 
-          set({ 
-            user: networkUser, 
+          set({
+            user: networkUser,
             isAuthenticated: true,
-            currentView: 'dashboard'
+            currentView: 'dashboard',
+            isLoading: false
           })
           
           // Check user organization
@@ -310,10 +311,10 @@ export const useAppStore = create<AppState>((set, get) => {
       // Set up auth state listener
       supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('Auth state change:', event, session?.user?.email)
-        
+
         const store = useAppStore.getState()
-        
-        if (event === 'SIGNED_IN' && session?.user) {
+
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
           store.setUser(session.user)
           await store.checkUserOrganization(session.user.id)
         } else if (event === 'SIGNED_OUT') {
