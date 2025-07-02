@@ -189,7 +189,7 @@ export default function HomePage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="w-full max-w-md mx-auto text-center">
           <div className="card">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Connection Error</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Connection Error</h2>
             <p className="text-gray-600 mb-6">{error}</p>
             <button
               onClick={() => {
@@ -214,8 +214,8 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex items-center">
-                <h1 
-                  className="text-xl font-semibold text-gray-900 cursor-pointer"
+                <h1
+                  className="text-lg sm:text-xl font-semibold text-gray-900 cursor-pointer"
                   onClick={() => setCurrentView('dashboard')}
                 >
                   Product ROI Tool
@@ -268,7 +268,7 @@ export default function HomePage() {
             {currentView === 'create' && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900">Create New Product Idea</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Create New Product Idea</h2>
                   <button
                     onClick={handleBackToDashboard}
                     className="btn-secondary"
@@ -285,7 +285,7 @@ export default function HomePage() {
             {currentView === 'view' && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900">Project Details</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Project Details</h2>
                   <button
                     onClick={handleBackToDashboard}
                     className="btn-secondary"
@@ -310,7 +310,7 @@ export default function HomePage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md mx-auto">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
             Product ROI Tool
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
@@ -328,7 +328,7 @@ export default function HomePage() {
           <PasswordReset onBack={() => setShowPasswordReset(false)} />
         ) : !showSignUp ? (
           <div className="card mt-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Sign In</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-8 text-center">Sign In</h3>
             <form className="space-y-6" onSubmit={handleSignIn}>
               <div>
                 <label htmlFor="email" className="form-label">
@@ -381,7 +381,7 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="card mt-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Create Account</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-8 text-center">Create Account</h3>
             <form className="space-y-6" onSubmit={handleSignUp}>
               <div>
                 <label htmlFor="fullName" className="form-label">

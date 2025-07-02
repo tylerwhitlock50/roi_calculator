@@ -22,6 +22,17 @@
     outline: none;
     box-shadow: 0 0 0 2px #06b6d4; /* cyan-500 focus ring */
   }
+
+  /* Responsive headings */
+  h1 {
+    @apply text-2xl font-bold sm:text-3xl;
+  }
+  h2 {
+    @apply text-xl font-bold sm:text-2xl;
+  }
+  h3 {
+    @apply text-lg font-semibold sm:text-xl;
+  }
 }
 
 @layer components {
