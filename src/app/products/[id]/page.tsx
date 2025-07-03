@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase, Database } from '@/lib/supabase'
 import ProductIdeaForm from '@/components/ProductIdeaForm'
+import { useAppStore } from '@/lib/store'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -44,6 +45,23 @@ export default function ProductDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const id = params?.id
+  const {
+    user,
+    isAuthenticated,
+    authChecked,
+    initializeAuth,
+    setupAuthListener
+  } = useAppStore()
+  const authInit = useRef(false)
+
+  useEffect(() => {
+    if (authInit.current) return
+    authInit.current = true
+    setupAuthListener()
+    if (!authChecked) {
+      initializeAuth()
+    }
+  }, [authChecked, initializeAuth, setupAuthListener])
   const [activeTab, setActiveTab] = useState('overview')
   const [product, setProduct] = useState<ProductData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -106,7 +124,7 @@ export default function ProductDetailPage() {
   })
 
   useEffect(() => {
-    if (!id) return
+    if (!id || !isAuthenticated || !user) return
     setLoading(true)
     setError(null)
     supabase
@@ -131,10 +149,10 @@ export default function ProductDetailPage() {
         }
         setLoading(false)
       })
-  }, [id])
+  }, [id, isAuthenticated, user])
 
   useEffect(() => {
-    if (!product?.id) return
+    if (!product?.id || !isAuthenticated || !user) return
     setLoadingForecasts(true)
     setForecastError(null)
     supabase
@@ -151,10 +169,10 @@ export default function ProductDetailPage() {
         }
         setLoadingForecasts(false)
       })
-  }, [product?.id])
+  }, [product?.id, isAuthenticated, user])
 
   useEffect(() => {
-    if (!product?.id) return
+    if (!product?.id || !isAuthenticated || !user) return
     setLoadingCosts(true)
     setCostError(null)
     supabase
@@ -179,17 +197,17 @@ export default function ProductDetailPage() {
         }
         setLoadingCosts(false)
       })
-  }, [product?.id])
+  }, [product?.id, isAuthenticated, user])
 
   useEffect(() => {
-    if (!product?.id) return
+    if (!product?.id || !isAuthenticated || !user) return
     supabase
       .from('roi_summaries')
       .select('*')
       .eq('idea_id', product.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => setRoiSummary(data && data.length ? data[0] : null))
-  }, [product?.id])
+  }, [product?.id, isAuthenticated, user])
 
   // Add handlers for monthly rows
   const handleMonthRowChange = (idx: number, field: string, value: any) => {

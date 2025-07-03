@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAppStore } from '@/lib/store'
 import { formatCurrency, formatPercentage, getROIStatus } from '@/lib/roi-calculations'
 import { Database } from '@/lib/supabase'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -43,10 +44,13 @@ export default function ProjectDashboard({ onCreateNew, onViewProject }: Project
   const [organizationInviteCode, setOrganizationInviteCode] = useState<string | null>(null)
   const [showInviteCode, setShowInviteCode] = useState(false)
 
+  const { user, isAuthenticated } = useAppStore()
+
   useEffect(() => {
+    if (!isAuthenticated || !user) return
     loadProjects()
     checkUserRole()
-  }, [])
+  }, [isAuthenticated, user])
 
   // Add click outside handler for invite code dropdown
   useEffect(() => {
