@@ -17,6 +17,7 @@ export default function HomePage() {
     isAuthenticated,
     authChecked,
     isLoading,
+    isCheckingOrganization,
     currentView,
     selectedProjectId,
     userOrganization,
@@ -187,6 +188,15 @@ export default function HomePage() {
             initializeAuth()
           }}
         />
+        <DebugPanel />
+      </>
+    )
+  }
+
+  if (isCheckingOrganization) {
+    return (
+      <>
+        <LoadingSpinner message="Fetching organization..." />
         <DebugPanel />
       </>
     )

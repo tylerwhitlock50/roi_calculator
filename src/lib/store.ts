@@ -87,6 +87,21 @@ const fetchUserOrganizationWithRetry = async (userId: string, maxRetries = 3): P
   throw new Error('Max retries exceeded')
 }
 
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error('Timeout')), ms)
+    promise
+      .then(value => {
+        clearTimeout(id)
+        resolve(value)
+      })
+      .catch(err => {
+        clearTimeout(id)
+        reject(err)
+      })
+  })
+}
+
 export const useAppStore = create<AppState>((set, get) => {
   let authListenerSetup = false
   let isCheckingOrg = false
@@ -174,9 +189,12 @@ export const useAppStore = create<AppState>((set, get) => {
       console.log('Checking user organization for:', userId)
       isCheckingOrg = true
       set({ isCheckingOrganization: true, error: null })
-      
+
       try {
-        const { data, error, userNotFound } = await fetchUserOrganizationWithRetry(userId)
+        const { data, error, userNotFound } = await withTimeout(
+          fetchUserOrganizationWithRetry(userId),
+          10000
+        )
 
         if (userNotFound) {
           set({ 
