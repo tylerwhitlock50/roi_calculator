@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import { User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { getUserOrganization, UserOrgResult } from './getUserOrganization'
 
 export type AppView = 'dashboard' | 'create' | 'view' | 'org-setup' | 'admin' | 'auth'
 
 export interface UserOrganization {
   organization_id: string | null
-  role: string
+  role: string | null
 }
 
 export interface AppState {
@@ -45,58 +46,44 @@ export interface AppState {
 }
 
 const fetchUserOrganizationWithRetry = async (userId: string, maxRetries = 3): Promise<{
-  data: any;
-  error: any;
-  userNotFound: boolean;
+  data: UserOrgResult | null
+  error: any
+  userNotFound: boolean
 }> => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Organization check attempt ${attempt} for user:`, userId)
-      
-      const { data, error } = await supabase
-        .from('users')
-        .select('organization_id, role')
-        .eq('id', userId)
-        .single()
+
+      const { data, error } = await getUserOrganization()
 
       if (error) {
         console.warn(`Organization check attempt ${attempt} failed:`, error)
-        
-        // Handle specific error cases
-        if (error.code === 'PGRST116') {
-          // User not found in users table - this might happen if the trigger didn't work
-          console.log('User not found in users table, redirecting to org setup...')
-          return { data: null, error: null, userNotFound: true }
-        }
 
-        // If this is the last attempt, throw the error
         if (attempt === maxRetries) {
           throw error
         }
 
-        // Wait before retrying (exponential backoff)
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
         await new Promise(resolve => setTimeout(resolve, delay))
         continue
       }
 
       console.log('Organization check successful:', data)
-      return { data, error: null, userNotFound: false }
+
+      const userNotFound = !data?.role && !data?.organization_id
+      return { data, error: null, userNotFound }
     } catch (error) {
       console.warn(`Organization check attempt ${attempt} failed:`, error)
-      
-      // If this is the last attempt, throw the error
+
       if (attempt === maxRetries) {
         throw error
       }
 
-      // Wait before retrying (exponential backoff)
       const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
-  
-  // This should never be reached, but TypeScript needs it
+
   throw new Error('Max retries exceeded')
 }
 
