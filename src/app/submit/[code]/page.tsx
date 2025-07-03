@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ProductIdeaForm from '@/components/ProductIdeaForm'
+import SiteHeader from '@/components/SiteHeader'
+import SiteFooter from '@/components/SiteFooter'
 
 export default function SubmitPage() {
   const params = useParams<{ code: string }>()
@@ -74,19 +76,23 @@ export default function SubmitPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Submit an Idea for {orgName}</h1>
-      <ProductIdeaForm
-        organizationId={orgId}
-        includeEmail
-        onComplete={async (data) => {
-          await supabase.from('idea_submissions').insert({
-            ...data,
-            organization_id: orgId
-          })
-          setSubmitted(true)
-        }}
-      />
+    <div className="min-h-screen flex flex-col">
+      <SiteHeader />
+      <main className="flex-grow max-w-2xl mx-auto p-4 sm:p-6">
+        <h1 className="text-2xl font-bold mb-4">Submit an Idea for {orgName}</h1>
+        <ProductIdeaForm
+          organizationId={orgId}
+          includeEmail
+          onComplete={async (data) => {
+            await supabase.from('idea_submissions').insert({
+              ...data,
+              organization_id: orgId
+            })
+            setSubmitted(true)
+          }}
+        />
+      </main>
+      <SiteFooter />
     </div>
   )
 }

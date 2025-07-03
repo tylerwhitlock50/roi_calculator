@@ -100,35 +100,35 @@ export default function ProductIdeaForm({ onComplete, initialData, isLoading = f
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 sm:px-0">
       {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-center gap-x-12 max-w-xl mx-auto">
+      <div className="mb-6 sm:mb-8">
+        <div className="flex justify-center gap-x-8 sm:gap-x-12 max-w-xl mx-auto">
           {[1, 2, 3].map((step) => (
             <div key={step} className="flex items-center">
               <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                step <= currentStep 
-                  ? 'bg-primary-600 border-primary-600 text-white' 
+                step <= currentStep
+                  ? 'bg-primary-600 border-primary-600 text-white'
                   : 'border-gray-300 text-gray-500'
               }`}>
                 {step}
               </div>
               {step < 3 && (
-                <div className={`w-16 h-1 mx-2 ${
+                <div className={`w-12 sm:w-16 h-1 mx-2 ${
                   step < currentStep ? 'bg-primary-600' : 'bg-gray-300'
                 }`} />
               )}
             </div>
           ))}
         </div>
-        <div className="flex justify-center gap-x-32 mt-2 text-sm text-gray-600 max-w-xl mx-auto">
+        <div className="flex justify-center gap-x-8 sm:gap-x-32 mt-2 text-sm text-gray-600 max-w-xl mx-auto">
           <span>Basic Info</span>
           <span>Positioning</span>
           <span>Requirements</span>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-8">
+      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6 sm:space-y-8">
         {/* Step 1: Basic Information */}
         {currentStep === 1 && (
           <div className="form-section">
