@@ -7,7 +7,7 @@ export type AppView = 'dashboard' | 'create' | 'view' | 'org-setup' | 'admin' | 
 
 export interface UserOrganization {
   organization_id: string | null
-  role: string
+  role: string | null
 }
 
 export interface AppState {
