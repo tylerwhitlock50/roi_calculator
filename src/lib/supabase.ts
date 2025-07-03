@@ -3,9 +3,10 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-//remove this later
-console.log('supabaseUrl', supabaseUrl)
-console.log('supabaseAnonKey', supabaseAnonKey)
+if (process.env.NODE_ENV === 'development') {
+  console.log('supabaseUrl', supabaseUrl)
+  console.log('supabaseAnonKey', supabaseAnonKey)
+}
 // During build time, create a dummy client if env vars are missing
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase environment variables not found. Using placeholder values for build.')
