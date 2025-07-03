@@ -17,6 +17,7 @@ export default function HomePage() {
     isAuthenticated,
     authChecked,
     isLoading,
+    isCheckingOrganization,
     currentView,
     selectedProjectId,
     userOrganization,
@@ -25,6 +26,7 @@ export default function HomePage() {
     error,
     initializeAuth,
     setError,
+    setLoading,
     setCurrentView,
     setSelectedProjectId,
     setShowSignUp,
@@ -53,7 +55,9 @@ export default function HomePage() {
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
-    
+
+    setLoading(true)
+
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
     const password = formData.get('password') as string
@@ -70,12 +74,16 @@ export default function HomePage() {
     } catch (error) {
       console.error('Sign in error:', error)
       setError('Failed to sign in')
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
+
+    setLoading(true)
     
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
@@ -101,6 +109,8 @@ export default function HomePage() {
     } catch (error) {
       console.error('Sign up error:', error)
       setError('Failed to create account')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -178,6 +188,15 @@ export default function HomePage() {
             initializeAuth()
           }}
         />
+        <DebugPanel />
+      </>
+    )
+  }
+
+  if (isCheckingOrganization) {
+    return (
+      <>
+        <LoadingSpinner message="Fetching organization..." />
         <DebugPanel />
       </>
     )

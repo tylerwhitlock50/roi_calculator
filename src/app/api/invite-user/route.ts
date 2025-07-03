@@ -18,14 +18,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Check that current user is admin
+  // Check that current user is admin of the target organization
   const { data: userData } = await supabase
     .from('users')
-    .select('role')
+    .select('role, organization_id')
     .eq('id', session.user.id)
     .single()
 
-  if (userData?.role !== 'admin') {
+  if (
+    userData?.role !== 'admin' ||
+    !userData.organization_id ||
+    userData.organization_id !== organizationId
+  ) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

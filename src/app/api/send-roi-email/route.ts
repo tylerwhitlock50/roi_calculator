@@ -1,3 +1,5 @@
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
 
@@ -33,6 +35,26 @@ export async function POST(req: Request) {
   if (!project || !roi || !recipients) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
+
+  const supabase = createRouteHandlerClient({ cookies })
+  const {
+    data: { session }
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('organization_id')
+    .eq('id', session.user.id)
+    .single()
+
+  if (!userData || userData.organization_id !== project.organization_id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   try {
     const html = buildHtml(project, roi, cost)
     await sendEmail(recipients, `ROI Completed: ${project.title}`, html)
