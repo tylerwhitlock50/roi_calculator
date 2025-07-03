@@ -17,13 +17,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: userData } = await supabase
+  const { data: adminData } = await supabase
     .from('users')
-    .select('role')
+    .select('role, organization_id')
     .eq('id', session.user.id)
     .single()
 
-  if (userData?.role !== 'admin') {
+  if (!adminData || adminData.role !== 'admin' || !adminData.organization_id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // Ensure the idea belongs to the admin's organization
+  const { data: idea } = await supabase
+    .from('ideas')
+    .select('organization_id')
+    .eq('id', ideaId)
+    .single()
+
+  if (!idea || idea.organization_id !== adminData.organization_id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

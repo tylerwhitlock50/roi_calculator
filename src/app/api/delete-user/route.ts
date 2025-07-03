@@ -18,13 +18,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: userData } = await supabase
+  const { data: adminData } = await supabase
     .from('users')
-    .select('role')
+    .select('role, organization_id')
     .eq('id', session.user.id)
     .single()
 
-  if (userData?.role !== 'admin') {
+  if (!adminData || adminData.role !== 'admin' || !adminData.organization_id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // Ensure the target user belongs to the admin's organization
+  const { data: targetUser } = await supabaseAdmin
+    .from('users')
+    .select('organization_id')
+    .eq('id', userId)
+    .single()
+
+  if (targetUser?.organization_id !== adminData.organization_id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -191,8 +191,7 @@ export default function AdminDashboard({ organizationId }: AdminDashboardProps) 
         required_attributes: submission.required_attributes,
         competitor_overview: submission.competitor_overview,
         created_by: user.id,
-        status: 'pending',
-        submitter_email: submission.submitter_email // Store the original submitter email
+        status: 'pending'
       })
 
       if (ideaError) {
