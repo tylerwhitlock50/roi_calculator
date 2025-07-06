@@ -32,25 +32,8 @@ export default function HomePage() {
     setShowSignUp,
     setShowPasswordReset,
     signOut,
-    setupAuthListener
   } = useAppStore()
 
-  const initialized = useRef(false)
-
-  // Initialize auth and set up listener on component mount
-  useEffect(() => {
-    if (initialized.current) return
-    
-    initialized.current = true
-    
-    // Set up auth listener only once
-    setupAuthListener()
-    
-    // Initialize auth only if not already checked
-    if (!authChecked) {
-      initializeAuth()
-    }
-  }, [authChecked, initializeAuth, setupAuthListener]) // Include all dependencies
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
