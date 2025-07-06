@@ -49,19 +49,13 @@ export default function ProductDetailPage() {
     user,
     isAuthenticated,
     authChecked,
-    initializeAuth,
-    setupAuthListener
   } = useAppStore()
   const authInit = useRef(false)
 
   useEffect(() => {
     if (authInit.current) return
     authInit.current = true
-    setupAuthListener()
-    if (!authChecked) {
-      initializeAuth()
-    }
-  }, [authChecked, initializeAuth, setupAuthListener])
+  }, [])
   const [activeTab, setActiveTab] = useState('overview')
   const [product, setProduct] = useState<ProductData | null>(null)
   const [loading, setLoading] = useState(true)

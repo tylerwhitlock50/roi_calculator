@@ -2,7 +2,7 @@ import React from 'react'
 import type { Metadata } from 'next'
 import './globals.css'
 import ErrorBoundary from '@/components/ErrorBoundary'
-import AuthProvider from '@/components/AuthProvider'
+import SupabaseAuthProvider from '@/components/SupabaseAuthProvider'
 
 export const metadata: Metadata = {
   title: 'Product ROI Tool',
@@ -18,9 +18,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <ErrorBoundary>
-          <AuthProvider>
+          <SupabaseAuthProvider>
             {children}
-          </AuthProvider>
+          </SupabaseAuthProvider>
         </ErrorBoundary>
       </body>
     </html>
