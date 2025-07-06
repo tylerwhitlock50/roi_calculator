@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase, Database } from '@/lib/supabase'
 import ProductIdeaForm from '@/components/ProductIdeaForm'
 import { useAppStore } from '@/lib/store'
+import { parse, addMonths, format } from 'date-fns'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -327,20 +328,21 @@ export default function ProductDetailPage() {
       setFormError('All level loaded fields are required')
       return
     }
-    
+
     const monthlyForecasts: Array<{ month_date: string; units: number; price: number }> = []
-    const startDate = new Date(levelLoadedForm.start_month + '-01')
-    
+    const startDate = parse(levelLoadedForm.start_month, 'yyyy-MM', new Date())
+
     for (let i = 0; i < levelLoadedForm.number_of_months; i++) {
-      const currentDate = new Date(startDate)
-      currentDate.setMonth(startDate.getMonth() + i)
-      const monthString = currentDate.toISOString().slice(0, 7) // YYYY-MM format
-      
-      monthlyForecasts.push({
-        month_date: monthString,
-        units: levelLoadedForm.units_per_month,
-        price: levelLoadedForm.price_per_unit,
-      })
+      const currentDate = addMonths(startDate, i)
+      const monthString = format(currentDate, 'yyyy-MM')
+
+      if (monthlyForecasts.length === 0 || monthlyForecasts[monthlyForecasts.length - 1].month_date !== monthString) {
+        monthlyForecasts.push({
+          month_date: monthString,
+          units: levelLoadedForm.units_per_month,
+          price: levelLoadedForm.price_per_unit,
+        })
+      }
     }
     
     setForecastForm(prev => ({
