@@ -114,6 +114,8 @@ export default function ProductDetailPage() {
 
   const [statusSaving, setStatusSaving] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [visibilitySaving, setVisibilitySaving] = useState(false)
+  const [visibilityError, setVisibilityError] = useState<string | null>(null)
   const [savingROI, setSavingROI] = useState(false)
   const [saveROIError, setSaveROIError] = useState<string | null>(null)
 
@@ -407,6 +409,26 @@ export default function ProductDetailPage() {
     setShowEditOverview(true)
   }
 
+  const toggleVisibility = async () => {
+    if (!product) {
+      return
+    }
+
+    try {
+      setVisibilitySaving(true)
+      setVisibilityError(null)
+      const updated = await apiFetch<IdeaDetailRecord>(`/api/ideas/${product.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isHidden: !product.isHidden }),
+      })
+      setProduct(updated)
+    } catch (updateError) {
+      setVisibilityError(updateError instanceof Error ? updateError.message : 'Failed to update visibility')
+    } finally {
+      setVisibilitySaving(false)
+    }
+  }
+
   const saveRoiSummary = async (payload: {
     npv: number
     irr: number
@@ -502,8 +524,15 @@ export default function ProductDetailPage() {
       <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-8 shadow-sm">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-4">
-            <div className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white">
-              {product.category}
+            <div className="flex flex-wrap gap-2">
+              <div className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white">
+                {product.category}
+              </div>
+              {product.isHidden && (
+                <div className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-800">
+                  Hidden from dashboard
+                </div>
+              )}
             </div>
             <div>
               <h1 className="text-3xl font-semibold text-slate-950 sm:text-4xl">{product.title}</h1>
@@ -532,6 +561,22 @@ export default function ProductDetailPage() {
             </select>
             {statusSaving && <div className="mt-2 text-xs text-slate-500">Saving status…</div>}
             {statusError && <div className="mt-2 text-xs text-danger-600">{statusError}</div>}
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <div className="text-sm font-medium text-slate-900">
+                {product.isHidden ? 'This project is hidden from the default dashboard view.' : 'This project appears in the default dashboard view.'}
+              </div>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Hidden projects are still saved and can be reopened with the dashboard visibility filter.
+              </p>
+              <button
+                className="btn-secondary mt-3 w-full"
+                onClick={() => void toggleVisibility()}
+                disabled={visibilitySaving}
+              >
+                {visibilitySaving ? 'Saving...' : product.isHidden ? 'Unhide project' : 'Hide project'}
+              </button>
+              {visibilityError && <div className="mt-2 text-xs text-danger-600">{visibilityError}</div>}
+            </div>
           </div>
         </div>
       </section>

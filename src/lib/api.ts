@@ -97,6 +97,7 @@ export type IdeaRecord = {
   description: string
   category: string
   status: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
+  isHidden: boolean
   positioningStatement: string
   requiredAttributes: string
   competitorOverview: string

@@ -16,6 +16,7 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [visibilityFilter, setVisibilityFilter] = useState<'visible' | 'hidden' | 'all'>('visible')
 
   useEffect(() => {
     void loadProjects()
@@ -34,12 +35,19 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
     }
   }
 
+  const visibleProjects = projects.filter((project) => !project.isHidden)
+  const hiddenProjects = projects.filter((project) => project.isHidden)
+
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !statusFilter || project.status === statusFilter
-    return matchesSearch && matchesStatus
+    const matchesVisibility =
+      visibilityFilter === 'all' ||
+      (visibilityFilter === 'hidden' ? project.isHidden : !project.isHidden)
+
+    return matchesSearch && matchesStatus && matchesVisibility
   })
 
   if (loading) {
@@ -63,10 +71,10 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <StatCard label="Ideas" value={String(projects.length)} />
+            <StatCard label="Visible" value={String(visibleProjects.length)} />
             <StatCard
-              label="Approved"
-              value={String(projects.filter((project) => project.status === 'approved').length)}
+              label="Hidden"
+              value={String(hiddenProjects.length)}
             />
             <button
               onClick={onCreateNew}
@@ -116,6 +124,21 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
                 <option value="archived">Archived</option>
               </select>
             </div>
+            <div className="form-group mb-0">
+              <label className="form-label" htmlFor="project-visibility-filter">
+                Filter by visibility
+              </label>
+              <select
+                id="project-visibility-filter"
+                value={visibilityFilter}
+                onChange={(event) => setVisibilityFilter(event.target.value as 'visible' | 'hidden' | 'all')}
+                className="input-field min-w-[180px]"
+              >
+                <option value="visible">Visible only</option>
+                <option value="hidden">Hidden only</option>
+                <option value="all">All projects</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -125,13 +148,20 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
           </div>
         )}
 
-        {filteredProjects.length === 0 ? (
+        {projects.length === 0 ? (
           <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-8 py-12 text-center">
             <h3 className="text-xl font-semibold text-slate-900">No ideas yet</h3>
             <p className="mt-2 text-sm text-slate-500">Start with a new product concept and flesh it out with forecasts and cost models.</p>
             <button onClick={onCreateNew} className="btn-primary mt-6 max-w-xs">
               Create your first idea
             </button>
+          </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-8 py-12 text-center">
+            <h3 className="text-xl font-semibold text-slate-900">No ideas match these filters</h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Try a different search, status, or visibility filter to bring hidden or archived work back into view.
+            </p>
           </div>
         ) : (
           <div className="grid gap-5 xl:grid-cols-2">
@@ -143,9 +173,16 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2">
-                    <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
-                      {project.status.replace('_', ' ')}
-                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
+                        {project.status.replace('_', ' ')}
+                      </span>
+                      {project.isHidden && (
+                        <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+                          Hidden
+                        </span>
+                      )}
+                    </div>
                     <h3 className="text-xl font-semibold text-slate-900 transition group-hover:text-primary-700">
                       {project.title}
                     </h3>

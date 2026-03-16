@@ -20,6 +20,8 @@ const productIdeaSchema = z.object({
 
 export type ProductIdeaFormData = z.infer<typeof productIdeaSchema>
 
+const POSITIONING_TEMPLATE = 'For [target market], who [need/problem], this product is a [category] that [key benefit]. Unlike [competitors], it [differentiator].'
+
 interface ProductIdeaFormProps {
   onComplete: (data: ProductIdeaFormData) => void
   initialData?: Partial<ProductIdeaFormData>
@@ -286,6 +288,12 @@ export default function ProductIdeaForm({
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Product Positioning</h3>
 
             <div className="form-group">
+              <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <p className="font-medium text-slate-900">Use this positioning format</p>
+                <p className="mt-1 leading-6">
+                  {POSITIONING_TEMPLATE}
+                </p>
+              </div>
               <label htmlFor="positioning_statement" className="form-label">
                 Positioning Statement *
               </label>
@@ -294,7 +302,7 @@ export default function ProductIdeaForm({
                 rows={4}
                 {...register('positioning_statement')}
                 className={`input-field ${errors.positioning_statement ? 'border-danger-500' : ''}`}
-                placeholder="For [target market], who [need/problem], this product is a [category] that [key benefit]. Unlike [competitors], it [differentiator]."
+                placeholder="Write the positioning statement using the format above."
               />
               {errors.positioning_statement && (
                 <p className="form-error">{errors.positioning_statement.message}</p>

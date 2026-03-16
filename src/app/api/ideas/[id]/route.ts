@@ -42,21 +42,6 @@ export async function PATCH(request: Request, { params }: Params) {
     ensureCanManageRecord(user, existing.createdById)
 
     const body = await request.json()
-    const data: Record<string, string> = {}
-
-    if (body.title !== undefined) data.title = String(body.title).trim()
-    if (body.description !== undefined) data.description = String(body.description).trim()
-    if (body.category !== undefined) data.category = String(body.category).trim()
-    if (body.positioningStatement !== undefined) {
-      data.positioningStatement = String(body.positioningStatement).trim()
-    }
-    if (body.requiredAttributes !== undefined) {
-      data.requiredAttributes = String(body.requiredAttributes).trim()
-    }
-    if (body.competitorOverview !== undefined) {
-      data.competitorOverview = String(body.competitorOverview).trim()
-    }
-
     const updateData: {
       title?: string
       description?: string
@@ -64,8 +49,29 @@ export async function PATCH(request: Request, { params }: Params) {
       positioningStatement?: string
       requiredAttributes?: string
       competitorOverview?: string
+      isHidden?: boolean
       status?: ReturnType<typeof parseIdeaStatus>
-    } = { ...data }
+    } = {}
+
+    if (body.title !== undefined) updateData.title = String(body.title).trim()
+    if (body.description !== undefined) updateData.description = String(body.description).trim()
+    if (body.category !== undefined) updateData.category = String(body.category).trim()
+    if (body.positioningStatement !== undefined) {
+      updateData.positioningStatement = String(body.positioningStatement).trim()
+    }
+    if (body.requiredAttributes !== undefined) {
+      updateData.requiredAttributes = String(body.requiredAttributes).trim()
+    }
+    if (body.competitorOverview !== undefined) {
+      updateData.competitorOverview = String(body.competitorOverview).trim()
+    }
+    if (body.isHidden !== undefined) {
+      if (typeof body.isHidden !== 'boolean') {
+        throw badRequest('Invalid hidden flag')
+      }
+
+      updateData.isHidden = body.isHidden
+    }
 
     if (body.status !== undefined) {
       updateData.status = parseIdeaStatus(body.status)

@@ -54,7 +54,20 @@ export function serializeRoiSummary(summary: RoiSummary | null): RoiSummaryRecor
 }
 
 export function serializeIdea(
-  idea: Idea & {
+  idea: Pick<
+    Idea,
+    | 'id'
+    | 'title'
+    | 'description'
+    | 'category'
+    | 'status'
+    | 'positioningStatement'
+    | 'requiredAttributes'
+    | 'competitorOverview'
+    | 'createdAt'
+    | 'createdById'
+  > & {
+    isHidden: boolean
     createdBy: User
     roiSummary: RoiSummary | null
   }
@@ -65,6 +78,7 @@ export function serializeIdea(
     description: idea.description,
     category: idea.category,
     status: serializeStatus(idea.status),
+    isHidden: idea.isHidden,
     positioningStatement: idea.positioningStatement,
     requiredAttributes: idea.requiredAttributes,
     competitorOverview: idea.competitorOverview,

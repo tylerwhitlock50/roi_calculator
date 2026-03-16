@@ -313,6 +313,18 @@ describe('API smoke flow', () => {
     expect(detailPayload.forecasts).toHaveLength(1)
     expect(detailPayload.costEstimates).toHaveLength(1)
     expect(detailPayload.roiSummary.npv).toBe(45000)
+    expect(detailPayload.isHidden).toBe(false)
+
+    const hideResponse = await detailRoute.PATCH(
+      new Request(`http://localhost/api/ideas/${createdIdea.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isHidden: true }),
+      }),
+      { params: Promise.resolve({ id: createdIdea.id }) }
+    )
+    expect(hideResponse.status).toBe(200)
+    const hiddenPayload = await hideResponse.json()
+    expect(hiddenPayload.isHidden).toBe(true)
 
     const persistentCostPayload = await persistentCost.json()
     expect(persistentCostPayload.bomParts).toHaveLength(1)
