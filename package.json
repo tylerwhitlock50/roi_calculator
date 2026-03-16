@@ -3,15 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate --schema prisma/schema.prisma",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "rm -f tsconfig.tsbuildinfo && tsc --noEmit",
     "test": "vitest run",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed"
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:push": "prisma db push --schema prisma/schema.prisma",
+    "db:seed": "prisma db seed --schema prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

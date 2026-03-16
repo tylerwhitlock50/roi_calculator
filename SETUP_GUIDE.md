@@ -33,13 +33,13 @@ SMTP_FROM="ROI Tool <noreply@example.com>"
 1. Push the Prisma schema to SQLite:
 
 ```bash
-npx prisma db push
+npm run db:push
 ```
 
 2. Seed the local users and starter activity rates:
 
 ```bash
-npx prisma db seed
+npm run db:seed
 ```
 
 Default seeded logins:
@@ -70,3 +70,4 @@ npm run build
 - SMTP is optional. If it is not configured, ROI saves still work and email notifications are skipped.
 - SQLite lives in `data/roi-tool.db`, which is ignored by git.
 - Prisma resolves the SQLite URL relative to `prisma/schema.prisma`, so the local path should stay `file:../data/roi-tool.db`.
+- If you run Prisma directly, pass `--schema prisma/schema.prisma` from the repo root.

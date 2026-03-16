@@ -33,13 +33,13 @@ npm install
 3. Create the database:
 
 ```bash
-npx prisma db push
+npm run db:push
 ```
 
 4. Seed the default local users and activity rates:
 
 ```bash
-npx prisma db seed
+npm run db:seed
 ```
 
 5. Start the app:
@@ -62,6 +62,7 @@ Default seeded credentials:
 - `npm run type-check`
 - `npm run test`
 - `npm run build`
+- `npm run db:push`
 - `npm run prisma:generate`
 - `npm run db:seed`
 
@@ -69,5 +70,6 @@ Default seeded credentials:
 
 - The SQLite database file lives at `data/roi-tool.db` and is ignored by git.
 - Use `DATABASE_URL="file:../data/roi-tool.db"` in local env files. Prisma resolves this path relative to `prisma/schema.prisma`.
+- If you run Prisma directly instead of the npm scripts, use `--schema prisma/schema.prisma` from the repo root.
 - SMTP is optional. If email settings are not configured, ROI save operations still succeed and notification emails are skipped.
 - Checked-in Prisma migration SQL lives in `prisma/migrations/`.
