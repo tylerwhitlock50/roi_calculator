@@ -153,4 +153,31 @@ describe('roi calculations', () => {
     expect(unitEconomics.profitPerUnit).toBeCloseTo(31.5)
     expect(unitEconomics.canRenderSankey).toBe(true)
   })
+
+  it('keeps the sankey available when the unit model is underwater', () => {
+    const estimate = buildEstimate()
+    estimate.toolingCost = 1000
+    estimate.marketingCostPerUnit = 12
+    estimate.overheadRate = 25
+    estimate.supportTimePct = 0.4
+    estimate.ppcBudget = 8
+    estimate.laborEntries[0].hours = 1
+    estimate.bomParts = [
+      {
+        id: 'bom-1',
+        item: 'Receiver',
+        unitCost: 30,
+        quantity: 2,
+        cashEffect: true,
+      },
+    ]
+
+    const forecasts = [buildForecast('2026-01', 100, 80), buildForecast('2026-02', 100, 80)]
+    const unitEconomics = calculateUnitEconomics(forecasts, [estimate])
+
+    expect(unitEconomics.profitPerUnit).toBeLessThan(0)
+    expect(unitEconomics.canRenderSankey).toBe(true)
+    expect(unitEconomics.costStack.at(-1)?.label).toBe('Funding needed')
+    expect(unitEconomics.sankeyData.nodes.some((node) => node.name === 'Funding needed / unit')).toBe(true)
+  })
 })

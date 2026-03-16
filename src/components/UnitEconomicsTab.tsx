@@ -106,8 +106,10 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
               <h3 className="text-lg font-semibold text-slate-900">Revenue flow</h3>
               <p className="mt-1 text-sm text-slate-500">
                 {unitEconomics.canRenderSankey
-                  ? 'Each branch shows how the blended selling price per unit is consumed by the current ROI model.'
-                  : 'The fully-loaded unit model is currently underwater, so the breakdown is shown in list form instead of a Sankey.'}
+                  ? unitEconomics.profitPerUnit >= 0
+                    ? 'Each branch shows how the blended selling price per unit is consumed by the current ROI model.'
+                    : 'The flow still renders while underwater. A red funding-needed source shows how much cash has to be added per unit to cover the fully-loaded cost.'
+                  : 'There is not enough modeled cost or margin data yet to render the revenue flow.'}
               </p>
             </div>
             {unitEconomics.usesOtherBomBucket && (
@@ -131,7 +133,7 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
             </div>
           ) : (
             <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${marginTone}`}>
-              Fully-loaded profit is {formatCurrency(unitEconomics.profitPerUnit)} per unit. The right-hand breakdown still shows what is driving the shortfall.
+              Add more modeled unit costs or a saved ROI margin so the flow can be drawn here.
             </div>
           )}
         </div>
@@ -149,7 +151,7 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
             <p className="mt-2">
               {unitEconomics.profitPerUnit >= 0
                 ? `That is ${(unitEconomics.profitMarginPct * 100).toFixed(1)}% of the blended price per unit.`
-                : `That is a ${(Math.abs(unitEconomics.profitMarginPct) * 100).toFixed(1)}% loss versus the blended price per unit.`}
+                : `That means the owner is funding ${formatCurrency(Math.abs(unitEconomics.profitPerUnit))} per unit, or ${(Math.abs(unitEconomics.profitMarginPct) * 100).toFixed(1)}% of the blended price.`}
             </p>
           </div>
         </div>

@@ -3,15 +3,18 @@
 import React, { useEffect, useState } from 'react'
 
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { apiFetch, type ActivityRateRecord, type AdminUserRecord } from '@/lib/api'
+import { apiFetch, type ActivityRateRecord, type AdminUserRecord, type CategoryOptionRecord } from '@/lib/api'
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<AdminUserRecord[]>([])
   const [rates, setRates] = useState<ActivityRateRecord[]>([])
+  const [categories, setCategories] = useState<CategoryOptionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [draftRate, setDraftRate] = useState({ activityName: '', ratePerHour: 0 })
   const [editingRateId, setEditingRateId] = useState<string | null>(null)
+  const [draftCategory, setDraftCategory] = useState('')
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
 
   useEffect(() => {
     void loadAdminData()
@@ -21,12 +24,14 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
       setError(null)
-      const [usersPayload, ratesPayload] = await Promise.all([
+      const [usersPayload, ratesPayload, categoriesPayload] = await Promise.all([
         apiFetch<AdminUserRecord[]>('/api/admin/users'),
         apiFetch<ActivityRateRecord[]>('/api/admin/activity-rates'),
+        apiFetch<CategoryOptionRecord[]>('/api/admin/categories'),
       ])
       setUsers(usersPayload)
       setRates(ratesPayload)
+      setCategories(categoriesPayload)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Failed to load admin data')
     } finally {
@@ -84,6 +89,52 @@ export default function AdminDashboard() {
     }
   }
 
+  const saveCategory = async () => {
+    try {
+      if (!draftCategory.trim()) {
+        return
+      }
+
+      if (editingCategoryId) {
+        await apiFetch<CategoryOptionRecord>('/api/admin/categories', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            id: editingCategoryId,
+            name: draftCategory,
+          }),
+        })
+      } else {
+        await apiFetch<CategoryOptionRecord>('/api/admin/categories', {
+          method: 'POST',
+          body: JSON.stringify({ name: draftCategory }),
+        })
+      }
+
+      setDraftCategory('')
+      setEditingCategoryId(null)
+      await loadAdminData()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save category')
+    }
+  }
+
+  const editCategory = (category: CategoryOptionRecord) => {
+    setEditingCategoryId(category.id)
+    setDraftCategory(category.name)
+  }
+
+  const deleteCategory = async (id: string) => {
+    try {
+      await apiFetch('/api/admin/categories', {
+        method: 'DELETE',
+        body: JSON.stringify({ id }),
+      })
+      await loadAdminData()
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete category')
+    }
+  }
+
   if (loading) {
     return <LoadingSpinner message="Loading admin workspace..." size="md" />
   }
@@ -94,14 +145,15 @@ export default function AdminDashboard() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-700">Admin</p>
-            <h2 className="mt-2 text-3xl font-semibold text-slate-900">Local control room</h2>
+            <h2 className="mt-2 text-3xl font-semibold text-slate-900">Workspace control room</h2>
             <p className="mt-3 max-w-2xl text-sm text-slate-600">
-              Review local users, tune labor rates, and keep the ROI assumptions aligned across the workspace.
+              Keep planning categories, labor rates, and account access aligned across the ROI workspace.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <MetricTile label="Active users" value={String(users.filter((user) => user.isActive).length)} />
             <MetricTile label="Rate cards" value={String(rates.length)} />
+            <MetricTile label="Categories" value={String(categories.length)} />
           </div>
         </div>
       </section>
@@ -116,7 +168,7 @@ export default function AdminDashboard() {
         <div className="card space-y-6">
           <div>
             <h3 className="text-2xl font-semibold text-slate-900">Team accounts</h3>
-            <p className="mt-2 text-sm text-slate-500">Seeded local users are listed here. Credentials are managed through the seed script for now.</p>
+            <p className="mt-2 text-sm text-slate-500">Workspace accounts are listed here. Credentials are still managed through the seed script for now.</p>
           </div>
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -148,77 +200,136 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="card space-y-6">
-          <div>
-            <h3 className="text-2xl font-semibold text-slate-900">Activity rates</h3>
-            <p className="mt-2 text-sm text-slate-500">Use these hourly rates across cost estimates and ROI calculations.</p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
-              <div className="form-group mb-0">
-                <label className="form-label" htmlFor="activity-rate-name">
-                  Activity name
-                </label>
-                <input
-                  id="activity-rate-name"
-                  value={draftRate.activityName}
-                  onChange={(event) => setDraftRate((current) => ({ ...current, activityName: event.target.value }))}
-                  className="input-field"
-                  placeholder="Example: CNC setup or Packaging"
-                />
-              </div>
-              <div className="form-group mb-0">
-                <label className="form-label" htmlFor="activity-rate-hourly">
-                  Hourly rate
-                </label>
-                <input
-                  id="activity-rate-hourly"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={draftRate.ratePerHour}
-                  onChange={(event) => setDraftRate((current) => ({ ...current, ratePerHour: Number(event.target.value) }))}
-                  className="input-field"
-                  placeholder="Example: 85"
-                />
-              </div>
+        <div className="space-y-8">
+          <div className="card space-y-6">
+            <div>
+              <h3 className="text-2xl font-semibold text-slate-900">Planning categories</h3>
+              <p className="mt-2 text-sm text-slate-500">Use these categories in idea intake so overview framing stays consistent.</p>
             </div>
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-              <button onClick={saveRate} className="btn-primary sm:max-w-[220px]">
-                {editingRateId ? 'Update rate' : 'Add rate'}
-              </button>
-              {editingRateId && (
-                <button
-                  onClick={() => {
-                    setDraftRate({ activityName: '', ratePerHour: 0 })
-                    setEditingRateId(null)
-                  }}
-                  className="btn-secondary"
-                >
-                  Cancel edit
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="form-group mb-0">
+                <label className="form-label" htmlFor="category-name">
+                  Category name
+                </label>
+                <input
+                  id="category-name"
+                  value={draftCategory}
+                  onChange={(event) => setDraftCategory(event.target.value)}
+                  className="input-field"
+                  placeholder="Example: Optics or Apparel"
+                />
+              </div>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                <button onClick={saveCategory} className="btn-primary sm:max-w-[220px]">
+                  {editingCategoryId ? 'Update category' : 'Add category'}
                 </button>
-              )}
+                {editingCategoryId && (
+                  <button
+                    onClick={() => {
+                      setDraftCategory('')
+                      setEditingCategoryId(null)
+                    }}
+                    className="btn-secondary"
+                  >
+                    Cancel edit
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {categories.map((category) => (
+                <div key={category.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="font-medium text-slate-900">{category.name}</div>
+                    <div className="text-sm text-slate-500">Available in the product overview and intake flow.</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => editCategory(category)} className="btn-secondary text-sm">
+                      Edit
+                    </button>
+                    <button onClick={() => void deleteCategory(category.id)} className="btn-danger text-sm">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="space-y-3">
-            {rates.map((rate) => (
-              <div key={rate.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="font-medium text-slate-900">{rate.activityName}</div>
-                  <div className="text-sm text-slate-500">${rate.ratePerHour.toFixed(2)} / hour</div>
+          <div className="card space-y-6">
+            <div>
+              <h3 className="text-2xl font-semibold text-slate-900">Activity rates</h3>
+              <p className="mt-2 text-sm text-slate-500">Use these hourly rates across cost estimates and ROI calculations.</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+                <div className="form-group mb-0">
+                  <label className="form-label" htmlFor="activity-rate-name">
+                    Activity name
+                  </label>
+                  <input
+                    id="activity-rate-name"
+                    value={draftRate.activityName}
+                    onChange={(event) => setDraftRate((current) => ({ ...current, activityName: event.target.value }))}
+                    className="input-field"
+                    placeholder="Example: CNC setup or Packaging"
+                  />
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => editRate(rate)} className="btn-secondary text-sm">
-                    Edit
-                  </button>
-                  <button onClick={() => void deleteRate(rate.id)} className="btn-danger text-sm">
-                    Delete
-                  </button>
+                <div className="form-group mb-0">
+                  <label className="form-label" htmlFor="activity-rate-hourly">
+                    Hourly rate
+                  </label>
+                  <input
+                    id="activity-rate-hourly"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={draftRate.ratePerHour}
+                    onChange={(event) => setDraftRate((current) => ({ ...current, ratePerHour: Number(event.target.value) }))}
+                    className="input-field"
+                    placeholder="Example: 85"
+                  />
                 </div>
               </div>
-            ))}
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                <button onClick={saveRate} className="btn-primary sm:max-w-[220px]">
+                  {editingRateId ? 'Update rate' : 'Add rate'}
+                </button>
+                {editingRateId && (
+                  <button
+                    onClick={() => {
+                      setDraftRate({ activityName: '', ratePerHour: 0 })
+                      setEditingRateId(null)
+                    }}
+                    className="btn-secondary"
+                  >
+                    Cancel edit
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {rates.map((rate) => (
+                <div key={rate.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="font-medium text-slate-900">{rate.activityName}</div>
+                    <div className="text-sm text-slate-500">${rate.ratePerHour.toFixed(2)} / hour</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => editRate(rate)} className="btn-secondary text-sm">
+                      Edit
+                    </button>
+                    <button onClick={() => void deleteRate(rate.id)} className="btn-danger text-sm">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

@@ -38,6 +38,13 @@ export type ActivityRateRecord = {
   createdAt: string
 }
 
+export type CategoryOptionRecord = {
+  id: string
+  name: string
+  displayOrder: number
+  createdAt: string
+}
+
 export type CostEstimateRecord = {
   id: string
   ideaId: string

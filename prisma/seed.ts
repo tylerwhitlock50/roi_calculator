@@ -11,6 +11,15 @@ const activityRates = [
   { activityName: 'Quality Assurance', ratePerHour: 90 },
 ]
 
+const categories = [
+  'Consumer Electronics',
+  'Home and Garden',
+  'Industrial Equipment',
+  'Wellness',
+  'Outdoor',
+  'Accessories',
+]
+
 async function main() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@local.test'
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'admin123'
@@ -61,6 +70,17 @@ async function main() {
       where: { activityName: rate.activityName },
       update: { ratePerHour: rate.ratePerHour },
       create: rate,
+    })
+  }
+
+  for (const [index, name] of Array.from(categories.entries())) {
+    await prisma.category.upsert({
+      where: { name },
+      update: { displayOrder: index },
+      create: {
+        name,
+        displayOrder: index,
+      },
     })
   }
 

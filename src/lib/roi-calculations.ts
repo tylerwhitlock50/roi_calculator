@@ -97,6 +97,8 @@ const COST_COLORS = {
   loss: '#dc2626',
 } as const
 
+const NEGATIVE_MARGIN_LABEL = 'Funding needed'
+
 export function calculateLaborHours(laborEntries: CostEstimateRecord['laborEntries']): number {
   return laborEntries.reduce((sum, entry) => sum + entry.hours + entry.minutes / 60 + entry.seconds / 3600, 0)
 }
@@ -176,10 +178,43 @@ function buildSankeyData({
   }
 
   const revenueIndex = 0
+  const expenseTotal =
+    bomCostPerUnit +
+    allocatedMarketingPerUnit +
+    customerAcquisitionPerUnit +
+    overheadPerUnit +
+    supportPerUnit +
+    laborPerUnit +
+    toolingPerUnit
+  const lossPerUnit = profitPerUnit < 0 ? Math.abs(profitPerUnit) : 0
+  const coverageBase = lossPerUnit > 0 ? expenseTotal : expenseTotal + Math.max(profitPerUnit, 0)
+  const revenueCoverageRatio = coverageBase > 0 ? Math.min(1, Math.max(0, (coverageBase - lossPerUnit) / coverageBase)) : 0
+  const lossIndex = lossPerUnit > 0 ? addNode('Funding needed / unit', COST_COLORS.loss, 'source') : null
+  const addCoveredLink = (target: number, totalValue: number, color: string) => {
+    if (totalValue <= 0) {
+      return
+    }
+
+    if (lossIndex === null) {
+      links.push({ source: revenueIndex, target, value: totalValue, color })
+      return
+    }
+
+    const revenueCoveredValue = totalValue * revenueCoverageRatio
+    const lossCoveredValue = totalValue - revenueCoveredValue
+
+    if (revenueCoveredValue > 0) {
+      links.push({ source: revenueIndex, target, value: revenueCoveredValue, color })
+    }
+
+    if (lossCoveredValue > 0) {
+      links.push({ source: lossIndex, target, value: lossCoveredValue, color: COST_COLORS.loss })
+    }
+  }
 
   if (bomCostPerUnit > 0) {
     const bomIndex = addNode('Cash BOM', COST_COLORS.bom, 'aggregate')
-    links.push({ source: revenueIndex, target: bomIndex, value: bomCostPerUnit, color: COST_COLORS.bom })
+    addCoveredLink(bomIndex, bomCostPerUnit, COST_COLORS.bom)
 
     for (const part of bomParts) {
       const partIndex = addNode(part.label, part.color, 'cost')
@@ -203,7 +238,7 @@ function buildSankeyData({
     }
 
     const branchIndex = addNode(branch.label, branch.color, branch.kind)
-    links.push({ source: revenueIndex, target: branchIndex, value: branch.value, color: branch.color })
+    addCoveredLink(branchIndex, branch.value, branch.color)
   }
 
   return { nodes, links }
@@ -250,7 +285,7 @@ function buildUnitEconomicsFromSummary(
     { label: 'Support', value: supportPerUnit, color: COST_COLORS.support, pctOfRevenue: 0 },
     { label: 'Tooling / unit', value: toolingPerUnit, color: COST_COLORS.tooling, pctOfRevenue: 0 },
     {
-      label: profitPerUnit >= 0 ? 'Profit' : 'Loss',
+      label: profitPerUnit >= 0 ? 'Profit' : NEGATIVE_MARGIN_LABEL,
       value: Math.abs(profitPerUnit),
       color: profitPerUnit >= 0 ? COST_COLORS.profit : COST_COLORS.loss,
       pctOfRevenue: 0,
@@ -315,9 +350,9 @@ function buildUnitEconomicsFromSummary(
       profitPerUnit,
     }),
     usesOtherBomBucket: bomParts.length > 6,
-    canRenderSankey: salesSummary.averagePrice > 0 && profitPerUnit >= 0,
+    canRenderSankey: salesSummary.averagePrice > 0 && (recurringCostPerUnit > 0 || upfrontCostPerUnit > 0 || profitPerUnit !== 0),
     note:
-      'Selling price is the weighted average across saved forecast rows. Marketing blends fixed monthly spend plus any per-unit marketing cost. Labor entries are treated as direct labor per unit, while overhead and support scale from the modeled labor time.',
+      'Selling price is the weighted average across saved forecast rows. Marketing blends fixed monthly spend plus any per-unit marketing cost. Labor entries are treated as direct labor per unit, while overhead and support scale from the modeled labor time. When the unit is underwater, the Sankey adds a funding-needed source so the shortfall still maps across the cost buckets.',
   }
 }
 

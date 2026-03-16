@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
+import { apiFetch, type CategoryOptionRecord } from '@/lib/api'
 import { DEFAULT_CATEGORIES } from '@/lib/constants'
 
 const productIdeaSchema = z.object({
@@ -24,6 +25,8 @@ interface ProductIdeaFormProps {
   initialData?: Partial<ProductIdeaFormData>
   isLoading?: boolean
   includeEmail?: boolean
+  initialStep?: 1 | 2 | 3
+  submitLabel?: string
 }
 
 export default function ProductIdeaForm({
@@ -31,9 +34,23 @@ export default function ProductIdeaForm({
   initialData,
   isLoading = false,
   includeEmail = false,
+  initialStep = 1,
+  submitLabel = 'Save Idea',
 }: ProductIdeaFormProps) {
-  const [currentStep, setCurrentStep] = useState(1)
+  const [currentStep, setCurrentStep] = useState(initialStep)
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const totalSteps = 3
+  const clampStep = (step: number): 1 | 2 | 3 => {
+    if (step <= 1) {
+      return 1
+    }
+
+    if (step >= totalSteps) {
+      return 3
+    }
+
+    return step as 1 | 2 | 3
+  }
   const stepFields: Record<number, Array<keyof ProductIdeaFormData>> = {
     1: includeEmail
       ? ['submitter_email', 'title', 'description', 'category']
@@ -45,6 +62,7 @@ export default function ProductIdeaForm({
   const {
     register,
     handleSubmit,
+    reset,
     trigger,
     formState: { errors },
     watch,
@@ -56,6 +74,50 @@ export default function ProductIdeaForm({
 
   const watchedValues = watch()
 
+  const initialCategory = initialData?.category?.trim()
+
+  const categoryOptions = useMemo(() => {
+    const next = categories.length ? [...categories] : [...DEFAULT_CATEGORIES]
+
+    if (initialCategory && !next.includes(initialCategory)) {
+      next.push(initialCategory)
+    }
+
+    return next
+  }, [categories, initialCategory])
+
+  useEffect(() => {
+    reset(initialData)
+    setCurrentStep(initialStep)
+  }, [initialData, initialStep, reset])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadCategories = async () => {
+      try {
+        const payload = await apiFetch<CategoryOptionRecord[]>('/api/admin/categories')
+        if (!isMounted) {
+          return
+        }
+
+        setCategories(payload.map((category) => category.name))
+      } catch {
+        if (!isMounted) {
+          return
+        }
+
+        setCategories(DEFAULT_CATEGORIES)
+      }
+    }
+
+    void loadCategories()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   const handleFormSubmit = (data: ProductIdeaFormData) => {
     onComplete(data)
   }
@@ -66,7 +128,7 @@ export default function ProductIdeaForm({
       return
     }
 
-    setCurrentStep((value) => Math.min(totalSteps, value + 1))
+    setCurrentStep((value) => clampStep(value + 1))
   }
 
   const handleStepSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -105,19 +167,32 @@ export default function ProductIdeaForm({
     }
   }
 
+  const canNavigateToStep = (step: number) => {
+    if (step <= currentStep) {
+      return true
+    }
+
+    return Array.from({ length: step - 1 }, (_, index) => index + 1).every((current) => isStepValid(current))
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-0">
       <div className="mb-6 sm:mb-8">
         <div className="flex justify-center gap-x-8 sm:gap-x-12 max-w-xl mx-auto">
           {[1, 2, 3].map((step) => (
             <div key={step} className="flex items-center">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                step <= currentStep
-                  ? 'bg-primary-600 border-primary-600 text-white'
-                  : 'border-gray-300 text-gray-500'
-              }`}>
+              <button
+                type="button"
+                onClick={() => canNavigateToStep(step) && setCurrentStep(clampStep(step))}
+                disabled={!canNavigateToStep(step) || isLoading}
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition ${
+                  step <= currentStep
+                    ? 'border-primary-600 bg-primary-600 text-white'
+                    : 'border-gray-300 text-gray-500'
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
                 {step}
-              </div>
+              </button>
               {step < 3 && (
                 <div className={`w-12 sm:w-16 h-1 mx-2 ${
                   step < currentStep ? 'bg-primary-600' : 'bg-gray-300'
@@ -194,12 +269,13 @@ export default function ProductIdeaForm({
                 className={`input-field ${errors.category ? 'border-danger-500' : ''}`}
               >
                 <option value="">Select a category</option>
-                {DEFAULT_CATEGORIES.map((category) => (
+                {categoryOptions.map((category) => (
                   <option key={category} value={category}>
                     {category}
                   </option>
                 ))}
               </select>
+              <p className="mt-2 text-xs text-slate-500">Categories come from the admin workspace so the planning taxonomy stays consistent.</p>
               {errors.category && <p className="form-error">{errors.category.message}</p>}
             </div>
           </div>
@@ -268,7 +344,7 @@ export default function ProductIdeaForm({
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
           <button
             type="button"
-            onClick={() => setCurrentStep((value) => Math.max(1, value - 1))}
+            onClick={() => setCurrentStep((value) => clampStep(value - 1))}
             disabled={currentStep === 1 || isLoading}
             className="btn-secondary disabled:opacity-50"
           >
@@ -280,7 +356,7 @@ export default function ProductIdeaForm({
             disabled={!isStepValid(currentStep) || isLoading}
             className="btn-primary w-full sm:w-auto disabled:opacity-50"
           >
-            {currentStep === totalSteps ? (isLoading ? 'Saving...' : 'Save Idea') : 'Continue'}
+            {currentStep === totalSteps ? (isLoading ? 'Saving...' : submitLabel) : 'Continue'}
           </button>
         </div>
       </form>

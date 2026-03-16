@@ -79,27 +79,27 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <section className="space-y-8">
             <div className="inline-flex rounded-full border border-primary-200 bg-white/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.26em] text-primary-700 backdrop-blur">
-              SQLite local mode
+              ROI planning workspace
             </div>
             <div className="space-y-4">
               <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-                Product ROI decisions, now fully local and fast.
+                Plan product ROI in one focused workspace.
               </h1>
               <p className="max-w-xl text-base leading-7 text-slate-600">
-                This workspace no longer depends on Supabase. Authentication, projects, forecasts, costs, and ROI all run in one local Next.js app backed by SQLite.
+                Capture the product brief, build the model, and keep the ROI story together from intake through final review. Data stays local on this machine.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
-              <FeatureCard title="Seeded access" body="Default credentials work immediately for local development and demos." />
-              <FeatureCard title="SQLite storage" body="All operational data lives in a single local file managed through Prisma." />
-              <FeatureCard title="Focused workflow" body="Capture ideas, build the model, and review ROI without org setup or invite friction." />
+              <FeatureCard title="Shared framing" body="Start with the product brief, positioning, and requirements before the financial model." />
+              <FeatureCard title="Local data" body="All workspace data stays on this machine through the local database and Prisma." />
+              <FeatureCard title="Focused workflow" body="Capture ideas, build the model, and review ROI without extra setup or tool switching." />
             </div>
           </section>
 
           <section className="card border border-white/50 bg-white/85 backdrop-blur">
             <div className="space-y-2 text-center">
               <h2 className="text-2xl font-semibold text-slate-950">Sign in</h2>
-              <p className="text-sm text-slate-500">Use one of the local seeded accounts below, or override them through the seed environment variables.</p>
+              <p className="text-sm text-slate-500">Use one of the seeded workspace accounts below, or override them through the seed environment variables.</p>
             </div>
 
             <div className="mt-6 grid gap-3">
@@ -168,7 +168,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary-700">Product ROI Tool</p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-950">Local planning workspace</h1>
+            <h1 className="mt-1 text-2xl font-semibold text-slate-950">Planning workspace</h1>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">

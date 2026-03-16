@@ -53,12 +53,12 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-4">
             <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-100">
-              Local ROI Workspace
+              ROI Workspace
             </span>
             <div className="space-y-3">
-              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Shape product bets with a fast local workflow.</h2>
+              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Shape product bets with a persistent planning workflow.</h2>
               <p className="max-w-xl text-sm text-slate-200 sm:text-base">
-                Ideas, forecasts, costs, and ROI live in your local SQLite app now. Start new concepts quickly and keep the financial story in one place.
+                Keep the product brief, positioning, forecasts, costs, and ROI story in one workspace. Data stays local, but the language now stays focused on planning.
               </p>
             </div>
           </div>

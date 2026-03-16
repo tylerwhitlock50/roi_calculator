@@ -108,6 +108,7 @@ export default function ProductDetailPage() {
   const [costError, setCostError] = useState<string | null>(null)
 
   const [showEditOverview, setShowEditOverview] = useState(false)
+  const [editOverviewStep, setEditOverviewStep] = useState<1 | 2 | 3>(1)
   const [editOverviewLoading, setEditOverviewLoading] = useState(false)
   const [editOverviewError, setEditOverviewError] = useState<string | null>(null)
 
@@ -400,6 +401,12 @@ export default function ProductDetailPage() {
     }
   }
 
+  const openEditOverview = (step: 1 | 2 | 3 = 1) => {
+    setEditOverviewStep(step)
+    setEditOverviewError(null)
+    setShowEditOverview(true)
+  }
+
   const saveRoiSummary = async (payload: {
     npv: number
     irr: number
@@ -551,17 +558,38 @@ export default function ProductDetailPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-slate-950">Product overview</h2>
-                <p className="mt-2 text-sm text-slate-500">Keep the narrative and customer promise aligned with the financial model.</p>
+                <p className="mt-2 text-sm text-slate-500">Keep the planning brief persistent so the narrative, requirements, and ROI model stay aligned.</p>
               </div>
-              <button className="btn-secondary" onClick={() => setShowEditOverview(true)}>
+              <button className="btn-secondary" onClick={() => openEditOverview(1)}>
                 Edit overview
               </button>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <OverviewCard title="Positioning" body={product.positioningStatement} />
-              <OverviewCard title="Required attributes" body={product.requiredAttributes} />
-              <OverviewCard title="Competitor overview" body={product.competitorOverview} />
+              <OverviewCard
+                title="Core brief"
+                body={`Category: ${product.category}\n\nDescription:\n${product.description}`}
+                actionLabel="Edit brief"
+                onAction={() => openEditOverview(1)}
+              />
+              <OverviewCard
+                title="Positioning"
+                body={product.positioningStatement}
+                actionLabel="Edit positioning"
+                onAction={() => openEditOverview(2)}
+              />
+              <OverviewCard
+                title="Requirements"
+                body={product.requiredAttributes}
+                actionLabel="Edit requirements"
+                onAction={() => openEditOverview(3)}
+              />
+              <OverviewCard
+                title="Competitive context"
+                body={product.competitorOverview}
+                actionLabel="Edit requirements"
+                onAction={() => openEditOverview(3)}
+              />
               <OverviewCard
                 title="Current ROI snapshot"
                 body={
@@ -573,7 +601,10 @@ export default function ProductDetailPage() {
             </div>
 
             {showEditOverview && (
-              <Modal onClose={() => setShowEditOverview(false)} title="Edit product overview">
+              <Modal
+                onClose={() => setShowEditOverview(false)}
+                title={editOverviewStep === 1 ? 'Edit product brief' : editOverviewStep === 2 ? 'Edit positioning' : 'Edit requirements'}
+              >
                 <ProductIdeaForm
                   initialData={{
                     title: product.title,
@@ -583,7 +614,9 @@ export default function ProductDetailPage() {
                     required_attributes: product.requiredAttributes,
                     competitor_overview: product.competitorOverview,
                   }}
+                  initialStep={editOverviewStep}
                   isLoading={editOverviewLoading}
+                  submitLabel="Save overview"
                   onComplete={saveOverview}
                 />
                 {editOverviewError && (
@@ -1364,10 +1397,27 @@ export default function ProductDetailPage() {
   )
 }
 
-function OverviewCard({ title, body }: { title: string; body: string }) {
+function OverviewCard({
+  title,
+  body,
+  actionLabel,
+  onAction,
+}: {
+  title: string
+  body: string
+  actionLabel?: string
+  onAction?: () => void
+}) {
   return (
     <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+        {actionLabel && onAction && (
+          <button type="button" className="text-sm font-medium text-primary-700 hover:text-primary-800" onClick={onAction}>
+            {actionLabel}
+          </button>
+        )}
+      </div>
       <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">{body}</p>
     </div>
   )
