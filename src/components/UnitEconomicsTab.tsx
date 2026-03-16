@@ -118,7 +118,7 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
           </div>
 
           {unitEconomics.canRenderSankey ? (
-            <div className="mt-4 h-[430px] w-full">
+            <div className="mt-4 h-[430px] w-full overflow-visible">
               <ResponsiveContainer width="100%" height="100%">
                 <Sankey
                   data={unitEconomics.sankeyData}
@@ -127,7 +127,7 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
                   nodePadding={24}
                   nodeWidth={18}
                   sort={false}
-                  margin={{ top: 24, right: 160, bottom: 24, left: 24 }}
+                  margin={{ top: 24, right: 200, bottom: 24, left: 120 }}
                 />
               </ResponsiveContainer>
             </div>

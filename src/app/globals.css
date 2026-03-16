@@ -122,4 +122,10 @@
   .form-error {
     @apply text-sm text-danger-600;
   }
+}
+
+/* Prevent Recharts Sankey labels from being clipped */
+.recharts-responsive-container .recharts-wrapper,
+.recharts-responsive-container svg {
+  overflow: visible !important;
 } 
