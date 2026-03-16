@@ -1636,6 +1636,23 @@ function ROICalculator({
                 </tr>
               ))}
             </tbody>
+            <tfoot className="border-t border-slate-300 bg-slate-100 text-slate-700">
+              <tr>
+                <td className="px-4 py-3 font-semibold">
+                  <div>Totals</div>
+                  <div className="text-xs font-medium text-slate-500">ROI {(calculations.roiPct * 100).toFixed(1)}%</div>
+                </td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.total)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.sales)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.marketing)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.cac)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.costOfSales)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.labor)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.overhead)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.support)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.tooling)}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>

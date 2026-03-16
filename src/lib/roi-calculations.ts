@@ -13,8 +13,12 @@ type CashFlow = {
   tooling: number
 }
 
+type CashFlowTotals = Omit<CashFlow, 'month'>
+
 type RoiCalculations = {
   cashFlows: CashFlow[]
+  totals: CashFlowTotals
+  roiPct: number
   npv: number
   irr: number
   breakEvenMonth: number
@@ -397,6 +401,40 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
 
   const discountRate = 0.1 / 12
   const npv = cashFlows.reduce((sum, flow, index) => sum + flow.total / Math.pow(1 + discountRate, index), 0)
+  const totals = cashFlows.reduce<CashFlowTotals>(
+    (summary, flow) => ({
+      total: summary.total + flow.total,
+      sales: summary.sales + flow.sales,
+      marketing: summary.marketing + flow.marketing,
+      cac: summary.cac + flow.cac,
+      costOfSales: summary.costOfSales + flow.costOfSales,
+      labor: summary.labor + flow.labor,
+      overhead: summary.overhead + flow.overhead,
+      support: summary.support + flow.support,
+      tooling: summary.tooling + flow.tooling,
+    }),
+    {
+      total: 0,
+      sales: 0,
+      marketing: 0,
+      cac: 0,
+      costOfSales: 0,
+      labor: 0,
+      overhead: 0,
+      support: 0,
+      tooling: 0,
+    }
+  )
+  const totalOutflows = Math.abs(
+    totals.marketing +
+      totals.cac +
+      totals.costOfSales +
+      totals.labor +
+      totals.overhead +
+      totals.support +
+      totals.tooling
+  )
+  const roiPct = totalOutflows > 0 ? totals.total / totalOutflows : 0
 
   const calcIrr = (values: number[]) => {
     let guess = 0.1
@@ -448,6 +486,8 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
 
   return {
     cashFlows,
+    totals,
+    roiPct,
     npv,
     irr,
     breakEvenMonth,

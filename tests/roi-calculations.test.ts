@@ -86,6 +86,41 @@ describe('roi calculations', () => {
     expect(calculations.cashFlows[1].cac).toBe(-1000)
   })
 
+  it('aggregates cash flow totals and overall roi from the modeled cash flows', () => {
+    const estimate = buildEstimate()
+    estimate.toolingCost = 1000
+    estimate.marketingBudget = 100
+    estimate.marketingCostPerUnit = 5
+    estimate.overheadRate = 20
+    estimate.supportTimePct = 0.5
+    estimate.ppcBudget = 2
+    estimate.laborEntries[0].hours = 1
+    estimate.laborEntries[0].activity.ratePerHour = 10
+    estimate.bomParts = [
+      {
+        id: 'bom-1',
+        item: 'Housing',
+        unitCost: 3,
+        quantity: 2,
+        cashEffect: true,
+      },
+    ]
+
+    const forecasts = [buildForecast('2026-01', 10, 50), buildForecast('2026-02', 10, 50)]
+    const calculations = calculateRoiMetrics(forecasts, [estimate])
+
+    expect(calculations.totals.total).toBe(-1360)
+    expect(calculations.totals.sales).toBe(1000)
+    expect(calculations.totals.marketing).toBe(-300)
+    expect(calculations.totals.cac).toBe(-40)
+    expect(calculations.totals.costOfSales).toBe(-120)
+    expect(calculations.totals.labor).toBe(-200)
+    expect(calculations.totals.overhead).toBe(-400)
+    expect(calculations.totals.support).toBe(-300)
+    expect(calculations.totals.tooling).toBe(-1000)
+    expect(calculations.roiPct).toBeCloseTo(-1360 / 2360)
+  })
+
   it('builds a fully-loaded unit economics view from the blended price and latest cost model', () => {
     const estimate = buildEstimate()
     estimate.toolingCost = 1000
