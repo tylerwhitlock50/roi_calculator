@@ -33,13 +33,13 @@ npm install
 3. Create the database:
 
 ```bash
-DATABASE_URL="file:/absolute/path/to/roi_calculator/data/roi-tool.db" npx prisma db push
+npx prisma db push
 ```
 
 4. Seed the default local users and activity rates:
 
 ```bash
-DATABASE_URL="file:/absolute/path/to/roi_calculator/data/roi-tool.db" npx prisma db seed
+npx prisma db seed
 ```
 
 5. Start the app:
@@ -68,5 +68,6 @@ Default seeded credentials:
 ## Project Notes
 
 - The SQLite database file lives at `data/roi-tool.db` and is ignored by git.
+- Use `DATABASE_URL="file:../data/roi-tool.db"` in local env files. Prisma resolves this path relative to `prisma/schema.prisma`.
 - SMTP is optional. If email settings are not configured, ROI save operations still succeed and notification emails are skipped.
 - Checked-in Prisma migration SQL lives in `prisma/migrations/`.

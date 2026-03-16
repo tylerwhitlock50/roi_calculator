@@ -10,7 +10,7 @@
 Create `.env.local` from `env.example` and set at least:
 
 ```env
-DATABASE_URL="file:/Users/your-user/path/to/roi_calculator/data/roi-tool.db"
+DATABASE_URL="file:../data/roi-tool.db"
 SESSION_SECRET="replace-this-with-a-long-random-string"
 ```
 
@@ -33,13 +33,13 @@ SMTP_FROM="ROI Tool <noreply@example.com>"
 1. Push the Prisma schema to SQLite:
 
 ```bash
-DATABASE_URL="file:/absolute/path/to/roi_calculator/data/roi-tool.db" npx prisma db push
+npx prisma db push
 ```
 
 2. Seed the local users and starter activity rates:
 
 ```bash
-DATABASE_URL="file:/absolute/path/to/roi_calculator/data/roi-tool.db" npx prisma db seed
+npx prisma db seed
 ```
 
 Default seeded logins:
@@ -69,3 +69,4 @@ npm run build
 
 - SMTP is optional. If it is not configured, ROI saves still work and email notifications are skipped.
 - SQLite lives in `data/roi-tool.db`, which is ignored by git.
+- Prisma resolves the SQLite URL relative to `prisma/schema.prisma`, so the local path should stay `file:../data/roi-tool.db`.
