@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum IdeaStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+model User {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  fullName      String
+  passwordHash  String
+  role          Role            @default(MEMBER)
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  ideas         Idea[]
+  forecasts     SalesForecast[]
+  costEstimates CostEstimate[]
+}
+
+model Idea {
+  id                   String          @id @default(cuid())
+  title                String
+  description          String
+  category             String
+  status               IdeaStatus      @default(DRAFT)
+  positioningStatement String
+  requiredAttributes   String
+  competitorOverview   String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  createdById          String
+  createdBy            User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  salesForecasts       SalesForecast[]
+  costEstimates        CostEstimate[]
+  roiSummary           RoiSummary?
+
+  @@index([createdAt])
+  @@index([createdById])
+}
+
+model SalesForecast {
+  id                    String   @id @default(cuid())
+  ideaId                String
+  contributorId         String
+  contributorRole       String
+  channelOrCustomer     String
+  monthlyVolumeEstimate Json
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  idea                  Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  contributor           User     @relation(fields: [contributorId], references: [id], onDelete: Cascade)
+
+  @@index([ideaId, createdAt])
+  @@index([contributorId])
+}
+
+model ActivityRate {
+  id           String       @id @default(cuid())
+  activityName String
+  ratePerHour  Float        @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  laborEntries LaborEntry[]
+
+  @@unique([activityName])
+}
+
+model CostEstimate {
+  id                   String       @id @default(cuid())
+  ideaId               String
+  toolingCost          Float        @default(0)
+  engineeringHours     Int          @default(0)
+  marketingBudget      Float        @default(0)
+  marketingCostPerUnit Float        @default(0)
+  overheadRate         Float        @default(60)
+  supportTimePct       Float        @default(0.2)
+  ppcBudget            Float        @default(0)
+  createdById          String
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  idea                 Idea         @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  createdBy            User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  bomParts             BomPart[]
+  laborEntries         LaborEntry[]
+
+  @@index([ideaId, createdAt])
+  @@index([createdById])
+}
+
+model BomPart {
+  id             String       @id @default(cuid())
+  costEstimateId String
+  item           String
+  unitCost       Float        @default(0)
+  quantity       Int          @default(1)
+  cashEffect     Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  costEstimate   CostEstimate @relation(fields: [costEstimateId], references: [id], onDelete: Cascade)
+
+  @@index([costEstimateId])
+}
+
+model LaborEntry {
+  id             String       @id @default(cuid())
+  costEstimateId String
+  activityId     String
+  hours          Int          @default(0)
+  minutes        Int          @default(0)
+  seconds        Int          @default(0)
+  createdAt      DateTime     @default(now())
+  costEstimate   CostEstimate @relation(fields: [costEstimateId], references: [id], onDelete: Cascade)
+  activity       ActivityRate @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([costEstimateId])
+  @@index([activityId])
+}
+
+model RoiSummary {
+  id                        String   @id @default(cuid())
+  ideaId                    String   @unique
+  npv                       Float    @default(0)
+  irr                       Float    @default(0)
+  breakEvenMonth            Int      @default(0)
+  paybackPeriod             Float    @default(0)
+  contributionMarginPerUnit Float    @default(0)
+  profitPerUnit             Float    @default(0)
+  assumptions               Json
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  idea                      Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+}

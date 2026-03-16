@@ -12,8 +12,14 @@ const transporter = nodemailer.createTransport({
   auth: user && pass ? { user, pass } : undefined,
 })
 
+export function emailIsConfigured() {
+  return Boolean(host)
+}
+
 export async function sendEmail(to: string[], subject: string, html: string) {
-  if (!host) throw new Error('SMTP_HOST not configured')
+  if (!host) {
+    return
+  }
   await transporter.sendMail({
     from,
     to: to.join(', '),
@@ -21,4 +27,3 @@ export async function sendEmail(to: string[], subject: string, html: string) {
     html,
   })
 }
-

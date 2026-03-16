@@ -1,295 +1,109 @@
 import { create } from 'zustand'
-import { User } from '@supabase/supabase-js'
-import { supabase } from './supabase'
-import { getUserOrganization, UserOrgResult } from './getUserOrganization'
 
-export type AppView = 'dashboard' | 'create' | 'view' | 'org-setup' | 'admin' | 'auth'
+import { apiFetch, type AppUser, type SessionPayload } from '@/lib/api'
 
-export interface UserOrganization {
-  organization_id: string | null
-  role: string | null
+export type AppView = 'dashboard' | 'create' | 'admin' | 'auth'
+
+type Credentials = {
+  email: string
+  password: string
 }
 
 export interface AppState {
-  // Auth state
-  user: User | null
+  user: AppUser | null
   isAuthenticated: boolean
   authChecked: boolean
-  
-  // Loading states
   isLoading: boolean
-  isCheckingOrganization: boolean
-  
-  // Application state
   currentView: AppView
-  selectedProjectId: string | null
-  userOrganization: UserOrganization | null
-  
-  // UI state
-  showSignUp: boolean
-  showPasswordReset: boolean
   error: string | null
-  
-  // Actions
   initializeAuth: () => Promise<void>
-  setUser: (user: User | null) => void
-  setLoading: (loading: boolean) => void
-  setError: (error: string | null) => void
-  setCurrentView: (view: AppView) => void
-  setSelectedProjectId: (id: string | null) => void
-  setShowSignUp: (show: boolean) => void
-  setShowPasswordReset: (show: boolean) => void
-  checkUserOrganization: (userId: string) => Promise<void>
+  signIn: (credentials: Credentials) => Promise<void>
   signOut: () => Promise<void>
-  resetState: () => void
-  setupAuthListener: () => void
+  setCurrentView: (view: AppView) => void
+  setError: (error: string | null) => void
 }
 
-const fetchUserOrganizationWithRetry = async (userId: string, maxRetries = 3): Promise<{
-  data: UserOrgResult | null
-  error: any
-  userNotFound: boolean
-}> => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+export const useAppStore = create<AppState>((set) => ({
+  user: null,
+  isAuthenticated: false,
+  authChecked: false,
+  isLoading: true,
+  currentView: 'auth',
+  error: null,
+
+  async initializeAuth() {
+    set({ isLoading: true, error: null })
+
     try {
-      console.log(`Organization check attempt ${attempt} for user:`, userId)
-
-      const { data, error } = await getUserOrganization()
-
-      if (error) {
-        console.warn(`Organization check attempt ${attempt} failed:`, error)
-
-        if (attempt === maxRetries) {
-          throw error
-        }
-
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
-        await new Promise(resolve => setTimeout(resolve, delay))
-        continue
-      }
-
-      console.log('Organization check successful:', data)
-
-      const userNotFound = !data?.role && !data?.organization_id
-      return { data, error: null, userNotFound }
-    } catch (error) {
-      console.warn(`Organization check attempt ${attempt} failed:`, error)
-
-      if (attempt === maxRetries) {
-        throw error
-      }
-
-      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
-      await new Promise(resolve => setTimeout(resolve, delay))
-    }
-  }
-
-  throw new Error('Max retries exceeded')
-}
-
-const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
-  return new Promise((resolve, reject) => {
-    const id = setTimeout(() => reject(new Error('Timeout')), ms)
-    promise
-      .then(value => {
-        clearTimeout(id)
-        resolve(value)
-      })
-      .catch(err => {
-        clearTimeout(id)
-        reject(err)
-      })
-  })
-}
-
-export const useAppStore = create<AppState>((set, get) => {
-  let authListenerSetup = false
-  let isCheckingOrg = false
-
-  return {
-    // Initial state
-    user: null,
-    isAuthenticated: false,
-    authChecked: false,
-    isLoading: true,
-    isCheckingOrganization: false,
-    currentView: 'auth',
-    selectedProjectId: null,
-    userOrganization: null,
-    showSignUp: false,
-    showPasswordReset: false,
-    error: null,
-
-    // Actions
-    initializeAuth: async () => {
-      if (get().authChecked) return
-      set({ isLoading: true, error: null })
-      
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (session?.user) {
-          set({
-            user: session.user,
-            isAuthenticated: true,
-            currentView: 'dashboard',
-            isLoading: false,
-            authChecked: true
-          })
-          await get().checkUserOrganization(session.user.id)
-        } else {
-          set({ isLoading: false, authChecked: true, currentView: 'auth' })
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error)
-        set({ isLoading: false, authChecked: true, error: 'Authentication failed' })
-      }
-    },
-
-    setUser: (user: User | null) => {
-      set({ 
-        user, 
-        isAuthenticated: !!user,
-        currentView: user ? 'dashboard' : 'auth',
+      const session = await apiFetch<SessionPayload>('/api/auth/session')
+      set({
+        user: session.user,
+        isAuthenticated: session.authenticated,
         authChecked: true,
-        isLoading: false
+        isLoading: false,
+        currentView: session.authenticated ? 'dashboard' : 'auth',
       })
-    },
-
-    setLoading: (loading: boolean) => {
-      set({ isLoading: loading })
-    },
-
-    setError: (error: string | null) => {
-      set({ error })
-    },
-
-    setCurrentView: (view: AppView) => {
-      set({ currentView: view })
-    },
-
-    setSelectedProjectId: (id: string | null) => {
-      set({ selectedProjectId: id })
-    },
-
-    setShowSignUp: (show: boolean) => {
-      set({ showSignUp: show })
-    },
-
-    setShowPasswordReset: (show: boolean) => {
-      set({ showPasswordReset: show })
-    },
-
-    checkUserOrganization: async (userId: string) => {
-      if (isCheckingOrg) {
-        console.log('Organization check already in progress, skipping...')
-        return
-      }
-      
-      console.log('Checking user organization for:', userId)
-      isCheckingOrg = true
-      set({ isCheckingOrganization: true, error: null })
-
-      try {
-        const { data, error, userNotFound } = await withTimeout(
-          fetchUserOrganizationWithRetry(userId),
-          10000
-        )
-
-        if (userNotFound) {
-          set({ 
-            currentView: 'org-setup',
-            isLoading: false,
-            isCheckingOrganization: false,
-            authChecked: true
-          })
-          return
-        }
-
-        if (error) {
-          console.error('Error checking user organization:', error)
-          set({ 
-            error: 'Failed to check user organization',
-            isLoading: false,
-            isCheckingOrganization: false,
-            authChecked: true
-          })
-          return
-        }
-
-        console.log('User organization data:', data)
-
-        if (!data?.organization_id) {
-          set({ 
-            currentView: 'org-setup',
-            userOrganization: data,
-            isLoading: false,
-            isCheckingOrganization: false,
-            authChecked: true
-          })
-        } else {
-          set({ 
-            currentView: 'dashboard',
-            userOrganization: data,
-            isLoading: false,
-            isCheckingOrganization: false,
-            authChecked: true
-          })
-        }
-      } catch (error) {
-        console.error('Error checking user organization:', error)
-        set({ 
-          error: 'Failed to check user organization',
-          isLoading: false,
-          isCheckingOrganization: false,
-          authChecked: true
-        })
-      } finally {
-        isCheckingOrg = false
-      }
-    },
-
-    signOut: async () => {
-      try {
-        await supabase.auth.signOut()
-        get().resetState()
-      } catch (error) {
-        console.error('Error signing out:', error)
-        set({ error: 'Failed to sign out' })
-      }
-    },
-
-    resetState: () => {
+    } catch (error) {
+      console.error(error)
       set({
         user: null,
         isAuthenticated: false,
-        authChecked: false,
+        authChecked: true,
         isLoading: false,
-        isCheckingOrganization: false,
         currentView: 'auth',
-        selectedProjectId: null,
-        userOrganization: null,
-        showSignUp: false,
-        showPasswordReset: false,
-        error: null
-      })
-    },
-
-    setupAuthListener: () => {
-      if (authListenerSetup) return
-      authListenerSetup = true
-
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-          if (session?.user) {
-            get().setUser(session.user)
-            await get().checkUserOrganization(session.user.id)
-          }
-        }
-        if (event === 'SIGNED_OUT') {
-          get().resetState()
-        }
+        error: 'Failed to initialize session',
       })
     }
-  }
-})
+  },
+
+  async signIn({ email, password }) {
+    set({ isLoading: true, error: null })
+
+    try {
+      const session = await apiFetch<SessionPayload>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
+
+      set({
+        user: session.user,
+        isAuthenticated: session.authenticated,
+        authChecked: true,
+        isLoading: false,
+        currentView: 'dashboard',
+      })
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to sign in',
+      })
+    }
+  },
+
+  async signOut() {
+    try {
+      await apiFetch('/api/auth/logout', {
+        method: 'POST',
+      })
+    } catch (error) {
+      console.error(error)
+    }
+
+    set({
+      user: null,
+      isAuthenticated: false,
+      authChecked: true,
+      isLoading: false,
+      currentView: 'auth',
+      error: null,
+    })
+  },
+
+  setCurrentView(view) {
+    set({ currentView: view })
+  },
+
+  setError(error) {
+    set({ error })
+  },
+}))

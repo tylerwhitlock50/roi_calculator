@@ -1,165 +1,72 @@
 # Product ROI Tool
 
-A web application for evaluating new product ideas with data-driven ROI analysis. Built with Next.js, Supabase, and TypeScript.
+Product ROI Tool is a local-first Next.js application for evaluating product ideas with forecasts, cost models, and ROI analysis. The app now runs entirely on a local SQLite database through Prisma and uses simple cookie-based auth with seeded local accounts.
+
+## Stack
+
+- Next.js 15
+- React 18
+- Prisma + SQLite
+- Zustand
+- Tailwind CSS
+- Recharts
 
 ## Features
 
-- **Authentication & Multi-tenancy**: Secure user management with organization-based access control
-- **Product Idea Management**: Create and manage product concepts with detailed specifications
-- **Sales Forecasting**: Collaborative revenue forecasting across customers and channels
-- **Cost Estimation**: Detailed cost modeling with BOM parts, labor by activity rates, overhead and support factors
-- **ROI Calculations**: Automatic calculation of NPV, IRR, break-even, and per-unit profitability
-- **Team Collaboration**: Multi-user support with role-based permissions
+- Seeded local login for admin and member accounts
+- Product idea intake with positioning and requirement capture
+- Sales forecasting by channel or customer
+- Cost estimation with BOM parts, labor entries, tooling, overhead, and support assumptions
+- Saved ROI summaries with NPV, IRR, payback period, and unit economics
+- Admin activity-rate management
 
-## Tech Stack
+## Quick Start
 
-- **Frontend**: Next.js 14, React 18, TypeScript
-- **Styling**: Tailwind CSS, Headless UI
-- **Backend**: Supabase (PostgreSQL, Auth, Row Level Security)
-- **Forms**: React Hook Form, Zod validation
-- **Charts**: Recharts for data visualization
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-- Supabase account
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd product-roi-tool
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up Supabase**
-   - Create a new Supabase project at [supabase.com](https://supabase.com)
-   - Get your project URL and anon key from Settings > API
-   - Create a `.env.local` file in the root directory:
-
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-
-4. **Set up the database schema**
-   - Run the SQL commands from `database/schema.sql` in your Supabase SQL editor
-   - Enable Row Level Security (RLS) on all tables
-   - Set up the RLS policies as defined in the schema
-
-5. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-6. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## Database Schema
-
-The application uses the following main tables:
-
-- `organizations` - Multi-tenant organization management
-- `users` - User accounts with role-based permissions
-- `ideas` - Product idea definitions
-- `sales_forecasts` - Revenue projections
-- `cost_estimates` - Cost estimate summary
-- `bom_parts` - Purchased part line items
-- `labor_entries` - Labor by activity
-- `activity_rates` - Hourly rates per organization
-- `roi_summaries` - Calculated financial metrics
-
-## Project Structure
-
-```
-src/
-├── app/                 # Next.js app directory
-│   ├── globals.css     # Global styles
-│   ├── layout.tsx      # Root layout
-│   └── page.tsx        # Home page
-├── components/         # Reusable UI components
-├── lib/               # Utilities and configurations
-│   └── supabase.ts    # Supabase client setup
-└── types/             # TypeScript type definitions
-```
-
-## Development
-
-### Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run type-check` - Run TypeScript type checking
-
-### Environment Variables
-
-Create a `.env.local` file with the following variables:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### Admin Invitation Script
-
-Admins can pre-create users and generate invite links with a service role key. A
-simple helper script is included in `scripts/invite_user.py`:
+1. Install dependencies:
 
 ```bash
-python scripts/invite_user.py user@example.com tempPassword ORGANIZATION_ID
+npm install
 ```
 
-The script creates the user, assigns them to the specified organization and out
-puts an invite link they can use to finish the sign‑up process.
+2. Create `.env.local` from `env.example`.
 
-
-### Database Utility Script
-
-A helper CLI at `scripts/db_cli.py` can apply or reset the database schema. It reads `SUPABASE_DB_URL` for the connection string.
+3. Create the database:
 
 ```bash
-# Apply the schema
-python scripts/db_cli.py apply
-
-# Reset RLS policies
-python scripts/db_cli.py reset
+DATABASE_URL="file:/absolute/path/to/roi_calculator/data/roi-tool.db" npx prisma db push
 ```
 
-## Deployment
+4. Seed the default local users and activity rates:
 
-The application can be deployed to Vercel, Netlify, or any other Next.js-compatible platform.
+```bash
+DATABASE_URL="file:/absolute/path/to/roi_calculator/data/roi-tool.db" npx prisma db seed
+```
 
-1. **Build the application**
-   ```bash
-   npm run build
-   ```
+5. Start the app:
 
-2. **Set environment variables** in your deployment platform
+```bash
+npm run dev
+```
 
-3. **Deploy** using your preferred platform's deployment process
+Open [http://localhost:3000](http://localhost:3000).
 
-## Contributing
+Default seeded credentials:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+- `admin@local.test` / `admin123`
+- `member@local.test` / `member123`
 
-## License
+## Useful Commands
 
-This project is licensed under the MIT License.
+- `npm run dev`
+- `npm run lint`
+- `npm run type-check`
+- `npm run test`
+- `npm run build`
+- `npm run prisma:generate`
+- `npm run db:seed`
 
-## Support
+## Project Notes
 
-For support, please open an issue in the GitHub repository or contact the development team. 
+- The SQLite database file lives at `data/roi-tool.db` and is ignored by git.
+- SMTP is optional. If email settings are not configured, ROI save operations still succeed and notification emails are skipped.
+- Checked-in Prisma migration SQL lives in `prisma/migrations/`.

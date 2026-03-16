@@ -1,474 +1,190 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useAppStore } from '@/lib/store'
-import { formatCurrency, formatPercentage, getROIStatus } from '@/lib/roi-calculations'
-import { Database } from '@/lib/supabase'
-import LoadingSpinner from '@/components/LoadingSpinner'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-type Idea = Database['public']['Tables']['ideas']['Row']
-type ROISummary = Database['public']['Tables']['roi_summaries']['Row']
+import LoadingSpinner from '@/components/LoadingSpinner'
+import { apiFetch, type IdeaRecord } from '@/lib/api'
 
 interface ProjectDashboardProps {
   onCreateNew: () => void
-  onViewProject: (id: string) => void
 }
 
-interface ProjectWithROI {
-  id: string
-  organization_id: string
-  title: string
-  description: string
-  category: string
-  status: string
-  positioning_statement: string
-  required_attributes: string
-  competitor_overview: string
-  created_by: string
-  created_at: string
-  roi_summary?: ROISummary | null
-  created_by_user?: {
-    full_name: string
-  } | null
-}
-
-export default function ProjectDashboard({ onCreateNew, onViewProject }: ProjectDashboardProps) {
-  const [projects, setProjects] = useState<ProjectWithROI[]>([])
+export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps) {
+  const [projects, setProjects] = useState<IdeaRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [userRole, setUserRole] = useState<string | null>(null)
-  const [organizationInviteCode, setOrganizationInviteCode] = useState<string | null>(null)
-  const [showInviteCode, setShowInviteCode] = useState(false)
-
-  const { user, isAuthenticated } = useAppStore()
 
   useEffect(() => {
-    if (!isAuthenticated || !user) return
-    loadProjects()
-    checkUserRole()
-  }, [isAuthenticated, user])
-
-  // Add click outside handler for invite code dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (showInviteCode && !target.closest('.invite-code-dropdown')) {
-        setShowInviteCode(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showInviteCode])
-
-  const checkUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Add timeout for the database query
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database query timeout')), 5000)
-      )
-
-      const queryPromise = supabase
-        .from('users')
-        .select('role, organization_id')
-        .eq('id', user.id)
-        .single()
-
-      const { data: userData, error: userError } = await Promise.race([
-        queryPromise,
-        timeoutPromise
-      ]) as any
-
-      if (userError) {
-        console.error('Error checking user role:', userError)
-        return
-      }
-
-      if (userData?.role === 'admin' && userData?.organization_id) {
-        setUserRole('admin')
-        // Get the invite code for the organization
-        const { data: orgData, error: orgError } = await supabase
-          .from('organizations')
-          .select('invite_code')
-          .eq('id', userData.organization_id)
-          .single()
-
-        if (orgError) {
-          console.error('Error fetching organization invite code:', orgError)
-          return
-        }
-
-        if (orgData) {
-          setOrganizationInviteCode(orgData.invite_code)
-        }
-      } else {
-        setUserRole(userData?.role || null)
-      }
-    } catch (error) {
-      console.error('Error checking user role:', error)
-    }
-  }
-
-  const copyInviteCode = async () => {
-    if (!organizationInviteCode) return
-    
-    try {
-      await navigator.clipboard.writeText(organizationInviteCode)
-      alert('Invite code copied to clipboard!')
-    } catch (error) {
-      console.error('Failed to copy invite code:', error)
-      alert('Failed to copy invite code. Please copy it manually.')
-    }
-  }
+    void loadProjects()
+  }, [])
 
   const loadProjects = async () => {
     try {
       setLoading(true)
-      
-      // Add a timeout for the database query
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database query timeout')), 10000)
-      )
-      
-      // Fetch ideas with ROI summaries and user info
-      const queryPromise = supabase
-        .from('ideas')
-        .select(`
-          *,
-          roi_summaries (*),
-          created_by_user:users!ideas_created_by_fkey (full_name)
-        `)
-        .order('created_at', { ascending: false })
-
-      const { data: ideas, error: ideasError } = await Promise.race([
-        queryPromise,
-        timeoutPromise
-      ]) as any
-
-      if (ideasError) {
-        console.error('Error loading projects:', ideasError)
-        return
-      }
-
-      // Transform the data to flatten ROI summary
-      const projectsWithROI: ProjectWithROI[] = (ideas || []).map((idea: any) => ({
-        ...idea,
-        roi_summary: idea.roi_summaries?.[0] || null,
-        created_by_user: idea.created_by_user
-      }))
-
-      setProjects(projectsWithROI)
-    } catch (error) {
-      console.error('Error loading projects:', error)
-      // Don't show error to user for now, just log it
+      setError(null)
+      const payload = await apiFetch<IdeaRecord[]>('/api/ideas')
+      setProjects(payload)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load ideas')
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredProjects = projects.filter(project => {
-    const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = !categoryFilter || project.category === categoryFilter
-    
-    // Map database fields to ROIMetrics interface
-    const roiMetrics = project.roi_summary
-      ? {
-          npv: project.roi_summary.npv || 0,
-          irr: project.roi_summary.irr || 0,
-          breakEvenMonth: project.roi_summary.break_even_month || 0,
-          paybackPeriod: project.roi_summary.payback_period || 0,
-          totalRevenue: 0, // Not stored in database, default to 0
-          totalCosts: 0, // Not stored in database, default to 0
-          contributionMarginPerUnit: 0,
-          profitPerUnit: 0,
-        }
-      : {
-          npv: 0,
-          irr: 0,
-          breakEvenMonth: 0,
-          paybackPeriod: 0,
-          totalRevenue: 0,
-          totalCosts: 0,
-          contributionMarginPerUnit: 0,
-          profitPerUnit: 0,
-        }
-    
-    const matchesStatus = !statusFilter || getROIStatus(roiMetrics) === statusFilter
-    
-    return matchesSearch && matchesCategory && matchesStatus
+  const filteredProjects = projects.filter((project) => {
+    const matchesSearch =
+      project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = !statusFilter || project.status === statusFilter
+    return matchesSearch && matchesStatus
   })
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'excellent': return 'bg-success-100 text-success-800'
-      case 'good': return 'bg-primary-100 text-primary-800'
-      case 'fair': return 'bg-warning-100 text-warning-800'
-      case 'poor': return 'bg-danger-100 text-danger-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const categories = Array.from(new Set(projects.map(p => p.category)))
-
   if (loading) {
-    return (
-      <LoadingSpinner 
-        message="Loading projects..." 
-        size="md"
-      />
-    )
+    return <LoadingSpinner message="Loading projects..." size="md" />
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Product Projects</h2>
-          <p className="text-gray-600">Manage and track your product ideas</p>
-        </div>
-        <div className="flex items-center space-x-4">
-          {userRole === 'admin' && organizationInviteCode && (
-            <div className="relative invite-code-dropdown">
-              <button
-                onClick={() => setShowInviteCode(!showInviteCode)}
-                className="btn-secondary text-sm"
-              >
-                {showInviteCode ? 'Hide' : 'Show'} Invite Code
-              </button>
-              
-              {showInviteCode && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-10">
-                  <h4 className="font-medium text-gray-900 mb-2">Organization Invite Code</h4>
-                  <p className="text-sm text-gray-600 mb-3">
-                    Share this code with team members to let them join your organization.
-                  </p>
-                  <div className="flex items-center space-x-2 mb-3">
-                    <input
-                      type="text"
-                      value={organizationInviteCode}
-                      readOnly
-                      className="flex-1 input-field bg-gray-50 text-sm"
-                    />
-                    <button
-                      onClick={copyInviteCode}
-                      className="btn-secondary px-3 py-2 text-sm"
-                    >
-                      Copy
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setShowInviteCode(false)}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    Close
-                  </button>
-                </div>
-              )}
+    <div className="space-y-8">
+      <section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-900 px-8 py-10 text-white shadow-2xl">
+        <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.35),_transparent_55%)]" />
+        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl space-y-4">
+            <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-100">
+              Local ROI Workspace
+            </span>
+            <div className="space-y-3">
+              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Shape product bets with a fast local workflow.</h2>
+              <p className="max-w-xl text-sm text-slate-200 sm:text-base">
+                Ideas, forecasts, costs, and ROI live in your local SQLite app now. Start new concepts quickly and keep the financial story in one place.
+              </p>
             </div>
-          )}
-          
-          <button
-            onClick={onCreateNew}
-            className="btn-primary"
-          >
-            Create New Project
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="card">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="search" className="form-label">Search</label>
-            <input
-              id="search"
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search projects..."
-              className="input-field"
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatCard label="Ideas" value={String(projects.length)} />
+            <StatCard
+              label="Approved"
+              value={String(projects.filter((project) => project.status === 'approved').length)}
             />
-          </div>
-          
-          <div>
-            <label htmlFor="category" className="form-label">Category</label>
-            <select
-              id="category"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="input-field"
+            <button
+              onClick={onCreateNew}
+              className="rounded-2xl border border-cyan-300/40 bg-cyan-400/15 px-5 py-4 text-left transition hover:bg-cyan-400/25"
             >
-              <option value="">All Categories</option>
-              {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
+              <div className="text-xs uppercase tracking-[0.22em] text-cyan-100">Action</div>
+              <div className="mt-1 text-lg font-semibold">Create idea</div>
+            </button>
           </div>
-          
+        </div>
+      </section>
+
+      <section className="card space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <label htmlFor="status" className="form-label">ROI Status</label>
+            <h2 className="text-2xl font-semibold text-slate-900">Project pipeline</h2>
+            <p className="text-sm text-slate-500">Review active concepts and jump directly into forecasts, costs, and ROI.</p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="input-field min-w-[240px]"
+              placeholder="Search title or description"
+            />
             <select
-              id="status"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="input-field"
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="input-field min-w-[180px]"
             >
-              <option value="">All Statuses</option>
-              <option value="excellent">Excellent</option>
-              <option value="good">Good</option>
-              <option value="fair">Fair</option>
-              <option value="poor">Poor</option>
+              <option value="">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="in_review">In review</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="archived">Archived</option>
             </select>
           </div>
         </div>
-      </div>
 
-      {/* Projects Grid */}
-      {filteredProjects.length === 0 ? (
-        <div className="card text-center py-12">
-          <div className="text-gray-500">
-            {projects.length === 0 ? (
-              <>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
-                <p className="mb-4">Get started by creating your first product idea</p>
-                <button onClick={onCreateNew} className="btn-primary">
-                  Create Your First Project
-                </button>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No projects match your filters</h3>
-                <p>Try adjusting your search criteria</p>
-              </>
-            )}
+        {error && (
+          <div className="rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+            {error}
           </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => {
-            // Map database fields to ROIMetrics interface for status calculation
-            const roiMetrics = project.roi_summary
-              ? {
-                  npv: project.roi_summary.npv || 0,
-                  irr: project.roi_summary.irr || 0,
-                  breakEvenMonth: project.roi_summary.break_even_month || 0,
-                  paybackPeriod: project.roi_summary.payback_period || 0,
-                  totalRevenue: 0, // Not stored in database, default to 0
-                  totalCosts: 0, // Not stored in database, default to 0
-                  contributionMarginPerUnit: 0,
-                  profitPerUnit: 0,
-                }
-              : {
-                  npv: 0,
-                  irr: 0,
-                  breakEvenMonth: 0,
-                  paybackPeriod: 0,
-                  totalRevenue: 0,
-                  totalCosts: 0,
-                  contributionMarginPerUnit: 0,
-                  profitPerUnit: 0,
-                }
-            
-            const status = getROIStatus(roiMetrics)
+        )}
 
-            return (
-              <Link key={project.id} href={`/products/${project.id}`} className="card hover:shadow-md transition-shadow cursor-pointer block no-underline">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
-                    {project.title}
-                  </h3>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </span>
-                </div>
-                
-                <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                  {project.description}
-                </p>
-                
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Category:</span>
-                    <span className="font-medium">{project.category}</span>
+        {filteredProjects.length === 0 ? (
+          <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-8 py-12 text-center">
+            <h3 className="text-xl font-semibold text-slate-900">No ideas yet</h3>
+            <p className="mt-2 text-sm text-slate-500">Start with a new product concept and flesh it out with forecasts and cost models.</p>
+            <button onClick={onCreateNew} className="btn-primary mt-6 max-w-xs">
+              Create your first idea
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-5 xl:grid-cols-2">
+            {filteredProjects.map((project) => (
+              <Link
+                key={project.id}
+                href={`/products/${project.id}`}
+                className="group rounded-[26px] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
+                      {project.status.replace('_', ' ')}
+                    </span>
+                    <h3 className="text-xl font-semibold text-slate-900 transition group-hover:text-primary-700">
+                      {project.title}
+                    </h3>
+                    <p className="line-clamp-3 text-sm text-slate-600">{project.description}</p>
                   </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Created by:</span>
-                    <span className="font-medium">{project.created_by_user?.full_name || 'Unknown'}</span>
-                  </div>
-                  
-                  {project.roi_summary && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">NPV:</span>
-                        <span className={`font-medium ${project.roi_summary.npv >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
-                          {formatCurrency(project.roi_summary.npv)}
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">IRR:</span>
-                        <span className={`font-medium ${project.roi_summary.irr >= 0.15 ? 'text-success-600' : project.roi_summary.irr >= 0.10 ? 'text-warning-600' : 'text-danger-600'}`}>
-                          {formatPercentage(project.roi_summary.irr)}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
-                    <span className="text-primary-600 hover:text-primary-700">View Details →</span>
-                  </div>
-                  {userRole === 'admin' && project.status === 'pending' && (
-                    <div className="flex space-x-2 mt-2">
-                      <button
-                        onClick={async (e) => {
-                          e.preventDefault()
-                          await fetch('/api/update-idea-status', {
-                            method: 'POST',
-                            body: JSON.stringify({ ideaId: project.id, status: 'approved' })
-                          })
-                          loadProjects()
-                        }}
-                        className="btn-primary btn-sm"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={async (e) => {
-                          e.preventDefault()
-                          await fetch('/api/update-idea-status', {
-                            method: 'POST',
-                            body: JSON.stringify({ ideaId: project.id, status: 'archived' })
-                          })
-                          loadProjects()
-                        }}
-                        className="btn-secondary btn-sm"
-                      >
-                        Archive
-                      </button>
+                  <div className="rounded-2xl bg-slate-950 px-4 py-3 text-right text-white">
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-slate-300">NPV</div>
+                    <div className="mt-1 text-lg font-semibold">
+                      {project.roiSummary ? formatCurrency(project.roiSummary.npv) : 'Pending'}
                     </div>
-                  )}
+                  </div>
+                </div>
+                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  <MetaChip label="Category" value={project.category} />
+                  <MetaChip
+                    label="IRR"
+                    value={project.roiSummary ? `${(project.roiSummary.irr * 100).toFixed(1)}%` : 'Pending'}
+                  />
+                  <MetaChip label="Owner" value={project.owner.fullName} />
                 </div>
               </Link>
-            )
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
-} 
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/15 bg-white/10 px-5 py-4 backdrop-blur">
+      <div className="text-xs uppercase tracking-[0.22em] text-slate-300">{label}</div>
+      <div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+    </div>
+  )
+}
+
+function MetaChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-4 py-3">
+      <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-medium text-slate-900">{value}</div>
+    </div>
+  )
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value)
+}

@@ -1,210 +1,190 @@
-# Product Requirements Document (PRD)
+# Product Requirements Document
 
-## Title: New Product Feasibility & ROI Evaluation Tool  
-**Owner**: Tyler Whitlock  
-**Version**: 0.3 - Schema & Wireframes  
-**Date**: 2025-06-28  
+## Title: Product ROI Tool, Local SQLite Edition
+**Owner**: Tyler Whitlock
+**Version**: 1.0
+**Date**: 2026-03-16
 
 ---
 
 ## 1. Overview
-This web app enables product owners and cross-functional teams to assess the viability of new product ideas in a consistent, data-driven, and collaborative manner. It walks the user through defining the product, forecasting sales, estimating costs, and calculating ROI metrics such as NPV and IRR to support prioritization decisions.
+This application helps a small internal team evaluate product ideas with a consistent local workflow. Users log in with seeded local credentials, define the concept, add revenue forecasts, build cost estimates, and save ROI summaries from a single Next.js app backed by SQLite.
 
 ---
 
 ## 2. Objectives
-- Enable teams to **log and define new product ideas** consistently.  
-- Provide tools to **forecast revenue** across customers, channels, and time.  
-- Allow users to **estimate all costs** involved (tooling, materials, marketing, etc.).  
-- Automatically calculate **financial metrics**: ROI, IRR, NPV, and break-even point.  
-- Enable comparison and prioritization of multiple projects.  
-- Support **collaborative input** (engineering, sales, finance) with visibility into assumptions.  
-- Implement **secure multi-tenant access** using Supabase Row-Level Security (RLS).  
+- Make the app easy to run locally with no third-party backend dependency.
+- Keep idea intake, forecasting, cost modeling, and ROI analysis in one workflow.
+- Support a lightweight admin role for managing activity rates.
+- Preserve collaboration across seeded users without multi-organization overhead.
+- Keep setup simple enough for demos and self-hosted local use.
 
 ---
 
-## 3. Key Features and Modules (MVP Scope)
+## 3. MVP Scope
 
-### 3.1 Authentication and Access Control
-- Use **Supabase Auth** for user management (sign-up/login/reset password).
-- Implement **organizations**: each user is assigned to one organization.
-- Enforce **row-level security** so users only access data from their organization.
+### 3.1 Authentication
+- Local username/password login.
+- Signed cookie-based sessions.
+- Seeded admin and member accounts.
 
-### 3.2 Organization & User Management
-- Users can:
-  - Join an organization with an invite code or admin approval.
-  - View other users in their organization.
-  - Add/remove users (admin only).
-
-### 3.3 Product Idea Submission
-- Create and edit a product idea with the following fields:
+### 3.2 Product Idea Submission
+- Create and edit a product idea with:
   - Title
   - Description
-  - Product category / type
+  - Category
   - Positioning statement
   - Required attributes
   - Competitor overview
+  - Status
 
-### 3.4 Sales Forecast Input
-- Add basic forecasts with:
-  - Customer or channel name
-  - Monthly expected volume
-  - Ramp-up period (optional)
-  - Forecast contributor role (Sales, Finance, etc.)
+### 3.3 Sales Forecasting
+- Add and edit forecasts with:
+  - Channel or customer
+  - Contributor role
+  - Monthly unit and price rows
+  - Quick level-loaded forecast generation
 
-### 3.5 Cost Forecast Input
-- Enter estimates for:
-  - BOM (simple line items)
+### 3.4 Cost Modeling
+- Add and edit cost estimates with:
+  - BOM parts
+  - Labor entries tied to activity rates
   - Tooling cost
-  - Engineering time (in hours)
-  - Marketing & Launch budget
-  - PPC budget
+  - Engineering hours
+  - Marketing budget
+  - Marketing cost per unit
+  - CAC per unit
+  - Overhead rate
+  - Support time percentage
 
-### 3.6 ROI Summary Calculation
-- Backend logic for:
-  - NPV (configurable discount rate)
+### 3.5 ROI Summary
+- Calculate and save:
+  - NPV
   - IRR
-  - Break-even point (months & units)
+  - Break-even month
+  - Payback period
+  - Contribution margin per unit
+  - Profit per unit
 
-### 3.7 Project Dashboard
-- List of submitted projects with:
-  - High-level summary (Title, Owner, ROI, NPV, IRR)
-  - Search and filter by owner, status, or category
+### 3.6 Admin Workspace
+- View seeded users.
+- Manage activity rates used in labor costing.
 
 ---
 
-## 4. Database Schema
+## 4. Data Model
 
 ### Tables
-1. **organizations**
-   - id (PK)
-   - name
-   - invite_code
-   - created_at
-
-2. **users**
-   - id (PK - Supabase UUID)
+1. **User**
+   - id
    - email
-   - full_name
-   - organization_id (FK)
-   - role (admin, member)
-   - created_at
+   - fullName
+   - passwordHash
+   - role
+   - isActive
+   - createdAt
 
-3. **ideas**
-   - id (PK)
-   - organization_id (FK)
+2. **Idea**
+   - id
    - title
    - description
    - category
-   - positioning_statement
-   - required_attributes
-   - competitor_overview
-   - created_by (FK to users)
-   - created_at
+   - status
+   - positioningStatement
+   - requiredAttributes
+   - competitorOverview
+   - createdById
+   - createdAt
+   - updatedAt
 
-4. **sales_forecasts**
-   - id (PK)
-   - idea_id (FK)
-   - contributor_id (FK to users)
-   - contributor_role
-   - channel_or_customer
-   - monthly_volume_estimate (JSON: month:value)
-   - created_at
+3. **SalesForecast**
+   - id
+   - ideaId
+   - contributorId
+   - contributorRole
+   - channelOrCustomer
+   - monthlyVolumeEstimate
+   - createdAt
+   - updatedAt
 
-5. **cost_estimates**
-   - id (PK)
-   - idea_id (FK)
-   - tooling_cost
-   - engineering_hours
-   - marketing_budget
-   - marketing_cost_per_unit
-   - overhead_rate
-   - support_time_pct
-   - ppc_budget
-   - created_by (FK to users)
-   - created_at
+4. **CostEstimate**
+   - id
+   - ideaId
+   - toolingCost
+   - engineeringHours
+   - marketingBudget
+   - marketingCostPerUnit
+   - overheadRate
+   - supportTimePct
+   - ppcBudget
+   - createdById
+   - createdAt
+   - updatedAt
 
-6. **bom_parts**
-   - id (PK)
-   - cost_estimate_id (FK)
+5. **BomPart**
+   - id
+   - costEstimateId
    - item
-   - unit_cost
+   - unitCost
    - quantity
-   - created_at
+   - cashEffect
+   - createdAt
 
-7. **labor_entries**
-   - id (PK)
-   - cost_estimate_id (FK)
-   - activity_id (FK to activity_rates)
+6. **LaborEntry**
+   - id
+   - costEstimateId
+   - activityId
    - hours
    - minutes
    - seconds
-   - created_at
+   - createdAt
 
-8. **activity_rates**
-   - id (PK)
-   - organization_id (FK)
-   - activity_name
-   - rate_per_hour
-   - created_at
-9. **roi_summaries** (optional - could be calculated on-the-fly)
-   - id (PK)
-   - idea_id (FK)
+7. **ActivityRate**
+   - id
+   - activityName
+   - ratePerHour
+   - createdAt
+   - updatedAt
+
+8. **RoiSummary**
+   - id
+   - ideaId
    - npv
    - irr
-   - break_even_month
-   - payback_period
-   - contribution_margin_per_unit
-   - profit_per_unit
-   - assumptions (JSON)
-   - created_at
-
-### RLS Policies
-- Ensure users can only access records tied to their `organization_id`
-- Admin-only permission for managing users
+   - breakEvenMonth
+   - paybackPeriod
+   - contributionMarginPerUnit
+   - profitPerUnit
+   - assumptions
+   - createdAt
+   - updatedAt
 
 ---
 
-## 5. UX/UI Flow (MVP)
-
-1. **Sign-up & Organization Creation**
-   - User creates org or joins via invite
-
-2. **Dashboard View**
-   - List of product ideas
-   - Filter/search by status, category, owner
-
-3. **Idea Entry Wizard**
-   - Step 1: Product Info (title, desc, positioning)
-   - Step 2: Forecast Builder (channels/customers)
-   - Step 3: Cost Estimator (tooling, marketing, etc.)
-   - Step 4: ROI Summary (auto-calculated + editable assumptions)
-
-4. **Collaboration & Export**
-   - Team members view/edit own forecasts
-   - Admins approve/finalize
-   - Export PDF or shareable link
+## 5. UX Flow
+1. User logs in with a seeded local account.
+2. Dashboard lists all ideas with summary ROI context.
+3. User creates a new idea through the three-step form.
+4. User opens the detail view to:
+   - edit overview
+   - add forecasts
+   - add cost estimates
+   - save ROI summary
+5. Admin can review users and update activity rates.
 
 ---
 
-## 6. MVP Milestones
-
-| Milestone                      | Target Date | Owner        |
-|-------------------------------|-------------|--------------|
-| Supabase Schema Setup         | Jun 29      | Tyler        |
-| Auth & RLS Configured         | Jun 29      | Tyler        |
-| Org/User Management UI        | Jun 30      | Tyler        |
-| Idea Submission UI            | Jul 1       | Tyler        |
-| Forecast & Cost Entry Modules | Jul 2       | Tyler        |
-| ROI Calculation & Dashboard   | Jul 3       | Tyler        |
-| Final Styling + Vercel Deploy | Jul 4       | Tyler        |
+## 6. Non-Goals
+- Multi-organization support
+- Invite-code flows
+- Public submission pages
+- Password reset flows
+- Hosted auth providers
 
 ---
 
-## 7. KPIs for Success (MVP)
-- # of orgs created and product ideas logged  
-- # of unique users submitting forecasts  
-- Time to complete one product evaluation  
-- Shared demo links or exported summaries  
-- # of product prioritization decisions informed by tool
-
+## 7. Success Criteria
+- Local install requires only env setup, Prisma sync, seed, and `npm run dev`.
+- Admin and member seeded accounts can log in successfully.
+- A user can create an idea, add forecast and cost data, and save ROI.
+- Activity rates can be managed without touching the database manually.
