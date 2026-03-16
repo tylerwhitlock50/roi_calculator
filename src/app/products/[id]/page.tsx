@@ -1034,7 +1034,7 @@ export default function ProductDetailPage() {
                     <FieldNumber
                       id="cost-engineering-hours"
                       label="Engineering hours to launch"
-                      hint="Use this for the planned engineering effort associated with the launch."
+                      hint="Tracked for planning today. This field does not yet convert into ROI cash flow dollars."
                       value={costForm.engineeringHours}
                       min={0}
                       step={0.25}
@@ -1199,7 +1199,7 @@ export default function ProductDetailPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-900">Labor entries</h3>
-                        <p className="mt-1 text-xs text-slate-500">Choose a rate card and enter the time needed for that activity.</p>
+                        <p className="mt-1 text-xs text-slate-500">Choose a rate card and enter the direct labor time required for one finished unit.</p>
                       </div>
                       <button
                         type="button"
@@ -1214,7 +1214,7 @@ export default function ProductDetailPage() {
                         <div className="mb-3 flex items-start justify-between gap-3">
                           <div>
                             <h4 className="text-sm font-semibold text-slate-900">Labor row {index + 1}</h4>
-                            <p className="mt-1 text-xs text-slate-500">Select the work type and enter the time required for one unit or task block.</p>
+                            <p className="mt-1 text-xs text-slate-500">Select the work type and enter the time required to produce one finished unit.</p>
                           </div>
                           <button
                             type="button"
@@ -1613,10 +1613,11 @@ function ROICalculator({
                 <th className="px-4 py-3 font-medium">Sales</th>
                 <th className="px-4 py-3 font-medium">Marketing</th>
                 <th className="px-4 py-3 font-medium">CAC</th>
-                <th className="px-4 py-3 font-medium">Cost of sales</th>
+                <th className="px-4 py-3 font-medium">Materials</th>
                 <th className="px-4 py-3 font-medium">Labor</th>
                 <th className="px-4 py-3 font-medium">Overhead</th>
                 <th className="px-4 py-3 font-medium">Support</th>
+                <th className="px-4 py-3 font-medium">Tooling</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1631,6 +1632,7 @@ function ROICalculator({
                   <td className="px-4 py-3">{flow.labor ? formatCurrency(flow.labor) : '-'}</td>
                   <td className="px-4 py-3">{flow.overhead ? formatCurrency(flow.overhead) : '-'}</td>
                   <td className="px-4 py-3">{flow.support ? formatCurrency(flow.support) : '-'}</td>
+                  <td className="px-4 py-3">{flow.tooling ? formatCurrency(flow.tooling) : '-'}</td>
                 </tr>
               ))}
             </tbody>

@@ -90,7 +90,7 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="Blended price / unit" value={formatCurrency(unitEconomics.averageSellingPrice)} />
         <MetricCard label="Recurring contribution" value={formatCurrency(unitEconomics.contributionMarginPerUnit)} />
-        <MetricCard label="Launch cost / unit" value={formatCurrency(unitEconomics.upfrontCostPerUnit)} />
+        <MetricCard label="Upfront cost / unit" value={formatCurrency(unitEconomics.upfrontCostPerUnit)} />
         <MetricCard label="Profit / unit" value={formatCurrency(unitEconomics.profitPerUnit)} highlight={unitEconomics.profitPerUnit >= 0} />
         <MetricCard
           label="Profit margin"
@@ -170,7 +170,7 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
             Dealer or channel margin is not modeled as a separate input today. If you already net that out in the forecast price, this chart reflects it implicitly.
           </p>
           <p className="mt-3 leading-6">
-            Overhead and support follow the current ROI model assumptions, which apply those amounts per forecasted unit.
+            Overhead and support are derived from the modeled labor time and the saved support allocation percentage.
           </p>
         </div>
       </div>

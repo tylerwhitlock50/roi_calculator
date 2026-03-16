@@ -72,15 +72,18 @@ describe('roi calculations', () => {
     expect(calculateLaborCost(estimate.laborEntries)).toBe(75)
   })
 
-  it('keeps fixed launch labor as an upfront cost instead of diluting it across forecast units', () => {
+  it('treats modeled labor as recurring direct labor in monthly cash flow', () => {
     const estimate = buildEstimate()
     const forecasts = buildMonthlyForecasts(36, 200, 250)
 
     const calculations = calculateRoiMetrics(forecasts, [estimate])
 
-    expect(calculations.assumptions.upfrontLaborCost).toBe(75)
-    expect(calculations.cashFlows[0].labor).toBe(-75)
-    expect(calculations.cashFlows[1].labor).toBe(0)
+    expect(calculations.assumptions.upfrontLaborCost).toBe(0)
+    expect(calculations.cashFlows[0].labor).toBe(0)
+    expect(calculations.cashFlows[0].tooling).toBe(-50000)
+    expect(calculations.cashFlows[1].labor).toBe(-15000)
+    expect(calculations.cashFlows[1].marketing).toBe(-6500)
+    expect(calculations.cashFlows[1].cac).toBe(-1000)
   })
 
   it('builds a fully-loaded unit economics view from the blended price and latest cost model', () => {
@@ -89,6 +92,8 @@ describe('roi calculations', () => {
     estimate.marketingCostPerUnit = 3
     estimate.overheadRate = 10
     estimate.supportTimePct = 0.2
+    estimate.laborEntries[0].hours = 0
+    estimate.laborEntries[0].minutes = 15
     estimate.bomParts = [
       {
         id: 'bom-1',
@@ -104,11 +109,13 @@ describe('roi calculations', () => {
 
     expect(unitEconomics.averageSellingPrice).toBe(100)
     expect(unitEconomics.bomCostPerUnit).toBe(40)
-    expect(unitEconomics.allocatedMarketingPerUnit).toBe(5)
-    expect(unitEconomics.customerAcquisitionPerUnit).toBe(8)
-    expect(unitEconomics.launchLaborPerUnit).toBeCloseTo(0.375)
+    expect(unitEconomics.allocatedMarketingPerUnit).toBe(8)
+    expect(unitEconomics.customerAcquisitionPerUnit).toBe(5)
+    expect(unitEconomics.laborPerUnit).toBeCloseTo(6.25)
+    expect(unitEconomics.overheadPerUnit).toBeCloseTo(2.5)
+    expect(unitEconomics.supportPerUnit).toBeCloseTo(1.75)
     expect(unitEconomics.toolingPerUnit).toBe(5)
-    expect(unitEconomics.profitPerUnit).toBeCloseTo(29.625)
+    expect(unitEconomics.profitPerUnit).toBeCloseTo(31.5)
     expect(unitEconomics.canRenderSankey).toBe(true)
   })
 })
