@@ -57,16 +57,19 @@ model Idea {
 }
 
 model SalesForecast {
-  id                    String   @id @default(cuid())
-  ideaId                String
-  contributorId         String
-  contributorRole       String
-  channelOrCustomer     String
-  monthlyVolumeEstimate Json
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  idea                  Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  contributor           User     @relation(fields: [contributorId], references: [id], onDelete: Cascade)
+  id                             String   @id @default(cuid())
+  ideaId                         String
+  contributorId                  String
+  contributorRole                String
+  channelOrCustomer              String
+  monthlyMarketingSpend          Float    @default(0)
+  marketingCostPerUnit           Float    @default(0)
+  customerAcquisitionCostPerUnit Float    @default(0)
+  monthlyVolumeEstimate          Json
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+  idea                           Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  contributor                    User     @relation(fields: [contributorId], references: [id], onDelete: Cascade)
 
   @@index([ideaId, createdAt])
   @@index([contributorId])
@@ -97,11 +100,8 @@ model CostEstimate {
   toolingCost            Float        @default(0)
   engineeringHours       Float        @default(0)
   engineeringRatePerHour Float        @default(125)
-  marketingBudget        Float        @default(0)
-  marketingCostPerUnit   Float        @default(0)
   overheadRate           Float        @default(60)
   supportTimePct         Float        @default(0.2)
-  ppcBudget              Float        @default(0)
   createdById            String
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt

@@ -9,13 +9,23 @@ import {
   calculateUnitEconomics,
 } from '@/lib/roi-calculations'
 
-function buildForecast(month: string, units: number, price: number): ForecastRecord {
+function buildForecast(
+  month: string,
+  units: number,
+  price: number,
+  channelEconomics: Partial<
+    Pick<ForecastRecord, 'monthlyMarketingSpend' | 'marketingCostPerUnit' | 'customerAcquisitionCostPerUnit'>
+  > = {}
+): ForecastRecord {
   return {
     id: `forecast-${month}`,
     ideaId: 'idea-1',
     contributorId: 'user-1',
     contributorRole: 'Sales',
     channelOrCustomer: 'Direct',
+    monthlyMarketingSpend: channelEconomics.monthlyMarketingSpend ?? 500,
+    marketingCostPerUnit: channelEconomics.marketingCostPerUnit ?? 30,
+    customerAcquisitionCostPerUnit: channelEconomics.customerAcquisitionCostPerUnit ?? 5,
     monthlyVolumeEstimate: [{ month_date: month, units, price }],
     createdAt: '2026-03-16T00:00:00.000Z',
     contributor: {
@@ -33,11 +43,8 @@ function buildEstimate(): CostEstimateRecord {
     toolingCost: 50000,
     engineeringHours: 85,
     engineeringRatePerHour: 0,
-    marketingBudget: 500,
-    marketingCostPerUnit: 30,
     overheadRate: 60,
     supportTimePct: 0.2,
-    ppcBudget: 5,
     createdAt: '2026-03-16T00:00:00.000Z',
     createdById: 'user-1',
     contributor: {
@@ -64,11 +71,18 @@ function buildEstimate(): CostEstimateRecord {
   }
 }
 
-function buildMonthlyForecasts(count: number, units: number, price: number): ForecastRecord[] {
+function buildMonthlyForecasts(
+  count: number,
+  units: number,
+  price: number,
+  channelEconomics: Partial<
+    Pick<ForecastRecord, 'monthlyMarketingSpend' | 'marketingCostPerUnit' | 'customerAcquisitionCostPerUnit'>
+  > = {}
+): ForecastRecord[] {
   return Array.from({ length: count }, (_, index) => {
     const year = 2026 + Math.floor(index / 12)
     const month = String((index % 12) + 1).padStart(2, '0')
-    return buildForecast(`${year}-${month}`, units, price)
+    return buildForecast(`${year}-${month}`, units, price, channelEconomics)
   })
 }
 
@@ -98,14 +112,17 @@ describe('roi calculations', () => {
     estimate.toolingCost = 1000
     estimate.engineeringHours = 10.5
     estimate.engineeringRatePerHour = 120
-    estimate.marketingBudget = 0
-    estimate.marketingCostPerUnit = 0
     estimate.overheadRate = 0
     estimate.supportTimePct = 0
-    estimate.ppcBudget = 0
     estimate.laborEntries = []
 
-    const forecasts = [buildForecast('2026-01', 100, 50)]
+    const forecasts = [
+      buildForecast('2026-01', 100, 50, {
+        monthlyMarketingSpend: 0,
+        marketingCostPerUnit: 0,
+        customerAcquisitionCostPerUnit: 0,
+      }),
+    ]
     const calculations = calculateRoiMetrics(forecasts, [estimate])
     const unitEconomics = calculateUnitEconomics(forecasts, [estimate])
 
@@ -119,11 +136,8 @@ describe('roi calculations', () => {
   it('aggregates cash flow totals and overall roi from the modeled cash flows', () => {
     const estimate = buildEstimate()
     estimate.toolingCost = 1000
-    estimate.marketingBudget = 100
-    estimate.marketingCostPerUnit = 5
     estimate.overheadRate = 20
     estimate.supportTimePct = 0.5
-    estimate.ppcBudget = 2
     estimate.laborEntries[0].hours = 1
     estimate.laborEntries[0].activity.ratePerHour = 10
     estimate.bomParts = [
@@ -136,7 +150,18 @@ describe('roi calculations', () => {
       },
     ]
 
-    const forecasts = [buildForecast('2026-01', 10, 50), buildForecast('2026-02', 10, 50)]
+    const forecasts = [
+      buildForecast('2026-01', 10, 50, {
+        monthlyMarketingSpend: 100,
+        marketingCostPerUnit: 5,
+        customerAcquisitionCostPerUnit: 2,
+      }),
+      buildForecast('2026-02', 10, 50, {
+        monthlyMarketingSpend: 100,
+        marketingCostPerUnit: 5,
+        customerAcquisitionCostPerUnit: 2,
+      }),
+    ]
     const calculations = calculateRoiMetrics(forecasts, [estimate])
 
     expect(calculations.totals.total).toBe(-1360)
@@ -154,7 +179,6 @@ describe('roi calculations', () => {
   it('builds a fully-loaded unit economics view from the blended price and latest cost model', () => {
     const estimate = buildEstimate()
     estimate.toolingCost = 1000
-    estimate.marketingCostPerUnit = 3
     estimate.overheadRate = 10
     estimate.supportTimePct = 0.2
     estimate.laborEntries[0].hours = 0
@@ -169,7 +193,18 @@ describe('roi calculations', () => {
       },
     ]
 
-    const forecasts = [buildForecast('2026-01', 100, 100), buildForecast('2026-02', 100, 100)]
+    const forecasts = [
+      buildForecast('2026-01', 100, 100, {
+        monthlyMarketingSpend: 500,
+        marketingCostPerUnit: 3,
+        customerAcquisitionCostPerUnit: 5,
+      }),
+      buildForecast('2026-02', 100, 100, {
+        monthlyMarketingSpend: 500,
+        marketingCostPerUnit: 3,
+        customerAcquisitionCostPerUnit: 5,
+      }),
+    ]
     const unitEconomics = calculateUnitEconomics(forecasts, [estimate])
 
     expect(unitEconomics.averageSellingPrice).toBe(100)
@@ -193,10 +228,8 @@ describe('roi calculations', () => {
   it('keeps the sankey available when the unit model is underwater', () => {
     const estimate = buildEstimate()
     estimate.toolingCost = 1000
-    estimate.marketingCostPerUnit = 12
     estimate.overheadRate = 25
     estimate.supportTimePct = 0.4
-    estimate.ppcBudget = 8
     estimate.laborEntries[0].hours = 1
     estimate.bomParts = [
       {
@@ -208,7 +241,18 @@ describe('roi calculations', () => {
       },
     ]
 
-    const forecasts = [buildForecast('2026-01', 100, 80), buildForecast('2026-02', 100, 80)]
+    const forecasts = [
+      buildForecast('2026-01', 100, 80, {
+        monthlyMarketingSpend: 500,
+        marketingCostPerUnit: 12,
+        customerAcquisitionCostPerUnit: 8,
+      }),
+      buildForecast('2026-02', 100, 80, {
+        monthlyMarketingSpend: 500,
+        marketingCostPerUnit: 12,
+        customerAcquisitionCostPerUnit: 8,
+      }),
+    ]
     const unitEconomics = calculateUnitEconomics(forecasts, [estimate])
 
     expect(unitEconomics.profitPerUnit).toBeLessThan(0)

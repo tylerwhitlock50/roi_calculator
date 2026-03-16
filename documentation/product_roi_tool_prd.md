@@ -42,6 +42,9 @@ This application helps a small internal team evaluate product ideas with a consi
 - Add and edit forecasts with:
   - Channel or customer
   - Contributor role
+  - Monthly channel marketing spend
+  - Variable marketing cost per unit
+  - CAC per unit
   - Monthly unit and price rows
   - Quick level-loaded forecast generation
 
@@ -52,9 +55,6 @@ This application helps a small internal team evaluate product ideas with a consi
   - Tooling cost
   - Engineering hours
   - Engineering rate per hour
-  - Marketing budget
-  - Marketing cost per unit
-  - CAC per unit
   - Overhead rate
   - Support time percentage
 
@@ -104,6 +104,9 @@ This application helps a small internal team evaluate product ideas with a consi
    - contributorId
    - contributorRole
    - channelOrCustomer
+   - monthlyMarketingSpend
+   - marketingCostPerUnit
+   - customerAcquisitionCostPerUnit
    - monthlyVolumeEstimate
    - createdAt
    - updatedAt
@@ -114,11 +117,8 @@ This application helps a small internal team evaluate product ideas with a consi
    - toolingCost
    - engineeringHours
    - engineeringRatePerHour
-   - marketingBudget
-   - marketingCostPerUnit
    - overheadRate
    - supportTimePct
-   - ppcBudget
    - createdById
    - createdAt
    - updatedAt

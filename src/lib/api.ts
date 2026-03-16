@@ -22,6 +22,9 @@ export type ForecastRecord = {
   contributorId: string
   contributorRole: string
   channelOrCustomer: string
+  monthlyMarketingSpend: number
+  marketingCostPerUnit: number
+  customerAcquisitionCostPerUnit: number
   monthlyVolumeEstimate: MonthlyForecast[]
   createdAt: string
   contributor: {
@@ -51,11 +54,8 @@ export type CostEstimateRecord = {
   toolingCost: number
   engineeringHours: number
   engineeringRatePerHour: number
-  marketingBudget: number
-  marketingCostPerUnit: number
   overheadRate: number
   supportTimePct: number
-  ppcBudget: number
   createdAt: string
   createdById: string
   contributor: {

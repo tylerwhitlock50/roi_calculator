@@ -14,6 +14,17 @@ function buildHtml(project: any, roi: any, cost: any) {
   const bomTable = bomRows
     ? `<h3>BOM</h3><table border="1" cellpadding="4" cellspacing="0"><tr><th>Item</th><th>Qty</th><th>Cost</th></tr>${bomRows}</table>`
     : ''
+  const forecastRows = Array.isArray(project?.forecasts)
+    ? project.forecasts
+        .map(
+          (forecast: any) =>
+            `<tr><td>${forecast.channelOrCustomer}</td><td>$${forecast.monthlyMarketingSpend ?? 0}</td><td>$${forecast.marketingCostPerUnit ?? 0}</td><td>$${forecast.customerAcquisitionCostPerUnit ?? 0}</td></tr>`
+        )
+        .join('')
+    : ''
+  const forecastTable = forecastRows
+    ? `<h3>Forecast Channel Economics</h3><table border="1" cellpadding="4" cellspacing="0"><tr><th>Channel</th><th>Monthly Spend</th><th>Marketing / Unit</th><th>CAC / Unit</th></tr>${forecastRows}</table>`
+    : ''
   const engineeringLaunchCost = calculateEngineeringLaunchCost(cost)
   return `
     <h2>${project.title}</h2>
@@ -27,13 +38,14 @@ function buildHtml(project: any, roi: any, cost: any) {
       <li>Break Even: ${roi.breakEvenMonth} months</li>
       <li>Payback Period: ${roi.paybackPeriod} years</li>
     </ul>
+    ${forecastTable}
     ${bomTable}
     <p><strong>Engineering Hours:</strong> ${cost?.engineeringHours ?? 0}</p>
     <p><strong>Engineering Rate / Hour:</strong> $${cost?.engineeringRatePerHour ?? 0}</p>
     <p><strong>Engineering Launch Cost:</strong> $${engineeringLaunchCost}</p>
     <p><strong>Tooling Cost:</strong> $${cost?.toolingCost ?? 0}</p>
-    <p><strong>Marketing Budget:</strong> $${cost?.marketingBudget ?? 0}</p>
-    <p><strong>PPC Budget:</strong> $${cost?.ppcBudget ?? 0}</p>
+    <p><strong>Overhead / Hour:</strong> $${cost?.overheadRate ?? 0}</p>
+    <p><strong>Support Time Allocation:</strong> ${((cost?.supportTimePct ?? 0) * 100).toFixed(1)}%</p>
   `
 }
 

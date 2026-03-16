@@ -38,6 +38,9 @@ const DEFAULT_ENGINEERING_RATE_PER_HOUR = 125
 type ForecastFormState = {
   channelOrCustomer: string
   contributorRole: string
+  monthlyMarketingSpend: BlankableNumber
+  marketingCostPerUnit: BlankableNumber
+  customerAcquisitionCostPerUnit: BlankableNumber
   monthlyVolumeEstimate: ForecastRowDraft[]
 }
 
@@ -51,11 +54,8 @@ type CostFormState = {
   toolingCost: BlankableNumber
   engineeringHours: BlankableNumber
   engineeringRatePerHour: BlankableNumber
-  marketingBudget: BlankableNumber
-  marketingCostPerUnit: BlankableNumber
   overheadRate: BlankableNumber
   supportTimePct: BlankableNumber
-  ppcBudget: BlankableNumber
 }
 
 type BomDraft = {
@@ -87,6 +87,9 @@ function createInitialForecastForm(): ForecastFormState {
   return {
     channelOrCustomer: '',
     contributorRole: '',
+    monthlyMarketingSpend: '',
+    marketingCostPerUnit: '',
+    customerAcquisitionCostPerUnit: '',
     monthlyVolumeEstimate: [createEmptyForecastRow()],
   }
 }
@@ -96,11 +99,8 @@ function createInitialCostForm(): CostFormState {
     toolingCost: '',
     engineeringHours: '',
     engineeringRatePerHour: DEFAULT_ENGINEERING_RATE_PER_HOUR,
-    marketingBudget: '',
-    marketingCostPerUnit: '',
     overheadRate: '',
     supportTimePct: '',
-    ppcBudget: '',
   }
 }
 
@@ -207,6 +207,9 @@ export default function ProductDetailPage() {
       setForecastForm({
         channelOrCustomer: forecast.channelOrCustomer,
         contributorRole: forecast.contributorRole,
+        monthlyMarketingSpend: forecast.monthlyMarketingSpend,
+        marketingCostPerUnit: forecast.marketingCostPerUnit,
+        customerAcquisitionCostPerUnit: forecast.customerAcquisitionCostPerUnit,
         monthlyVolumeEstimate: forecast.monthlyVolumeEstimate.length
           ? forecast.monthlyVolumeEstimate
           : createInitialForecastForm().monthlyVolumeEstimate,
@@ -246,12 +249,19 @@ export default function ProductDetailPage() {
         throw new Error('Each monthly row needs a month, positive units, and positive price')
       }
 
+      if (new Set(normalizedMonthlyVolumeEstimate.map((row) => row.month_date)).size !== normalizedMonthlyVolumeEstimate.length) {
+        throw new Error('Each forecast can only include one row per month')
+      }
+
       await apiFetch(`/api/ideas/${product.id}/forecasts`, {
         method: editingForecastId ? 'PATCH' : 'POST',
         body: JSON.stringify({
           forecastId: editingForecastId,
           contributorRole: forecastForm.contributorRole,
           channelOrCustomer: forecastForm.channelOrCustomer,
+          monthlyMarketingSpend: blankableNumberToNumber(forecastForm.monthlyMarketingSpend),
+          marketingCostPerUnit: blankableNumberToNumber(forecastForm.marketingCostPerUnit),
+          customerAcquisitionCostPerUnit: blankableNumberToNumber(forecastForm.customerAcquisitionCostPerUnit),
           monthlyVolumeEstimate: normalizedMonthlyVolumeEstimate,
         }),
       })
@@ -297,11 +307,8 @@ export default function ProductDetailPage() {
         toolingCost: estimate.toolingCost,
         engineeringHours: estimate.engineeringHours,
         engineeringRatePerHour: estimate.engineeringRatePerHour ?? DEFAULT_ENGINEERING_RATE_PER_HOUR,
-        marketingBudget: estimate.marketingBudget,
-        marketingCostPerUnit: estimate.marketingCostPerUnit,
         overheadRate: estimate.overheadRate,
         supportTimePct: estimate.supportTimePct,
-        ppcBudget: estimate.ppcBudget,
       })
       setBomParts(
         estimate.bomParts.length
@@ -347,11 +354,8 @@ export default function ProductDetailPage() {
         toolingCost: blankableNumberToNumber(costForm.toolingCost),
         engineeringHours: blankableNumberToNumber(costForm.engineeringHours),
         engineeringRatePerHour: blankableNumberToNumber(costForm.engineeringRatePerHour),
-        marketingBudget: blankableNumberToNumber(costForm.marketingBudget),
-        marketingCostPerUnit: blankableNumberToNumber(costForm.marketingCostPerUnit),
         overheadRate: blankableNumberToNumber(costForm.overheadRate),
         supportTimePct: blankableNumberToNumber(costForm.supportTimePct),
-        ppcBudget: blankableNumberToNumber(costForm.ppcBudget),
       }
       const normalizedBomParts = bomParts.map((part) => ({
         ...part,
@@ -748,7 +752,9 @@ export default function ProductDetailPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-slate-950">Sales forecasts</h2>
-                <p className="mt-2 text-sm text-slate-500">Capture contributor assumptions by channel or customer, then compare the combined revenue shape over time.</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Capture contributor assumptions by channel or customer, including route-to-market costs like channel marketing and CAC.
+                </p>
               </div>
               <button className="btn-primary sm:max-w-[220px]" onClick={() => openForecastModal()}>
                 Add forecast
@@ -784,6 +790,11 @@ export default function ProductDetailPage() {
                       </div>
                     </div>
                     <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
+                      <div className="grid gap-3 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:grid-cols-3">
+                        <Metric label="Monthly channel spend" value={formatCurrency(forecast.monthlyMarketingSpend)} />
+                        <Metric label="Marketing / unit" value={formatCurrency(forecast.marketingCostPerUnit)} />
+                        <Metric label="CAC / unit" value={formatCurrency(forecast.customerAcquisitionCostPerUnit)} />
+                      </div>
                       <table className="min-w-full divide-y divide-slate-200 text-sm">
                         <thead className="bg-slate-50 text-left text-slate-500">
                           <tr>
@@ -817,7 +828,7 @@ export default function ProductDetailPage() {
               >
                 <div className="space-y-4">
                   <p className="text-sm leading-6 text-slate-500">
-                    Name the account or channel, note whose forecast this is, and then enter the monthly units and selling price assumptions.
+                    Name the account or channel, capture any route-to-market costs tied to that revenue stream, and then enter the monthly units and price assumptions.
                   </p>
                   <div className="form-group">
                     <label className="form-label" htmlFor="forecast-channel">
@@ -854,6 +865,37 @@ export default function ProductDetailPage() {
                       }
                     />
                     <p className="text-xs text-slate-500">This helps explain whose assumptions are captured in this forecast.</p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <FieldNumber
+                      id="forecast-monthly-marketing-spend"
+                      label="Monthly channel marketing spend"
+                      hint="Fixed spend that runs while this forecast is active, like platform ads or dealer co-op support."
+                      value={forecastForm.monthlyMarketingSpend}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setForecastForm((current) => ({ ...current, monthlyMarketingSpend: value }))}
+                    />
+                    <FieldNumber
+                      id="forecast-marketing-per-unit"
+                      label="Variable marketing cost per unit"
+                      hint="Per-unit spend tied specifically to this channel or customer."
+                      value={forecastForm.marketingCostPerUnit}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setForecastForm((current) => ({ ...current, marketingCostPerUnit: value }))}
+                    />
+                    <FieldNumber
+                      id="forecast-cac-per-unit"
+                      label="Customer acquisition cost per unit"
+                      hint="Use this for PPC, affiliate, or channel acquisition costs unique to this forecast."
+                      value={forecastForm.customerAcquisitionCostPerUnit}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) =>
+                        setForecastForm((current) => ({ ...current, customerAcquisitionCostPerUnit: value }))
+                      }
+                    />
                   </div>
 
                   <div className="space-y-3">
@@ -1091,7 +1133,7 @@ export default function ProductDetailPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-slate-950">Cost estimates</h2>
-                <p className="mt-2 text-sm text-slate-500">Model BOM, labor, tooling, marketing, and customer acquisition cost in one view.</p>
+                <p className="mt-2 text-sm text-slate-500">Model product-driven costs like BOM, labor, tooling, overhead, and support in one view.</p>
               </div>
               <button className="btn-primary sm:max-w-[220px]" onClick={() => openCostModal()}>
                 Add cost estimate
@@ -1135,9 +1177,8 @@ export default function ProductDetailPage() {
                     <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                       <Metric label="Tooling" value={formatCurrency(estimate.toolingCost)} />
                       <Metric label="Eng launch" value={formatCurrency(calculateEngineeringLaunchCost(estimate))} />
-                      <Metric label="Marketing" value={formatCurrency(estimate.marketingBudget)} />
-                      <Metric label="CAC / Unit" value={formatCurrency(estimate.ppcBudget)} />
                       <Metric label="Overhead / Hr" value={formatCurrency(estimate.overheadRate)} />
+                      <Metric label="Support %" value={`${(estimate.supportTimePct * 100).toFixed(0)}%`} />
                     </div>
 
                     <div className="mt-6">
@@ -1152,7 +1193,7 @@ export default function ProductDetailPage() {
               <Modal onClose={closeCostModal} title={editingCostId ? 'Edit cost estimate' : 'Add cost estimate'}>
                 <div className="space-y-6">
                   <p className="text-sm leading-6 text-slate-500">
-                    Enter the one-time costs, per-unit costs, and labor assumptions that should feed this ROI model.
+                    Enter the product-specific costs and labor assumptions that should feed this ROI model.
                   </p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FieldNumber
@@ -1181,33 +1222,6 @@ export default function ProductDetailPage() {
                       min={0}
                       step={0.01}
                       onChange={(value) => setCostForm((current) => ({ ...current, engineeringRatePerHour: value }))}
-                    />
-                    <FieldNumber
-                      id="cost-marketing-budget"
-                      label="Monthly marketing budget"
-                      hint="Fixed marketing spend expected each month while the product is selling."
-                      value={costForm.marketingBudget}
-                      min={0}
-                      step={0.01}
-                      onChange={(value) => setCostForm((current) => ({ ...current, marketingBudget: value }))}
-                    />
-                    <FieldNumber
-                      id="cost-marketing-per-unit"
-                      label="Variable marketing cost per unit"
-                      hint="Additional marketing cost that scales with each unit sold."
-                      value={costForm.marketingCostPerUnit}
-                      min={0}
-                      step={0.01}
-                      onChange={(value) => setCostForm((current) => ({ ...current, marketingCostPerUnit: value }))}
-                    />
-                    <FieldNumber
-                      id="cost-cac-per-unit"
-                      label="Paid acquisition cost per unit"
-                      hint="Use this for PPC, affiliate, or channel acquisition cost allocated to each unit sold."
-                      value={costForm.ppcBudget}
-                      min={0}
-                      step={0.01}
-                      onChange={(value) => setCostForm((current) => ({ ...current, ppcBudget: value }))}
                     />
                     <FieldNumber
                       id="cost-overhead-rate"
@@ -1800,7 +1814,7 @@ function CostSummary({ costEstimates }: { costEstimates: CostEstimateRecord[] })
       <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Latest estimate</div>
       <div className="mt-2 text-3xl font-semibold text-primary-700">{formatCurrency(total)}</div>
       <p className="mt-1 text-sm text-slate-500">
-        Includes tooling, launch engineering labor, BOM, marketing, and CAC assumptions from the latest saved estimate.
+        Includes tooling, launch engineering labor, BOM, and modeled manufacturing/support assumptions from the latest saved estimate.
       </p>
     </div>
   )

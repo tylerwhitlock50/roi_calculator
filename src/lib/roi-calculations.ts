@@ -29,10 +29,12 @@ type RoiCalculations = {
 }
 
 type ForecastSalesSummary = {
-  salesByMonth: Record<string, { units: number; sales: number }>
+  salesByMonth: Record<string, { units: number; sales: number; marketing: number; cac: number }>
   months: string[]
   totalUnits: number
   totalRevenue: number
+  totalMarketing: number
+  totalCac: number
   averagePrice: number
 }
 
@@ -149,7 +151,7 @@ export function calculateEngineeringLaunchCost(
 }
 
 function summarizeForecastSales(forecasts: ForecastRecord[]): ForecastSalesSummary {
-  const salesByMonth: Record<string, { units: number; sales: number }> = {}
+  const salesByMonth: Record<string, { units: number; sales: number; marketing: number; cac: number }> = {}
 
   for (const forecast of forecasts) {
     for (const month of forecast.monthlyVolumeEstimate) {
@@ -158,11 +160,13 @@ function summarizeForecastSales(forecasts: ForecastRecord[]): ForecastSalesSumma
       }
 
       if (!salesByMonth[month.month_date]) {
-        salesByMonth[month.month_date] = { units: 0, sales: 0 }
+        salesByMonth[month.month_date] = { units: 0, sales: 0, marketing: 0, cac: 0 }
       }
 
       salesByMonth[month.month_date].units += month.units
       salesByMonth[month.month_date].sales += month.units * month.price
+      salesByMonth[month.month_date].marketing += forecast.monthlyMarketingSpend + forecast.marketingCostPerUnit * month.units
+      salesByMonth[month.month_date].cac += forecast.customerAcquisitionCostPerUnit * month.units
     }
   }
 
@@ -171,9 +175,11 @@ function summarizeForecastSales(forecasts: ForecastRecord[]): ForecastSalesSumma
     (summary, month) => {
       summary.totalUnits += month.units
       summary.totalRevenue += month.sales
+      summary.totalMarketing += month.marketing
+      summary.totalCac += month.cac
       return summary
     },
-    { totalUnits: 0, totalRevenue: 0 }
+    { totalUnits: 0, totalRevenue: 0, totalMarketing: 0, totalCac: 0 }
   )
 
   return {
@@ -181,6 +187,8 @@ function summarizeForecastSales(forecasts: ForecastRecord[]): ForecastSalesSumma
     months,
     totalUnits: totals.totalUnits,
     totalRevenue: totals.totalRevenue,
+    totalMarketing: totals.totalMarketing,
+    totalCac: totals.totalCac,
     averagePrice: totals.totalUnits > 0 ? totals.totalRevenue / totals.totalUnits : 0,
   }
 }
@@ -340,10 +348,8 @@ function buildUnitEconomicsFromSummary(
   const laborPerUnit = totalLaborCost
   const overheadPerUnit = totalLaborHours * (estimate?.overheadRate ?? 0)
   const supportPerUnit = (estimate?.supportTimePct ?? 0) * (laborPerUnit + overheadPerUnit)
-  const customerAcquisitionPerUnit = estimate?.ppcBudget ?? 0
-  const allocatedMarketingPerUnit =
-    (salesSummary.totalUnits > 0 ? ((estimate?.marketingBudget ?? 0) * salesSummary.months.length) / salesSummary.totalUnits : 0) +
-    (estimate?.marketingCostPerUnit ?? 0)
+  const customerAcquisitionPerUnit = salesSummary.totalUnits > 0 ? salesSummary.totalCac / salesSummary.totalUnits : 0
+  const allocatedMarketingPerUnit = salesSummary.totalUnits > 0 ? salesSummary.totalMarketing / salesSummary.totalUnits : 0
   const toolingPerUnit = salesSummary.totalUnits > 0 ? upfrontToolingCost / salesSummary.totalUnits : 0
   const upfrontCostPerUnit = toolingPerUnit
   const recurringCostPerUnit =
@@ -435,7 +441,7 @@ function buildUnitEconomicsFromSummary(
     usesOtherBomBucket: bomParts.length > 6,
     canRenderSankey: salesSummary.averagePrice > 0 && (recurringCostPerUnit > 0 || upfrontCostPerUnit > 0 || profitPerUnit !== 0),
     note:
-      'Selling price is the weighted average across saved forecast rows. Marketing blends fixed monthly spend plus any per-unit marketing cost. Labor entries are treated as direct labor per unit, while overhead and support scale from the modeled labor time. Engineering launch hours are monetized and rolled into upfront tooling. When the unit is underwater, the Sankey adds a funding-needed source so the shortfall still maps across the cost buckets.',
+      'Selling price is the weighted average across saved forecast rows. Marketing and CAC are blended from the saved forecast channel assumptions, including fixed monthly spend and per-unit selling costs. Labor entries are treated as direct labor per unit, while overhead and support scale from the modeled labor time. Engineering launch hours are monetized and rolled into upfront tooling. When the unit is underwater, the Sankey adds a funding-needed source so the shortfall still maps across the cost buckets.',
   }
 }
 
@@ -443,7 +449,7 @@ export function calculateTotalEstimateCost(estimate: CostEstimateRecord): number
   const bom = estimate.bomParts.reduce((sum, part) => sum + part.unitCost * part.quantity, 0)
   const labor = calculateLaborCost(estimate.laborEntries)
   const engineeringLaunchCost = calculateEngineeringLaunchCost(estimate)
-  return estimate.toolingCost + engineeringLaunchCost + estimate.marketingBudget + estimate.ppcBudget + bom + labor
+  return estimate.toolingCost + engineeringLaunchCost + bom + labor
 }
 
 export function calculateUnitEconomics(
@@ -472,9 +478,6 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
   const upfrontCost = upfrontToolingCost + upfrontEngineeringCost
   const overheadRate = estimate?.overheadRate ?? 60
   const supportPct = estimate?.supportTimePct ?? 0.2
-  const marketingPerMonth = estimate?.marketingBudget ?? 0
-  const acquisitionCostPerUnit = estimate?.ppcBudget ?? 0
-  const marketingCostPerUnit = estimate?.marketingCostPerUnit ?? 0
   const overheadPerUnit = laborHoursPerUnit * overheadRate
   const supportPerUnit = supportPct * (laborCostPerUnit + overheadPerUnit)
 
@@ -496,9 +499,9 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
   for (const month of months) {
     const sales = salesByMonth[month].sales
     const units = salesByMonth[month].units
+    const marketing = -salesByMonth[month].marketing
+    const cac = -salesByMonth[month].cac
     const costOfSales = -(bomUnitCost * units)
-    const marketing = -(marketingPerMonth + marketingCostPerUnit * units)
-    const cac = -(acquisitionCostPerUnit * units)
     const labor = -(laborCostPerUnit * units)
     const overhead = -(overheadPerUnit * units)
     const support = -(supportPerUnit * units)
@@ -597,9 +600,10 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
     recurringCostPerUnit: Number(unitEconomics.recurringCostPerUnit.toFixed(2)),
     upfrontCostPerUnit: Number(unitEconomics.upfrontCostPerUnit.toFixed(2)),
     allocatedMarketingPerUnit: Number(unitEconomics.allocatedMarketingPerUnit.toFixed(2)),
+    customerAcquisitionPerUnit: Number(unitEconomics.customerAcquisitionPerUnit.toFixed(2)),
     profitMarginPct: Number(unitEconomics.profitMarginPct.toFixed(4)),
     discountRateAnnual: 0.1,
-    note: 'Tooling plus launch engineering are treated as the upfront outflow. Labor entries are modeled as direct labor per unit; overhead and support are derived from the modeled labor time.',
+    note: 'Tooling plus launch engineering are treated as the upfront outflow. Forecast rows drive revenue, channel marketing, and CAC. Labor entries are modeled as direct labor per unit; overhead and support are derived from the modeled labor time.',
     months,
   }
 

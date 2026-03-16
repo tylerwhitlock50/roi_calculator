@@ -1,10 +1,17 @@
+import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
 import bcrypt from 'bcryptjs'
 import type { PrismaClient, User } from '@prisma/client'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const databasePath = path.join(process.cwd(), 'data', 'roi-tool.db')
+const databaseDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'roi-tool-api-smoke-'))
+const sourceDatabasePath = path.join(process.cwd(), 'data', 'roi-tool.db')
+const databasePath = path.join(databaseDirectory, 'roi-tool.db')
+if (fs.existsSync(sourceDatabasePath)) {
+  fs.copyFileSync(sourceDatabasePath, databasePath)
+}
 process.env.DATABASE_URL = `file:${databasePath}`
 process.env.SESSION_SECRET = 'test-session-secret-change-me-32-chars'
 
@@ -98,6 +105,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await prisma.$disconnect()
+  fs.rmSync(databaseDirectory, { recursive: true, force: true })
 })
 
 describe('API smoke flow', () => {
@@ -160,6 +168,9 @@ describe('API smoke flow', () => {
         body: JSON.stringify({
           contributorRole: 'Sales',
           channelOrCustomer: 'Direct',
+          monthlyMarketingSpend: 300,
+          marketingCostPerUnit: 15,
+          customerAcquisitionCostPerUnit: 35,
           monthlyVolumeEstimate: [{ month_date: '2026-04', units: 20, price: 350 }],
         }),
       }),
@@ -167,6 +178,9 @@ describe('API smoke flow', () => {
     )
     expect(forecastCreate.status).toBe(201)
     const forecastPayload = await forecastCreate.json()
+    expect(forecastPayload.monthlyMarketingSpend).toBe(300)
+    expect(forecastPayload.marketingCostPerUnit).toBe(15)
+    expect(forecastPayload.customerAcquisitionCostPerUnit).toBe(35)
 
     const forecastUpdate = await forecastRoute.PATCH(
       new Request('http://localhost/api/ideas/id/forecasts', {
@@ -175,6 +189,9 @@ describe('API smoke flow', () => {
           forecastId: forecastPayload.id,
           contributorRole: 'Sales Ops',
           channelOrCustomer: 'Distributor',
+          monthlyMarketingSpend: 120,
+          marketingCostPerUnit: 10,
+          customerAcquisitionCostPerUnit: 5,
           monthlyVolumeEstimate: [{ month_date: '2026-05', units: 25, price: 375 }],
         }),
       }),
@@ -197,6 +214,9 @@ describe('API smoke flow', () => {
         body: JSON.stringify({
           contributorRole: 'Sales',
           channelOrCustomer: 'OEM Partner',
+          monthlyMarketingSpend: 250,
+          marketingCostPerUnit: 18,
+          customerAcquisitionCostPerUnit: 30,
           monthlyVolumeEstimate: [{ month_date: '2026-06', units: 30, price: 420 }],
         }),
       }),
@@ -217,11 +237,8 @@ describe('API smoke flow', () => {
           toolingCost: 1000,
           engineeringHours: 12,
           engineeringRatePerHour: 125,
-          marketingBudget: 300,
-          marketingCostPerUnit: 15,
           overheadRate: 60,
           supportTimePct: 0.2,
-          ppcBudget: 35,
           bomParts: [{ item: 'Frame', unitCost: 80, quantity: 1, cashEffect: true }],
           laborEntries: [{ activityId: activityRate.id, hours: 2, minutes: 0, seconds: 0 }],
         }),
@@ -239,11 +256,8 @@ describe('API smoke flow', () => {
           toolingCost: 1200,
           engineeringHours: 14,
           engineeringRatePerHour: 140,
-          marketingBudget: 320,
-          marketingCostPerUnit: 20,
           overheadRate: 65,
           supportTimePct: 0.25,
-          ppcBudget: 40,
           bomParts: [{ item: 'Frame', unitCost: 95, quantity: 1, cashEffect: true }],
           laborEntries: [{ activityId: activityRate.id, hours: 3, minutes: 0, seconds: 0 }],
         }),
@@ -268,11 +282,8 @@ describe('API smoke flow', () => {
           toolingCost: 900,
           engineeringHours: 10,
           engineeringRatePerHour: 130,
-          marketingBudget: 250,
-          marketingCostPerUnit: 18,
           overheadRate: 60,
           supportTimePct: 0.2,
-          ppcBudget: 30,
           bomParts: [{ item: 'Frame', unitCost: 90, quantity: 1, cashEffect: true }],
           laborEntries: [{ activityId: activityRate.id, hours: 2, minutes: 30, seconds: 0 }],
         }),
@@ -315,6 +326,7 @@ describe('API smoke flow', () => {
     const detailPayload = await detailResponse.json()
     expect(detailPayload.forecasts).toHaveLength(1)
     expect(detailPayload.costEstimates).toHaveLength(1)
+    expect(detailPayload.forecasts[0].customerAcquisitionCostPerUnit).toBe(30)
     expect(detailPayload.roiSummary.npv).toBe(45000)
     expect(detailPayload.isHidden).toBe(false)
 
@@ -378,6 +390,9 @@ describe('API smoke flow', () => {
         contributorId: adminUser.id,
         contributorRole: 'Sales',
         channelOrCustomer: 'Dealer',
+        monthlyMarketingSpend: 150,
+        marketingCostPerUnit: 9,
+        customerAcquisitionCostPerUnit: 4,
         monthlyVolumeEstimate: [{ month_date: '2026-04', units: 10, price: 250 }],
       },
     })
@@ -394,6 +409,9 @@ describe('API smoke flow', () => {
           forecastId: forecast.id,
           contributorRole: 'Marketing',
           channelOrCustomer: 'Dealer',
+          monthlyMarketingSpend: 175,
+          marketingCostPerUnit: 10,
+          customerAcquisitionCostPerUnit: 5,
           monthlyVolumeEstimate: [{ month_date: '2026-05', units: 12, price: 275 }],
         }),
       }),

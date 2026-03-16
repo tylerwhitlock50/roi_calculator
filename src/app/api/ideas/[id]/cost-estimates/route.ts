@@ -95,11 +95,8 @@ export async function POST(request: Request, { params }: Params) {
       toolingCost: parseFiniteNumber(body.toolingCost, 0),
       engineeringHours: parseFiniteNumber(body.engineeringHours, 0),
       engineeringRatePerHour: parseFiniteNumber(body.engineeringRatePerHour, 125),
-      marketingBudget: parseFiniteNumber(body.marketingBudget, 0),
-      marketingCostPerUnit: parseFiniteNumber(body.marketingCostPerUnit, 0),
       overheadRate: parseFiniteNumber(body.overheadRate, 60),
       supportTimePct: parseFiniteNumber(body.supportTimePct, 0.2),
-      ppcBudget: parseFiniteNumber(body.ppcBudget, 0),
       bomParts: sanitizeBomParts(body.bomParts),
       laborEntries: sanitizeLaborEntries(body.laborEntries),
     }
@@ -111,11 +108,8 @@ export async function POST(request: Request, { params }: Params) {
         toolingCost: payload.toolingCost,
         engineeringHours: payload.engineeringHours,
         engineeringRatePerHour: payload.engineeringRatePerHour,
-        marketingBudget: payload.marketingBudget,
-        marketingCostPerUnit: payload.marketingCostPerUnit,
         overheadRate: payload.overheadRate,
         supportTimePct: payload.supportTimePct,
-        ppcBudget: payload.ppcBudget,
         bomParts: {
           create: payload.bomParts,
         },
@@ -169,11 +163,8 @@ export async function PATCH(request: Request, { params }: Params) {
           toolingCost: parseFiniteNumber(body.toolingCost, existing.toolingCost),
           engineeringHours: parseFiniteNumber(body.engineeringHours, existing.engineeringHours),
           engineeringRatePerHour: parseFiniteNumber(body.engineeringRatePerHour, existing.engineeringRatePerHour ?? 125),
-          marketingBudget: parseFiniteNumber(body.marketingBudget, existing.marketingBudget),
-          marketingCostPerUnit: parseFiniteNumber(body.marketingCostPerUnit, existing.marketingCostPerUnit),
           overheadRate: parseFiniteNumber(body.overheadRate, existing.overheadRate),
           supportTimePct: parseFiniteNumber(body.supportTimePct, existing.supportTimePct),
-          ppcBudget: parseFiniteNumber(body.ppcBudget, existing.ppcBudget),
         },
       })
 

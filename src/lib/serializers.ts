@@ -113,6 +113,9 @@ export function serializeForecast(
     contributorId: forecast.contributorId,
     contributorRole: forecast.contributorRole,
     channelOrCustomer: forecast.channelOrCustomer,
+    monthlyMarketingSpend: forecast.monthlyMarketingSpend,
+    marketingCostPerUnit: forecast.marketingCostPerUnit,
+    customerAcquisitionCostPerUnit: forecast.customerAcquisitionCostPerUnit,
     monthlyVolumeEstimate: (forecast.monthlyVolumeEstimate as ForecastRecord['monthlyVolumeEstimate']) ?? [],
     createdAt: forecast.createdAt.toISOString(),
     contributor: {
@@ -140,11 +143,8 @@ export function serializeCostEstimate(
     toolingCost: estimate.toolingCost,
     engineeringHours: estimate.engineeringHours,
     engineeringRatePerHour: estimate.engineeringRatePerHour,
-    marketingBudget: estimate.marketingBudget,
-    marketingCostPerUnit: estimate.marketingCostPerUnit,
     overheadRate: estimate.overheadRate,
     supportTimePct: estimate.supportTimePct,
-    ppcBudget: estimate.ppcBudget,
     createdAt: estimate.createdAt.toISOString(),
     createdById: estimate.createdById,
     contributor: {

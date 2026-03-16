@@ -77,7 +77,7 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
         <div>
           <h2 className="text-2xl font-semibold text-slate-950">Unit economics story</h2>
           <p className="mt-2 max-w-3xl text-sm text-slate-500">
-            This view blends the saved forecast price and latest cost model into a per-unit picture of where each dollar goes.
+            This view blends saved forecast channel economics with the latest product cost model into a per-unit picture of where each dollar goes.
           </p>
         </div>
         <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
@@ -171,7 +171,7 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Model notes</div>
           <p className="mt-3 leading-6">{unitEconomics.note}</p>
           <p className="mt-3 leading-6">
-            Dealer or channel margin is not modeled as a separate input today. If you already net that out in the forecast price, this chart reflects it implicitly.
+            Dealer or channel differences can now be modeled with forecast-level price, monthly spend, marketing per unit, and CAC. Anything still netted into price shows up implicitly here.
           </p>
           <p className="mt-3 leading-6">
             Overhead and support are derived from the modeled labor time and the saved support allocation percentage.

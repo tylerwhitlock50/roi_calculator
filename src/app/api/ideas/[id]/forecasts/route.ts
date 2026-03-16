@@ -19,6 +19,24 @@ async function ensureIdeaExists(id: string) {
   return idea
 }
 
+function parseFiniteNumber(value: unknown, fallback: number) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function hasDuplicateMonths(value: unknown) {
+  if (!Array.isArray(value)) {
+    return false
+  }
+
+  const months = value
+    .filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null)
+    .map((row) => String(row.month_date ?? '').trim())
+    .filter(Boolean)
+
+  return new Set(months).size !== months.length
+}
+
 export async function GET(_request: Request, { params }: Params) {
   try {
     await requireUser()
@@ -51,11 +69,18 @@ export async function POST(request: Request, { params }: Params) {
     const {
       contributorRole,
       channelOrCustomer,
+      monthlyMarketingSpend,
+      marketingCostPerUnit,
+      customerAcquisitionCostPerUnit,
       monthlyVolumeEstimate,
     } = body
 
     if (!contributorRole || !channelOrCustomer || !Array.isArray(monthlyVolumeEstimate)) {
       throw badRequest('Missing required forecast fields')
+    }
+
+    if (hasDuplicateMonths(monthlyVolumeEstimate)) {
+      throw badRequest('Each forecast can only include one row per month')
     }
 
     const forecast = await prisma.salesForecast.create({
@@ -64,6 +89,9 @@ export async function POST(request: Request, { params }: Params) {
         contributorId: user.id,
         contributorRole: String(contributorRole).trim(),
         channelOrCustomer: String(channelOrCustomer).trim(),
+        monthlyMarketingSpend: parseFiniteNumber(monthlyMarketingSpend, 0),
+        marketingCostPerUnit: parseFiniteNumber(marketingCostPerUnit, 0),
+        customerAcquisitionCostPerUnit: parseFiniteNumber(customerAcquisitionCostPerUnit, 0),
         monthlyVolumeEstimate,
       },
       include: {
@@ -89,6 +117,10 @@ export async function PATCH(request: Request, { params }: Params) {
       throw badRequest('forecastId is required')
     }
 
+    if (body.monthlyVolumeEstimate !== undefined && hasDuplicateMonths(body.monthlyVolumeEstimate)) {
+      throw badRequest('Each forecast can only include one row per month')
+    }
+
     const existing = await prisma.salesForecast.findUnique({
       where: { id: String(forecastId) },
     })
@@ -104,6 +136,18 @@ export async function PATCH(request: Request, { params }: Params) {
       data: {
         contributorRole: body.contributorRole !== undefined ? String(body.contributorRole).trim() : undefined,
         channelOrCustomer: body.channelOrCustomer !== undefined ? String(body.channelOrCustomer).trim() : undefined,
+        monthlyMarketingSpend:
+          body.monthlyMarketingSpend !== undefined
+            ? parseFiniteNumber(body.monthlyMarketingSpend, existing.monthlyMarketingSpend)
+            : undefined,
+        marketingCostPerUnit:
+          body.marketingCostPerUnit !== undefined
+            ? parseFiniteNumber(body.marketingCostPerUnit, existing.marketingCostPerUnit)
+            : undefined,
+        customerAcquisitionCostPerUnit:
+          body.customerAcquisitionCostPerUnit !== undefined
+            ? parseFiniteNumber(body.customerAcquisitionCostPerUnit, existing.customerAcquisitionCostPerUnit)
+            : undefined,
         monthlyVolumeEstimate: Array.isArray(body.monthlyVolumeEstimate) ? body.monthlyVolumeEstimate : undefined,
       },
       include: {

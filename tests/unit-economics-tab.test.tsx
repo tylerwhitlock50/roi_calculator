@@ -21,6 +21,9 @@ function buildForecast(): ForecastRecord[] {
       contributorId: 'user-1',
       contributorRole: 'Sales',
       channelOrCustomer: 'Direct',
+      monthlyMarketingSpend: 0,
+      marketingCostPerUnit: 0,
+      customerAcquisitionCostPerUnit: 0,
       monthlyVolumeEstimate: [{ month_date: '2026-01', units: 100, price: 100 }],
       createdAt: '2026-03-16T00:00:00.000Z',
       contributor: {
@@ -40,11 +43,8 @@ function buildEstimate(): CostEstimateRecord[] {
       toolingCost: 0,
       engineeringHours: 0,
       engineeringRatePerHour: 125,
-      marketingBudget: 0,
-      marketingCostPerUnit: 0,
       overheadRate: 0,
       supportTimePct: 0,
-      ppcBudget: 0,
       createdAt: '2026-03-16T00:00:00.000Z',
       createdById: 'user-1',
       contributor: {
