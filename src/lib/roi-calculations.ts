@@ -43,6 +43,11 @@ export type UnitEconomicsSegment = {
   pctOfRevenue: number
 }
 
+export type UnitEconomicsBomPart = UnitEconomicsSegment & {
+  unitCost: number
+  quantity: number
+}
+
 export type ProfitInvestmentQuadrant = 'scale' | 'premium' | 'concept-halo' | 'accessory'
 
 export type ProfitInvestmentProfile = {
@@ -88,7 +93,7 @@ export type UnitEconomicsBreakdown = {
   profitPerUnit: number
   profitMarginPct: number
   recurringCostPerUnit: number
-  bomParts: UnitEconomicsSegment[]
+  bomParts: UnitEconomicsBomPart[]
   costStack: UnitEconomicsSegment[]
   profitInvestmentProfile: ProfitInvestmentProfile
   sankeyData: {
@@ -190,18 +195,17 @@ function buildSankeyData({
   laborPerUnit,
   toolingPerUnit,
   profitPerUnit,
-}: Pick<
-  UnitEconomicsBreakdown,
-  | 'bomParts'
-  | 'bomCostPerUnit'
-  | 'allocatedMarketingPerUnit'
-  | 'customerAcquisitionPerUnit'
-  | 'overheadPerUnit'
-  | 'supportPerUnit'
-  | 'laborPerUnit'
-  | 'toolingPerUnit'
-  | 'profitPerUnit'
->): UnitEconomicsBreakdown['sankeyData'] {
+}: {
+  bomParts: UnitEconomicsSegment[]
+  bomCostPerUnit: number
+  allocatedMarketingPerUnit: number
+  customerAcquisitionPerUnit: number
+  overheadPerUnit: number
+  supportPerUnit: number
+  laborPerUnit: number
+  toolingPerUnit: number
+  profitPerUnit: number
+}): UnitEconomicsBreakdown['sankeyData'] {
   const nodes: UnitEconomicsNode[] = [{ name: 'Revenue / unit', color: '#0f172a', kind: 'source' }]
   const links: UnitEconomicsLink[] = []
 
@@ -323,6 +327,8 @@ function buildUnitEconomicsFromSummary(
           label: part.item,
           value: part.unitCost * part.quantity,
           color: BOM_PART_COLORS[index % BOM_PART_COLORS.length],
+          unitCost: part.unitCost,
+          quantity: part.quantity,
         }))
         .sort((left, right) => right.value - left.value)
     : []
@@ -384,6 +390,8 @@ function buildUnitEconomicsFromSummary(
     value: part.value,
     color: part.color,
     pctOfRevenue: salesSummary.averagePrice > 0 ? part.value / salesSummary.averagePrice : 0,
+    unitCost: part.unitCost,
+    quantity: part.quantity,
   }))
 
   return {

@@ -4,7 +4,7 @@ import React, { useMemo } from 'react'
 import { ResponsiveContainer, Sankey } from 'recharts'
 
 import type { CostEstimateRecord, ForecastRecord } from '@/lib/api'
-import { calculateUnitEconomics, type UnitEconomicsBreakdown } from '@/lib/roi-calculations'
+import { calculateUnitEconomics, type UnitEconomicsBomPart, type UnitEconomicsBreakdown } from '@/lib/roi-calculations'
 
 type UnitEconomicsTabProps = {
   forecasts: ForecastRecord[]
@@ -162,7 +162,7 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         <BreakdownCard
           title="Cash-affecting BOM detail"
-          subtitle="Per-unit BOM cost included in the ROI model."
+          subtitle="Shows unit cost, quantity per finished unit, and rolled-up BOM cost in the ROI model."
           items={unitEconomics.bomParts}
           emptyMessage="No BOM parts are currently marked as cash-affecting."
         />
@@ -231,7 +231,11 @@ function BreakdownCard({
                 <div className="flex items-baseline justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium text-slate-900">{item.label}</div>
-                    <div className="text-xs text-slate-500">{(item.pctOfRevenue * 100).toFixed(1)}% of price</div>
+                    <div className="text-xs text-slate-500">
+                      {isBomPart(item)
+                        ? `${formatCurrency(item.unitCost)} each x ${formatQuantity(item.quantity)} = ${formatCurrency(item.value)} / unit`
+                        : `${(item.pctOfRevenue * 100).toFixed(1)}% of price`}
+                    </div>
                   </div>
                   <div className="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.value)}</div>
                 </div>
@@ -251,6 +255,12 @@ function BreakdownCard({
       )}
     </div>
   )
+}
+
+function isBomPart(
+  item: UnitEconomicsBreakdown['costStack'][number] | UnitEconomicsBreakdown['bomParts'][number]
+): item is UnitEconomicsBomPart {
+  return 'unitCost' in item && 'quantity' in item
 }
 
 function ProfitInvestmentMatrixCard({
@@ -402,6 +412,17 @@ function getQuadrantCopy(quadrant: UnitEconomicsBreakdown['profitInvestmentProfi
         body: 'The tooling burden is light, but the current forecast still does not create enough net income to stand out. This is closer to a small add-on play.',
       }
   }
+}
+
+function formatQuantity(value: number) {
+  if (Number.isInteger(value)) {
+    return value.toLocaleString()
+  }
+
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })
 }
 
 function SankeyNodeShape({ x = 0, y = 0, width = 0, height = 0, payload }: SankeyNodeShapeProps) {

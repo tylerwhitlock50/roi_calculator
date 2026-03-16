@@ -181,6 +181,12 @@ describe('roi calculations', () => {
     expect(unitEconomics.supportPerUnit).toBeCloseTo(1.75)
     expect(unitEconomics.toolingPerUnit).toBe(5)
     expect(unitEconomics.profitPerUnit).toBeCloseTo(31.5)
+    expect(unitEconomics.bomParts[0]).toMatchObject({
+      label: 'Main housing',
+      unitCost: 20,
+      quantity: 2,
+      value: 40,
+    })
     expect(unitEconomics.canRenderSankey).toBe(true)
   })
 

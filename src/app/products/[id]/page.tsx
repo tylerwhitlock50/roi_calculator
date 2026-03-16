@@ -1140,15 +1140,8 @@ export default function ProductDetailPage() {
                       <Metric label="Overhead / Hr" value={formatCurrency(estimate.overheadRate)} />
                     </div>
 
-                    <div className="mt-6 grid gap-6 xl:grid-cols-2">
-                      <ListCard
-                        title="BOM parts"
-                        items={estimate.bomParts.map((part) => `${part.item}: ${part.quantity} × ${formatCurrency(part.unitCost)}`)}
-                      />
-                      <ListCard
-                        title="Labor entries"
-                        items={estimate.laborEntries.map((entry) => `${entry.activity.activityName}: ${entry.hours}h ${entry.minutes}m ${entry.seconds}s`)}
-                      />
+                    <div className="mt-6">
+                      <CostOverviewCard estimate={estimate} />
                     </div>
                   </div>
                 ))}
@@ -1543,13 +1536,131 @@ function Metric({ label, value }: { label: string; value: string }) {
   )
 }
 
-function ListCard({ title, items }: { title: string; items: string[] }) {
+function CostOverviewCard({ estimate }: { estimate: CostEstimateRecord }) {
+  const totalBomPerUnit = estimate.bomParts.reduce((sum, part) => sum + part.unitCost * part.quantity, 0)
+  const cashBomPerUnit = estimate.bomParts.filter((part) => part.cashEffect).reduce((sum, part) => sum + part.unitCost * part.quantity, 0)
+  const laborPerUnit = calculateLaborCost(estimate.laborEntries)
+  const laborHoursPerUnit = calculateLaborHours(estimate.laborEntries)
+  const combinedUnitCost = totalBomPerUnit + laborPerUnit
+
   return (
     <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-      <h4 className="text-lg font-semibold text-slate-900">{title}</h4>
-      <ul className="mt-4 space-y-2 text-sm text-slate-600">
-        {items.length === 0 ? <li>No entries.</li> : items.map((item) => <li key={item}>{item}</li>)}
-      </ul>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h4 className="text-lg font-semibold text-slate-900">Unit cost overview</h4>
+          <p className="mt-1 text-sm text-slate-500">Materials and direct labor rolled into the per-unit cost picture.</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <Metric label="Materials / unit" value={formatUnitCurrency(totalBomPerUnit)} />
+        <Metric label="Direct labor / unit" value={formatUnitCurrency(laborPerUnit)} />
+        <Metric label="Materials + labor / unit" value={formatUnitCurrency(combinedUnitCost)} />
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            Cash BOM in ROI model: <span className="font-semibold text-slate-900">{formatUnitCurrency(cashBomPerUnit)}</span>
+          </div>
+          <div>
+            Labor time / unit: <span className="font-semibold text-slate-900">{formatHours(laborHoursPerUnit)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-5">
+        <div>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h5 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">BOM detail</h5>
+              <p className="mt-1 text-sm text-slate-500">Part-level material cost contribution for one finished unit.</p>
+            </div>
+          </div>
+
+          {estimate.bomParts.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">No BOM entries.</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50 text-left text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Part</th>
+                    <th className="px-4 py-3 font-medium">Unit cost</th>
+                    <th className="px-4 py-3 font-medium">Qty / unit</th>
+                    <th className="px-4 py-3 font-medium">BOM / unit</th>
+                    <th className="px-4 py-3 font-medium">ROI model</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {estimate.bomParts.map((part) => (
+                    <tr key={part.id}>
+                      <td className="px-4 py-3 font-medium text-slate-900">{part.item}</td>
+                      <td className="px-4 py-3">{formatUnitCurrency(part.unitCost)}</td>
+                      <td className="px-4 py-3">{formatQuantity(part.quantity)}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-900">{formatUnitCurrency(part.unitCost * part.quantity)}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            part.cashEffect ? 'bg-success-50 text-success-700' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {part.cashEffect ? 'Cash-affecting' : 'Reference only'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h5 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Labor detail</h5>
+              <p className="mt-1 text-sm text-slate-500">Per-unit labor time, rate, and direct labor cost by activity.</p>
+            </div>
+          </div>
+
+          {estimate.laborEntries.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">No labor entries.</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50 text-left text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Activity</th>
+                    <th className="px-4 py-3 font-medium">Time / unit</th>
+                    <th className="px-4 py-3 font-medium">Rate / hr</th>
+                    <th className="px-4 py-3 font-medium">Labor / unit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {estimate.laborEntries.map((entry) => {
+                    const hours = entry.hours + entry.minutes / 60 + entry.seconds / 3600
+                    const laborCost = hours * entry.activity.ratePerHour
+
+                    return (
+                      <tr key={entry.id}>
+                        <td className="px-4 py-3 font-medium text-slate-900">{entry.activity.activityName}</td>
+                        <td className="px-4 py-3">{formatLaborDuration(entry.hours, entry.minutes, entry.seconds)}</td>
+                        <td className="px-4 py-3">{formatUnitCurrency(entry.activity.ratePerHour)}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{formatUnitCurrency(laborCost)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p className="mt-4 text-xs leading-5 text-slate-500">
+        Overhead and support are modeled separately from direct labor, so they are not included in this card’s combined materials + labor total.
+      </p>
     </div>
   )
 }
@@ -1865,6 +1976,51 @@ function formatCurrency(value: number) {
     currency: 'USD',
     maximumFractionDigits: 0,
   }).format(value)
+}
+
+function formatQuantity(value: number) {
+  if (Number.isInteger(value)) {
+    return value.toLocaleString()
+  }
+
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })
+}
+
+function formatUnitCurrency(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+function formatHours(value: number) {
+  return `${value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })} hr`
+}
+
+function formatLaborDuration(hours: number, minutes: number, seconds: number) {
+  const parts = []
+
+  if (hours > 0) {
+    parts.push(`${hours}h`)
+  }
+
+  if (minutes > 0) {
+    parts.push(`${minutes}m`)
+  }
+
+  if (seconds > 0 || parts.length === 0) {
+    parts.push(`${seconds}s`)
+  }
+
+  return parts.join(' ')
 }
 
 function formatMonth(month: string) {
