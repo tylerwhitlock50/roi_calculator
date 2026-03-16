@@ -1,6 +1,6 @@
 import type { CostEstimateRecord, ForecastRecord } from '@/lib/api'
 
-type CashFlow = {
+export type CashFlow = {
   month: string
   total: number
   sales: number
@@ -13,9 +13,9 @@ type CashFlow = {
   tooling: number
 }
 
-type CashFlowTotals = Omit<CashFlow, 'month'>
+export type CashFlowTotals = Omit<CashFlow, 'month'>
 
-type RoiCalculations = {
+export type RoiCalculations = {
   cashFlows: CashFlow[]
   totals: CashFlowTotals
   roiPct: number

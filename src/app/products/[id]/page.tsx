@@ -24,6 +24,7 @@ import {
   calculateRoiMetrics,
   calculateTotalEstimateCost,
 } from '@/lib/roi-calculations'
+import { buildRoiExportFilename, buildRoiExportHtml } from '@/lib/roi-export'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -1501,6 +1502,7 @@ export default function ProductDetailPage() {
               </p>
             </div>
             <ROICalculator
+              project={product}
               forecasts={forecasts}
               costEstimates={costEstimates}
               roiSummary={roiSummary}
@@ -1845,6 +1847,7 @@ function SuggestedMSRP({ costEstimates }: { costEstimates: CostEstimateRecord[] 
 }
 
 function ROICalculator({
+  project,
   forecasts,
   costEstimates,
   roiSummary,
@@ -1852,6 +1855,7 @@ function ROICalculator({
   saving,
   saveError,
 }: {
+  project: IdeaDetailRecord
   forecasts: ForecastRecord[]
   costEstimates: CostEstimateRecord[]
   roiSummary: RoiSummaryRecord | null
@@ -1868,6 +1872,7 @@ function ROICalculator({
   saveError: string | null
 }) {
   const calculations = useMemo(() => calculateRoiMetrics(forecasts, costEstimates), [costEstimates, forecasts])
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const hasChanges =
     !roiSummary ||
@@ -1875,6 +1880,36 @@ function ROICalculator({
     roiSummary.irr.toFixed(4) !== calculations.irr.toFixed(4) ||
     roiSummary.breakEvenMonth !== calculations.breakEvenMonth ||
     roiSummary.paybackPeriod.toFixed(2) !== calculations.paybackPeriod.toFixed(2)
+
+  const exportReport = () => {
+    try {
+      setExportError(null)
+
+      const exportedAt = new Date()
+      const html = buildRoiExportHtml({
+        project,
+        forecasts,
+        costEstimates,
+        calculations,
+        exportedAt,
+      })
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+
+      link.href = url
+      link.download = buildRoiExportFilename(project.title, exportedAt)
+      document.body.append(link)
+      link.click()
+      link.remove()
+
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+      }, 0)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Failed to export ROI report')
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -1953,29 +1988,49 @@ function ROICalculator({
         </div>
       )}
 
-      {hasChanges ? (
-        <button
-          className="btn-primary"
-          onClick={() =>
-            onSave({
-              npv: Number(calculations.npv.toFixed(2)),
-              irr: Number(calculations.irr.toFixed(4)),
-              breakEvenMonth: calculations.breakEvenMonth,
-              paybackPeriod: Number(calculations.paybackPeriod.toFixed(2)),
-              contributionMarginPerUnit: Number(calculations.contributionMarginPerUnit.toFixed(2)),
-              profitPerUnit: Number(calculations.profitPerUnit.toFixed(2)),
-              assumptions: calculations.assumptions,
-            })
-          }
-          disabled={saving}
-        >
-          {saving ? 'Saving ROI…' : roiSummary ? 'Update ROI summary' : 'Save ROI summary'}
-        </button>
-      ) : (
-        <div className="rounded-2xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700">
-          The saved ROI summary already matches the current forecast and cost assumptions.
+      {exportError && (
+        <div className="rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+          {exportError}
         </div>
       )}
+
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <button className="btn-secondary" onClick={exportReport}>
+            Export ROI report
+          </button>
+
+          {hasChanges && (
+            <button
+              className="btn-primary"
+              onClick={() =>
+                onSave({
+                  npv: Number(calculations.npv.toFixed(2)),
+                  irr: Number(calculations.irr.toFixed(4)),
+                  breakEvenMonth: calculations.breakEvenMonth,
+                  paybackPeriod: Number(calculations.paybackPeriod.toFixed(2)),
+                  contributionMarginPerUnit: Number(calculations.contributionMarginPerUnit.toFixed(2)),
+                  profitPerUnit: Number(calculations.profitPerUnit.toFixed(2)),
+                  assumptions: calculations.assumptions,
+                })
+              }
+              disabled={saving}
+            >
+              {saving ? 'Saving ROI…' : roiSummary ? 'Update ROI summary' : 'Save ROI summary'}
+            </button>
+          )}
+        </div>
+
+        <p className="text-sm text-slate-500">
+          Exports the current ROI snapshot as an HTML file Jason can open in any browser or print to PDF.
+        </p>
+
+        {!hasChanges && (
+          <div className="rounded-2xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700">
+            The saved ROI summary already matches the current forecast and cost assumptions.
+          </div>
+        )}
+      </div>
     </div>
   )
 }
