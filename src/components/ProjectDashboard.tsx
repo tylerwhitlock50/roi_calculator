@@ -86,24 +86,36 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
             <p className="text-sm text-slate-500">Review active concepts and jump directly into forecasts, costs, and ROI.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="input-field min-w-[240px]"
-              placeholder="Search title or description"
-            />
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="input-field min-w-[180px]"
-            >
-              <option value="">All statuses</option>
-              <option value="draft">Draft</option>
-              <option value="in_review">In review</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="archived">Archived</option>
-            </select>
+            <div className="form-group mb-0">
+              <label className="form-label" htmlFor="project-search">
+                Search ideas
+              </label>
+              <input
+                id="project-search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="input-field min-w-[240px]"
+                placeholder="Search title or description"
+              />
+            </div>
+            <div className="form-group mb-0">
+              <label className="form-label" htmlFor="project-status-filter">
+                Filter by status
+              </label>
+              <select
+                id="project-status-filter"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="input-field min-w-[180px]"
+              >
+                <option value="">All statuses</option>
+                <option value="draft">Draft</option>
+                <option value="in_review">In review</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
           </div>
         </div>
 

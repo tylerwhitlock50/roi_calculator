@@ -156,21 +156,33 @@ export default function AdminDashboard() {
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
-              <input
-                value={draftRate.activityName}
-                onChange={(event) => setDraftRate((current) => ({ ...current, activityName: event.target.value }))}
-                className="input-field"
-                placeholder="Activity name"
-              />
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={draftRate.ratePerHour}
-                onChange={(event) => setDraftRate((current) => ({ ...current, ratePerHour: Number(event.target.value) }))}
-                className="input-field"
-                placeholder="Rate/hr"
-              />
+              <div className="form-group mb-0">
+                <label className="form-label" htmlFor="activity-rate-name">
+                  Activity name
+                </label>
+                <input
+                  id="activity-rate-name"
+                  value={draftRate.activityName}
+                  onChange={(event) => setDraftRate((current) => ({ ...current, activityName: event.target.value }))}
+                  className="input-field"
+                  placeholder="Example: CNC setup or Packaging"
+                />
+              </div>
+              <div className="form-group mb-0">
+                <label className="form-label" htmlFor="activity-rate-hourly">
+                  Hourly rate
+                </label>
+                <input
+                  id="activity-rate-hourly"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={draftRate.ratePerHour}
+                  onChange={(event) => setDraftRate((current) => ({ ...current, ratePerHour: Number(event.target.value) }))}
+                  className="input-field"
+                  placeholder="Example: 85"
+                />
+              </div>
             </div>
             <div className="mt-3 flex flex-col gap-3 sm:flex-row">
               <button onClick={saveRate} className="btn-primary sm:max-w-[220px]">

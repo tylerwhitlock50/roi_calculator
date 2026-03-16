@@ -666,10 +666,17 @@ export default function ProductDetailPage() {
                 title={editingForecastId ? 'Edit forecast' : 'Add forecast'}
               >
                 <div className="space-y-4">
+                  <p className="text-sm leading-6 text-slate-500">
+                    Name the account or channel, note whose forecast this is, and then enter the monthly units and selling price assumptions.
+                  </p>
                   <div className="form-group">
-                    <label className="form-label">Channel or customer</label>
+                    <label className="form-label" htmlFor="forecast-channel">
+                      Channel or customer
+                    </label>
                     <input
+                      id="forecast-channel"
                       className="input-field"
+                      placeholder="Example: Wholesale dealers, Amazon, or Acme Sporting Goods"
                       value={forecastForm.channelOrCustomer}
                       onChange={(event) =>
                         setForecastForm((current) => ({
@@ -678,11 +685,16 @@ export default function ProductDetailPage() {
                         }))
                       }
                     />
+                    <p className="text-xs text-slate-500">Who will buy the product through this forecast scenario?</p>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Contributor role</label>
+                    <label className="form-label" htmlFor="forecast-role">
+                      Contributor role
+                    </label>
                     <input
+                      id="forecast-role"
                       className="input-field"
+                      placeholder="Example: Sales manager, channel lead, or product manager"
                       value={forecastForm.contributorRole}
                       onChange={(event) =>
                         setForecastForm((current) => ({
@@ -691,11 +703,15 @@ export default function ProductDetailPage() {
                         }))
                       }
                     />
+                    <p className="text-xs text-slate-500">This helps explain whose assumptions are captured in this forecast.</p>
                   </div>
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="form-label mb-0">Monthly forecast rows</label>
+                      <div>
+                        <label className="form-label mb-0">Monthly forecast rows</label>
+                        <p className="text-xs text-slate-500">Each row represents one month of volume and selling price.</p>
+                      </div>
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -724,58 +740,88 @@ export default function ProductDetailPage() {
 
                     {showLevelLoadedForm && (
                       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="mb-3">
+                          <h4 className="text-sm font-semibold text-slate-900">Quick fill a flat monthly plan</h4>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Use this when units and price stay the same for a run of months.
+                          </p>
+                        </div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <input
-                            type="month"
-                            className="input-field"
-                            value={levelLoadedForm.startMonth}
-                            onChange={(event) =>
-                              setLevelLoadedForm((current) => ({
-                                ...current,
-                                startMonth: event.target.value,
-                              }))
-                            }
-                          />
-                          <input
-                            type="number"
-                            className="input-field"
-                            min={1}
-                            max={60}
-                            value={levelLoadedForm.numberOfMonths}
-                            onChange={(event) =>
-                              setLevelLoadedForm((current) => ({
-                                ...current,
-                                numberOfMonths: Number(event.target.value),
-                              }))
-                            }
-                          />
-                          <input
-                            type="number"
-                            className="input-field"
-                            min={0}
-                            value={levelLoadedForm.unitsPerMonth}
-                            onChange={(event) =>
-                              setLevelLoadedForm((current) => ({
-                                ...current,
-                                unitsPerMonth: Number(event.target.value),
-                              }))
-                            }
-                            placeholder="Units / month"
-                          />
-                          <input
-                            type="number"
-                            className="input-field"
-                            min={0}
-                            step={0.01}
-                            value={levelLoadedForm.pricePerUnit}
-                            onChange={(event) =>
-                              setLevelLoadedForm((current) => ({
-                                ...current,
-                                pricePerUnit: Number(event.target.value),
-                              }))
-                            }
-                            placeholder="Price / unit"
-                          />
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor="quick-fill-start-month">
+                              Start month
+                            </label>
+                            <input
+                              id="quick-fill-start-month"
+                              type="month"
+                              className="input-field"
+                              value={levelLoadedForm.startMonth}
+                              onChange={(event) =>
+                                setLevelLoadedForm((current) => ({
+                                  ...current,
+                                  startMonth: event.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor="quick-fill-month-count">
+                              Number of months
+                            </label>
+                            <input
+                              id="quick-fill-month-count"
+                              type="number"
+                              className="input-field"
+                              min={1}
+                              max={60}
+                              value={levelLoadedForm.numberOfMonths}
+                              onChange={(event) =>
+                                setLevelLoadedForm((current) => ({
+                                  ...current,
+                                  numberOfMonths: Number(event.target.value),
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor="quick-fill-units">
+                              Units sold per month
+                            </label>
+                            <input
+                              id="quick-fill-units"
+                              type="number"
+                              className="input-field"
+                              min={0}
+                              value={levelLoadedForm.unitsPerMonth}
+                              onChange={(event) =>
+                                setLevelLoadedForm((current) => ({
+                                  ...current,
+                                  unitsPerMonth: Number(event.target.value),
+                                }))
+                              }
+                              placeholder="Example: 500"
+                            />
+                          </div>
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor="quick-fill-price">
+                              Selling price per unit
+                            </label>
+                            <input
+                              id="quick-fill-price"
+                              type="number"
+                              className="input-field"
+                              min={0}
+                              step={0.01}
+                              value={levelLoadedForm.pricePerUnit}
+                              onChange={(event) =>
+                                setLevelLoadedForm((current) => ({
+                                  ...current,
+                                  pricePerUnit: Number(event.target.value),
+                                }))
+                              }
+                              placeholder="Example: 79.99"
+                            />
+                          </div>
                         </div>
                         <button className="btn-primary mt-3" type="button" onClick={generateLevelLoadedForecast}>
                           Generate level-loaded plan
@@ -785,68 +831,94 @@ export default function ProductDetailPage() {
 
                     <div className="space-y-3">
                       {forecastForm.monthlyVolumeEstimate.map((row, index) => (
-                        <div key={index} className="grid gap-3 rounded-2xl border border-slate-200 p-4 sm:grid-cols-[1fr_120px_120px_auto]">
-                          <input
-                            type="month"
-                            className="input-field"
-                            value={row.month_date}
-                            onChange={(event) =>
-                              setForecastForm((current) => ({
-                                ...current,
-                                monthlyVolumeEstimate: current.monthlyVolumeEstimate.map((currentRow, currentIndex) =>
-                                  currentIndex === index
-                                    ? { ...currentRow, month_date: event.target.value }
-                                    : currentRow
-                                ),
-                              }))
-                            }
-                          />
-                          <input
-                            type="number"
-                            className="input-field"
-                            min={0}
-                            value={row.units}
-                            onChange={(event) =>
-                              setForecastForm((current) => ({
-                                ...current,
-                                monthlyVolumeEstimate: current.monthlyVolumeEstimate.map((currentRow, currentIndex) =>
-                                  currentIndex === index
-                                    ? { ...currentRow, units: Number(event.target.value) }
-                                    : currentRow
-                                ),
-                              }))
-                            }
-                          />
-                          <input
-                            type="number"
-                            className="input-field"
-                            min={0}
-                            step={0.01}
-                            value={row.price}
-                            onChange={(event) =>
-                              setForecastForm((current) => ({
-                                ...current,
-                                monthlyVolumeEstimate: current.monthlyVolumeEstimate.map((currentRow, currentIndex) =>
-                                  currentIndex === index
-                                    ? { ...currentRow, price: Number(event.target.value) }
-                                    : currentRow
-                                ),
-                              }))
-                            }
-                          />
-                          <button
-                            type="button"
-                            className="btn-danger text-sm"
-                            disabled={forecastForm.monthlyVolumeEstimate.length === 1}
-                            onClick={() =>
-                              setForecastForm((current) => ({
-                                ...current,
-                                monthlyVolumeEstimate: current.monthlyVolumeEstimate.filter((_, currentIndex) => currentIndex !== index),
-                              }))
-                            }
-                          >
-                            Remove
-                          </button>
+                        <div key={index} className="rounded-2xl border border-slate-200 p-4">
+                          <div className="mb-3 flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="text-sm font-semibold text-slate-900">Month row {index + 1}</h4>
+                              <p className="mt-1 text-xs text-slate-500">Enter the month, planned units, and average selling price.</p>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn-danger text-sm"
+                              disabled={forecastForm.monthlyVolumeEstimate.length === 1}
+                              onClick={() =>
+                                setForecastForm((current) => ({
+                                  ...current,
+                                  monthlyVolumeEstimate: current.monthlyVolumeEstimate.filter((_, currentIndex) => currentIndex !== index),
+                                }))
+                              }
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <div className="form-group mb-0">
+                              <label className="form-label" htmlFor={`forecast-month-${index}`}>
+                                Month
+                              </label>
+                              <input
+                                id={`forecast-month-${index}`}
+                                type="month"
+                                className="input-field"
+                                value={row.month_date}
+                                onChange={(event) =>
+                                  setForecastForm((current) => ({
+                                    ...current,
+                                    monthlyVolumeEstimate: current.monthlyVolumeEstimate.map((currentRow, currentIndex) =>
+                                      currentIndex === index
+                                        ? { ...currentRow, month_date: event.target.value }
+                                        : currentRow
+                                    ),
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="form-group mb-0">
+                              <label className="form-label" htmlFor={`forecast-units-${index}`}>
+                                Units sold
+                              </label>
+                              <input
+                                id={`forecast-units-${index}`}
+                                type="number"
+                                className="input-field"
+                                min={0}
+                                value={row.units}
+                                onChange={(event) =>
+                                  setForecastForm((current) => ({
+                                    ...current,
+                                    monthlyVolumeEstimate: current.monthlyVolumeEstimate.map((currentRow, currentIndex) =>
+                                      currentIndex === index
+                                        ? { ...currentRow, units: Number(event.target.value) }
+                                        : currentRow
+                                    ),
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="form-group mb-0">
+                              <label className="form-label" htmlFor={`forecast-price-${index}`}>
+                                Selling price per unit
+                              </label>
+                              <input
+                                id={`forecast-price-${index}`}
+                                type="number"
+                                className="input-field"
+                                min={0}
+                                step={0.01}
+                                value={row.price}
+                                onChange={(event) =>
+                                  setForecastForm((current) => ({
+                                    ...current,
+                                    monthlyVolumeEstimate: current.monthlyVolumeEstimate.map((currentRow, currentIndex) =>
+                                      currentIndex === index
+                                        ? { ...currentRow, price: Number(event.target.value) }
+                                        : currentRow
+                                    ),
+                                  }))
+                                }
+                              />
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -943,23 +1015,81 @@ export default function ProductDetailPage() {
             {showCostModal && (
               <Modal onClose={closeCostModal} title={editingCostId ? 'Edit cost estimate' : 'Add cost estimate'}>
                 <div className="space-y-6">
+                  <p className="text-sm leading-6 text-slate-500">
+                    Enter the one-time costs, per-unit costs, and labor assumptions that should feed this ROI model.
+                  </p>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <FieldNumber label="Tooling cost" value={costForm.toolingCost} onChange={(value) => setCostForm((current) => ({ ...current, toolingCost: value }))} />
-                    <FieldNumber label="Engineering hours" value={costForm.engineeringHours} onChange={(value) => setCostForm((current) => ({ ...current, engineeringHours: value }))} />
-                    <FieldNumber label="Marketing budget" value={costForm.marketingBudget} onChange={(value) => setCostForm((current) => ({ ...current, marketingBudget: value }))} />
-                    <FieldNumber label="Marketing / unit" value={costForm.marketingCostPerUnit} onChange={(value) => setCostForm((current) => ({ ...current, marketingCostPerUnit: value }))} />
-                    <FieldNumber label="CAC / unit" value={costForm.ppcBudget} onChange={(value) => setCostForm((current) => ({ ...current, ppcBudget: value }))} />
-                    <FieldNumber label="Overhead / hour" value={costForm.overheadRate} onChange={(value) => setCostForm((current) => ({ ...current, overheadRate: value }))} />
                     <FieldNumber
-                      label="Support time %"
+                      id="cost-tooling"
+                      label="Upfront tooling and setup cost"
+                      hint="One-time cost incurred before sales begin."
+                      value={costForm.toolingCost}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setCostForm((current) => ({ ...current, toolingCost: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-engineering-hours"
+                      label="Engineering hours to launch"
+                      hint="Use this for the planned engineering effort associated with the launch."
+                      value={costForm.engineeringHours}
+                      min={0}
+                      step={0.25}
+                      onChange={(value) => setCostForm((current) => ({ ...current, engineeringHours: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-marketing-budget"
+                      label="Monthly marketing budget"
+                      hint="Fixed marketing spend expected each month while the product is selling."
+                      value={costForm.marketingBudget}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setCostForm((current) => ({ ...current, marketingBudget: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-marketing-per-unit"
+                      label="Variable marketing cost per unit"
+                      hint="Additional marketing cost that scales with each unit sold."
+                      value={costForm.marketingCostPerUnit}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setCostForm((current) => ({ ...current, marketingCostPerUnit: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-cac-per-unit"
+                      label="Paid acquisition cost per unit"
+                      hint="Use this for PPC, affiliate, or channel acquisition cost allocated to each unit sold."
+                      value={costForm.ppcBudget}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setCostForm((current) => ({ ...current, ppcBudget: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-overhead-rate"
+                      label="Overhead rate per labor hour"
+                      hint="Burdened overhead rate applied to modeled labor and support time."
+                      value={costForm.overheadRate}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setCostForm((current) => ({ ...current, overheadRate: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-support-time"
+                      label="Support time allocation (%)"
+                      hint="Percent of labor time expected again for support, service, or warranty work."
                       value={costForm.supportTimePct * 100}
+                      min={0}
+                      step={1}
                       onChange={(value) => setCostForm((current) => ({ ...current, supportTimePct: value / 100 }))}
                     />
                   </div>
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-slate-900">BOM parts</h3>
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">BOM parts</h3>
+                        <p className="mt-1 text-xs text-slate-500">List the materials or components required for one finished unit.</p>
+                      </div>
                       <button
                         type="button"
                         className="btn-secondary text-sm"
@@ -969,44 +1099,82 @@ export default function ProductDetailPage() {
                       </button>
                     </div>
                     {bomParts.map((part, index) => (
-                      <div key={index} className="grid gap-3 rounded-2xl border border-slate-200 p-4 sm:grid-cols-[1fr_120px_120px_auto_auto]">
-                        <input
-                          className="input-field"
-                          value={part.item}
-                          placeholder="Item"
-                          onChange={(event) =>
-                            setBomParts((current) =>
-                              current.map((currentPart, currentIndex) =>
-                                currentIndex === index ? { ...currentPart, item: event.target.value } : currentPart
-                              )
-                            )
-                          }
-                        />
-                        <input
-                          type="number"
-                          className="input-field"
-                          value={part.unitCost}
-                          onChange={(event) =>
-                            setBomParts((current) =>
-                              current.map((currentPart, currentIndex) =>
-                                currentIndex === index ? { ...currentPart, unitCost: Number(event.target.value) } : currentPart
-                              )
-                            )
-                          }
-                        />
-                        <input
-                          type="number"
-                          className="input-field"
-                          value={part.quantity}
-                          onChange={(event) =>
-                            setBomParts((current) =>
-                              current.map((currentPart, currentIndex) =>
-                                currentIndex === index ? { ...currentPart, quantity: Number(event.target.value) } : currentPart
-                              )
-                            )
-                          }
-                        />
-                        <label className="flex items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm text-slate-600">
+                      <div key={index} className="rounded-2xl border border-slate-200 p-4">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-900">BOM row {index + 1}</h4>
+                            <p className="mt-1 text-xs text-slate-500">Define the part name, cost per item, and quantity used in one finished unit.</p>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-danger text-sm"
+                            disabled={bomParts.length === 1}
+                            onClick={() => setBomParts((current) => current.filter((_, currentIndex) => currentIndex !== index))}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.5fr)_140px_140px]">
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor={`bom-item-${index}`}>
+                              Part or material name
+                            </label>
+                            <input
+                              id={`bom-item-${index}`}
+                              className="input-field"
+                              value={part.item}
+                              placeholder="Example: Polymer housing"
+                              onChange={(event) =>
+                                setBomParts((current) =>
+                                  current.map((currentPart, currentIndex) =>
+                                    currentIndex === index ? { ...currentPart, item: event.target.value } : currentPart
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor={`bom-cost-${index}`}>
+                              Cost per item
+                            </label>
+                            <input
+                              id={`bom-cost-${index}`}
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              className="input-field"
+                              value={part.unitCost}
+                              onChange={(event) =>
+                                setBomParts((current) =>
+                                  current.map((currentPart, currentIndex) =>
+                                    currentIndex === index ? { ...currentPart, unitCost: Number(event.target.value) } : currentPart
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor={`bom-quantity-${index}`}>
+                              Quantity per unit
+                            </label>
+                            <input
+                              id={`bom-quantity-${index}`}
+                              type="number"
+                              min={0}
+                              step={1}
+                              className="input-field"
+                              value={part.quantity}
+                              onChange={(event) =>
+                                setBomParts((current) =>
+                                  current.map((currentPart, currentIndex) =>
+                                    currentIndex === index ? { ...currentPart, quantity: Number(event.target.value) } : currentPart
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                        <label className="mt-3 flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-600">
                           <input
                             type="checkbox"
                             checked={part.cashEffect}
@@ -1018,23 +1186,18 @@ export default function ProductDetailPage() {
                               )
                             }
                           />
-                          Cash flow
+                          Include this part in cash flow calculations
                         </label>
-                        <button
-                          type="button"
-                          className="btn-danger text-sm"
-                          disabled={bomParts.length === 1}
-                          onClick={() => setBomParts((current) => current.filter((_, currentIndex) => currentIndex !== index))}
-                        >
-                          Remove
-                        </button>
                       </div>
                     ))}
                   </div>
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-slate-900">Labor entries</h3>
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">Labor entries</h3>
+                        <p className="mt-1 text-xs text-slate-500">Choose a rate card and enter the time needed for that activity.</p>
+                      </div>
                       <button
                         type="button"
                         className="btn-secondary text-sm"
@@ -1044,69 +1207,107 @@ export default function ProductDetailPage() {
                       </button>
                     </div>
                     {laborEntries.map((entry, index) => (
-                      <div key={index} className="grid gap-3 rounded-2xl border border-slate-200 p-4 sm:grid-cols-[1fr_90px_90px_90px_auto]">
-                        <select
-                          className="input-field"
-                          value={entry.activityId}
-                          onChange={(event) =>
-                            setLaborEntries((current) =>
-                              current.map((currentEntry, currentIndex) =>
-                                currentIndex === index ? { ...currentEntry, activityId: event.target.value } : currentEntry
-                              )
-                            )
-                          }
-                        >
-                          <option value="">Select activity</option>
-                          {activityRates.map((rate) => (
-                            <option key={rate.id} value={rate.id}>
-                              {rate.activityName} ({formatCurrency(rate.ratePerHour)}/hr)
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          className="input-field"
-                          value={entry.hours}
-                          onChange={(event) =>
-                            setLaborEntries((current) =>
-                              current.map((currentEntry, currentIndex) =>
-                                currentIndex === index ? { ...currentEntry, hours: Number(event.target.value) } : currentEntry
-                              )
-                            )
-                          }
-                        />
-                        <input
-                          type="number"
-                          className="input-field"
-                          value={entry.minutes}
-                          onChange={(event) =>
-                            setLaborEntries((current) =>
-                              current.map((currentEntry, currentIndex) =>
-                                currentIndex === index ? { ...currentEntry, minutes: Number(event.target.value) } : currentEntry
-                              )
-                            )
-                          }
-                        />
-                        <input
-                          type="number"
-                          className="input-field"
-                          value={entry.seconds}
-                          onChange={(event) =>
-                            setLaborEntries((current) =>
-                              current.map((currentEntry, currentIndex) =>
-                                currentIndex === index ? { ...currentEntry, seconds: Number(event.target.value) } : currentEntry
-                              )
-                            )
-                          }
-                        />
-                        <button
-                          type="button"
-                          className="btn-danger text-sm"
-                          disabled={laborEntries.length === 1}
-                          onClick={() => setLaborEntries((current) => current.filter((_, currentIndex) => currentIndex !== index))}
-                        >
-                          Remove
-                        </button>
+                      <div key={index} className="rounded-2xl border border-slate-200 p-4">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-900">Labor row {index + 1}</h4>
+                            <p className="mt-1 text-xs text-slate-500">Select the work type and enter the time required for one unit or task block.</p>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-danger text-sm"
+                            disabled={laborEntries.length === 1}
+                            onClick={() => setLaborEntries((current) => current.filter((_, currentIndex) => currentIndex !== index))}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_100px_100px_100px]">
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor={`labor-activity-${index}`}>
+                              Activity / rate card
+                            </label>
+                            <select
+                              id={`labor-activity-${index}`}
+                              className="input-field"
+                              value={entry.activityId}
+                              onChange={(event) =>
+                                setLaborEntries((current) =>
+                                  current.map((currentEntry, currentIndex) =>
+                                    currentIndex === index ? { ...currentEntry, activityId: event.target.value } : currentEntry
+                                  )
+                                )
+                              }
+                            >
+                              <option value="">Select activity</option>
+                              {activityRates.map((rate) => (
+                                <option key={rate.id} value={rate.id}>
+                                  {rate.activityName} ({formatCurrency(rate.ratePerHour)}/hr)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor={`labor-hours-${index}`}>
+                              Hours
+                            </label>
+                            <input
+                              id={`labor-hours-${index}`}
+                              type="number"
+                              min={0}
+                              step={1}
+                              className="input-field"
+                              value={entry.hours}
+                              onChange={(event) =>
+                                setLaborEntries((current) =>
+                                  current.map((currentEntry, currentIndex) =>
+                                    currentIndex === index ? { ...currentEntry, hours: Number(event.target.value) } : currentEntry
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor={`labor-minutes-${index}`}>
+                              Minutes
+                            </label>
+                            <input
+                              id={`labor-minutes-${index}`}
+                              type="number"
+                              min={0}
+                              step={1}
+                              className="input-field"
+                              value={entry.minutes}
+                              onChange={(event) =>
+                                setLaborEntries((current) =>
+                                  current.map((currentEntry, currentIndex) =>
+                                    currentIndex === index ? { ...currentEntry, minutes: Number(event.target.value) } : currentEntry
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="form-group mb-0">
+                            <label className="form-label" htmlFor={`labor-seconds-${index}`}>
+                              Seconds
+                            </label>
+                            <input
+                              id={`labor-seconds-${index}`}
+                              type="number"
+                              min={0}
+                              step={1}
+                              className="input-field"
+                              value={entry.seconds}
+                              onChange={(event) =>
+                                setLaborEntries((current) =>
+                                  current.map((currentEntry, currentIndex) =>
+                                    currentIndex === index ? { ...currentEntry, seconds: Number(event.target.value) } : currentEntry
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1193,20 +1394,34 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 }
 
 function FieldNumber({
+  id,
   label,
+  hint,
   value,
+  min,
+  step,
   onChange,
 }: {
+  id: string
   label: string
+  hint?: string
   value: number
+  min?: number
+  step?: number
   onChange: (value: number) => void
 }) {
   return (
     <div className="form-group">
-      <label className="form-label">{label}</label>
+      <label className="form-label" htmlFor={id}>
+        {label}
+      </label>
+      {hint && <p className="mb-2 text-xs text-slate-500">{hint}</p>}
       <input
+        id={id}
         type="number"
         className="input-field"
+        min={min}
+        step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
       />
