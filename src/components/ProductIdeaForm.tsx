@@ -34,10 +34,18 @@ export default function ProductIdeaForm({
 }: ProductIdeaFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const totalSteps = 3
+  const stepFields: Record<number, Array<keyof ProductIdeaFormData>> = {
+    1: includeEmail
+      ? ['submitter_email', 'title', 'description', 'category']
+      : ['title', 'description', 'category'],
+    2: ['positioning_statement'],
+    3: ['required_attributes', 'competitor_overview'],
+  }
 
   const {
     register,
     handleSubmit,
+    trigger,
     formState: { errors },
     watch,
   } = useForm<ProductIdeaFormData>({
@@ -49,18 +57,32 @@ export default function ProductIdeaForm({
   const watchedValues = watch()
 
   const handleFormSubmit = (data: ProductIdeaFormData) => {
-    if (currentStep === totalSteps) {
-      onComplete(data)
+    onComplete(data)
+  }
+
+  const handleContinue = async () => {
+    const stepIsValid = await trigger(stepFields[currentStep], { shouldFocus: true })
+    if (!stepIsValid) {
       return
     }
 
-    setCurrentStep((value) => value + 1)
+    setCurrentStep((value) => Math.min(totalSteps, value + 1))
+  }
+
+  const handleStepSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    if (currentStep < totalSteps) {
+      event.preventDefault()
+      await handleContinue()
+      return
+    }
+
+    await handleSubmit(handleFormSubmit)(event)
   }
 
   const isStepValid = (step: number) => {
     switch (step) {
       case 1:
-        return (
+        return Boolean(
           watchedValues.title &&
           watchedValues.description &&
           watchedValues.category &&
@@ -70,9 +92,14 @@ export default function ProductIdeaForm({
           !errors.submitter_email
         )
       case 2:
-        return watchedValues.positioning_statement && !errors.positioning_statement
+        return Boolean(watchedValues.positioning_statement && !errors.positioning_statement)
       case 3:
-        return watchedValues.required_attributes && watchedValues.competitor_overview && !errors.required_attributes && !errors.competitor_overview
+        return Boolean(
+          watchedValues.required_attributes &&
+          watchedValues.competitor_overview &&
+          !errors.required_attributes &&
+          !errors.competitor_overview
+        )
       default:
         return false
     }
@@ -106,7 +133,7 @@ export default function ProductIdeaForm({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6 sm:space-y-8">
+      <form onSubmit={(event) => void handleStepSubmit(event)} className="space-y-6 sm:space-y-8">
         {currentStep === 1 && (
           <div className="form-section">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Basic Product Information</h3>
@@ -248,7 +275,8 @@ export default function ProductIdeaForm({
             Back
           </button>
           <button
-            type="submit"
+            type={currentStep === totalSteps ? 'submit' : 'button'}
+            onClick={currentStep === totalSteps ? undefined : () => void handleContinue()}
             disabled={!isStepValid(currentStep) || isLoading}
             className="btn-primary w-full sm:w-auto disabled:opacity-50"
           >
