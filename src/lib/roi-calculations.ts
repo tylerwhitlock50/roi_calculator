@@ -43,6 +43,21 @@ export type UnitEconomicsSegment = {
   pctOfRevenue: number
 }
 
+export type ProfitInvestmentQuadrant = 'scale' | 'premium' | 'concept-halo' | 'accessory'
+
+export type ProfitInvestmentProfile = {
+  toolingCost: number
+  projectedRevenue: number
+  projectedNetIncome: number
+  investmentRatio: number
+  profitCoverageRatio: number
+  xPosition: number
+  yPosition: number
+  highInvestment: boolean
+  highProfit: boolean
+  quadrant: ProfitInvestmentQuadrant
+}
+
 export type UnitEconomicsNode = {
   name: string
   color: string
@@ -75,6 +90,7 @@ export type UnitEconomicsBreakdown = {
   recurringCostPerUnit: number
   bomParts: UnitEconomicsSegment[]
   costStack: UnitEconomicsSegment[]
+  profitInvestmentProfile: ProfitInvestmentProfile
   sankeyData: {
     nodes: UnitEconomicsNode[]
     links: UnitEconomicsLink[]
@@ -98,6 +114,10 @@ const COST_COLORS = {
 } as const
 
 const NEGATIVE_MARGIN_LABEL = 'Funding needed'
+const INVESTMENT_THRESHOLD_RATIO = 0.1
+const INVESTMENT_AXIS_MAX_RATIO = 0.2
+const PROFIT_COVERAGE_THRESHOLD = 1
+const PROFIT_COVERAGE_AXIS_MAX = 2
 
 export function calculateLaborHours(laborEntries: CostEstimateRecord['laborEntries']): number {
   return laborEntries.reduce((sum, entry) => sum + entry.hours + entry.minutes / 60 + entry.seconds / 3600, 0)
@@ -244,6 +264,41 @@ function buildSankeyData({
   return { nodes, links }
 }
 
+export function calculateProfitInvestmentProfile({
+  toolingCost,
+  projectedRevenue,
+  projectedNetIncome,
+}: {
+  toolingCost: number
+  projectedRevenue: number
+  projectedNetIncome: number
+}): ProfitInvestmentProfile {
+  const investmentRatio = projectedRevenue > 0 ? toolingCost / projectedRevenue : toolingCost > 0 ? 1 : 0
+  const profitCoverageRatio = toolingCost > 0 ? projectedNetIncome / toolingCost : projectedNetIncome > 0 ? PROFIT_COVERAGE_AXIS_MAX : 0
+  const highInvestment = investmentRatio >= INVESTMENT_THRESHOLD_RATIO
+  const highProfit = toolingCost > 0 ? profitCoverageRatio >= PROFIT_COVERAGE_THRESHOLD : projectedNetIncome > 0
+  const quadrant: ProfitInvestmentQuadrant = highInvestment
+    ? highProfit
+      ? 'premium'
+      : 'concept-halo'
+    : highProfit
+      ? 'scale'
+      : 'accessory'
+
+  return {
+    toolingCost,
+    projectedRevenue,
+    projectedNetIncome,
+    investmentRatio,
+    profitCoverageRatio,
+    xPosition: Math.max(0, Math.min(1, investmentRatio / INVESTMENT_AXIS_MAX_RATIO)),
+    yPosition: Math.max(0, Math.min(1, profitCoverageRatio / PROFIT_COVERAGE_AXIS_MAX)),
+    highInvestment,
+    highProfit,
+    quadrant,
+  }
+}
+
 function buildUnitEconomicsFromSummary(
   salesSummary: ForecastSalesSummary,
   estimate?: CostEstimateRecord
@@ -276,6 +331,7 @@ function buildUnitEconomicsFromSummary(
   const contributionMarginPerUnit = salesSummary.averagePrice - recurringCostPerUnit
   const profitPerUnit = contributionMarginPerUnit - upfrontCostPerUnit
   const profitMarginPct = salesSummary.averagePrice > 0 ? profitPerUnit / salesSummary.averagePrice : 0
+  const projectedNetIncome = profitPerUnit * salesSummary.totalUnits
   const costStack: UnitEconomicsSegment[] = [
     { label: 'Cash BOM', value: bomCostPerUnit, color: COST_COLORS.bom, pctOfRevenue: 0 },
     { label: 'Marketing', value: allocatedMarketingPerUnit, color: COST_COLORS.marketing, pctOfRevenue: 0 },
@@ -335,6 +391,11 @@ function buildUnitEconomicsFromSummary(
     recurringCostPerUnit,
     bomParts: detailedBomParts,
     costStack,
+    profitInvestmentProfile: calculateProfitInvestmentProfile({
+      toolingCost: upfrontToolingCost,
+      projectedRevenue: salesSummary.totalRevenue,
+      projectedNetIncome,
+    }),
     sankeyData: buildSankeyData({
       bomParts: sankeyBomParts.map((part) => ({
         ...part,

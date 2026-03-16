@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { addMonths, format, parse } from 'date-fns'
 import { useParams, useRouter } from 'next/navigation'
 
+import BlankNumberInput, { blankableNumberToNumber, type BlankableNumber } from '@/components/BlankNumberInput'
 import ProductIdeaForm from '@/components/ProductIdeaForm'
 import UnitEconomicsTab from '@/components/UnitEconomicsTab'
 import {
@@ -29,51 +30,86 @@ const TABS = [
 type ForecastFormState = {
   channelOrCustomer: string
   contributorRole: string
-  monthlyVolumeEstimate: MonthlyForecast[]
+  monthlyVolumeEstimate: ForecastRowDraft[]
+}
+
+type ForecastRowDraft = {
+  month_date: string
+  units: BlankableNumber
+  price: BlankableNumber
 }
 
 type CostFormState = {
-  toolingCost: number
-  engineeringHours: number
-  marketingBudget: number
-  marketingCostPerUnit: number
-  overheadRate: number
-  supportTimePct: number
-  ppcBudget: number
+  toolingCost: BlankableNumber
+  engineeringHours: BlankableNumber
+  marketingBudget: BlankableNumber
+  marketingCostPerUnit: BlankableNumber
+  overheadRate: BlankableNumber
+  supportTimePct: BlankableNumber
+  ppcBudget: BlankableNumber
 }
 
 type BomDraft = {
   item: string
-  unitCost: number
-  quantity: number
+  unitCost: BlankableNumber
+  quantity: BlankableNumber
   cashEffect: boolean
 }
 
 type LaborDraft = {
   activityId: string
-  hours: number
-  minutes: number
-  seconds: number
+  hours: BlankableNumber
+  minutes: BlankableNumber
+  seconds: BlankableNumber
 }
 
-const initialForecastForm: ForecastFormState = {
-  channelOrCustomer: '',
-  contributorRole: '',
-  monthlyVolumeEstimate: [{ month_date: '', units: 0, price: 0 }],
+type LevelLoadedFormState = {
+  startMonth: string
+  unitsPerMonth: BlankableNumber
+  pricePerUnit: BlankableNumber
+  numberOfMonths: BlankableNumber
 }
 
-const initialCostForm: CostFormState = {
-  toolingCost: 0,
-  engineeringHours: 0,
-  marketingBudget: 0,
-  marketingCostPerUnit: 0,
-  overheadRate: 60,
-  supportTimePct: 0.2,
-  ppcBudget: 0,
+function createEmptyForecastRow(): ForecastRowDraft {
+  return { month_date: '', units: '', price: '' }
 }
 
-const initialBomParts: BomDraft[] = [{ item: '', unitCost: 0, quantity: 1, cashEffect: true }]
-const initialLaborEntries: LaborDraft[] = [{ activityId: '', hours: 0, minutes: 0, seconds: 0 }]
+function createInitialForecastForm(): ForecastFormState {
+  return {
+    channelOrCustomer: '',
+    contributorRole: '',
+    monthlyVolumeEstimate: [createEmptyForecastRow()],
+  }
+}
+
+function createInitialCostForm(): CostFormState {
+  return {
+    toolingCost: '',
+    engineeringHours: '',
+    marketingBudget: '',
+    marketingCostPerUnit: '',
+    overheadRate: '',
+    supportTimePct: '',
+    ppcBudget: '',
+  }
+}
+
+function createInitialBomParts(): BomDraft[] {
+  return [{ item: '', unitCost: '', quantity: '', cashEffect: true }]
+}
+
+function createInitialLaborEntries(): LaborDraft[] {
+  return [{ activityId: '', hours: '', minutes: '', seconds: '' }]
+}
+
+function createInitialLevelLoadedForm(): LevelLoadedFormState {
+  return {
+    startMonth: '',
+    unitsPerMonth: '',
+    pricePerUnit: '',
+    numberOfMonths: '',
+  }
+}
 
 export default function ProductDetailPage() {
   const router = useRouter()
@@ -87,22 +123,17 @@ export default function ProductDetailPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [showForecastModal, setShowForecastModal] = useState(false)
-  const [forecastForm, setForecastForm] = useState<ForecastFormState>(initialForecastForm)
+  const [forecastForm, setForecastForm] = useState<ForecastFormState>(createInitialForecastForm)
   const [editingForecastId, setEditingForecastId] = useState<string | null>(null)
   const [forecastLoading, setForecastLoading] = useState(false)
   const [forecastError, setForecastError] = useState<string | null>(null)
   const [showLevelLoadedForm, setShowLevelLoadedForm] = useState(false)
-  const [levelLoadedForm, setLevelLoadedForm] = useState({
-    startMonth: '',
-    unitsPerMonth: 0,
-    pricePerUnit: 0,
-    numberOfMonths: 24,
-  })
+  const [levelLoadedForm, setLevelLoadedForm] = useState<LevelLoadedFormState>(createInitialLevelLoadedForm)
 
   const [showCostModal, setShowCostModal] = useState(false)
-  const [costForm, setCostForm] = useState<CostFormState>(initialCostForm)
-  const [bomParts, setBomParts] = useState<BomDraft[]>(initialBomParts)
-  const [laborEntries, setLaborEntries] = useState<LaborDraft[]>(initialLaborEntries)
+  const [costForm, setCostForm] = useState<CostFormState>(createInitialCostForm)
+  const [bomParts, setBomParts] = useState<BomDraft[]>(createInitialBomParts)
+  const [laborEntries, setLaborEntries] = useState<LaborDraft[]>(createInitialLaborEntries)
   const [editingCostId, setEditingCostId] = useState<string | null>(null)
   const [costLoading, setCostLoading] = useState(false)
   const [costError, setCostError] = useState<string | null>(null)
@@ -153,16 +184,11 @@ export default function ProductDetailPage() {
   const closeForecastModal = () => {
     setShowForecastModal(false)
     setEditingForecastId(null)
-    setForecastForm(initialForecastForm)
+    setForecastForm(createInitialForecastForm())
     setForecastError(null)
     setForecastLoading(false)
     setShowLevelLoadedForm(false)
-    setLevelLoadedForm({
-      startMonth: '',
-      unitsPerMonth: 0,
-      pricePerUnit: 0,
-      numberOfMonths: 24,
-    })
+    setLevelLoadedForm(createInitialLevelLoadedForm())
   }
 
   const openForecastModal = (forecast?: ForecastRecord) => {
@@ -173,11 +199,11 @@ export default function ProductDetailPage() {
         contributorRole: forecast.contributorRole,
         monthlyVolumeEstimate: forecast.monthlyVolumeEstimate.length
           ? forecast.monthlyVolumeEstimate
-          : initialForecastForm.monthlyVolumeEstimate,
+          : createInitialForecastForm().monthlyVolumeEstimate,
       })
     } else {
       setEditingForecastId(null)
-      setForecastForm(initialForecastForm)
+      setForecastForm(createInitialForecastForm())
     }
 
     setForecastError(null)
@@ -197,9 +223,15 @@ export default function ProductDetailPage() {
         throw new Error('All forecast fields are required')
       }
 
+      const normalizedMonthlyVolumeEstimate: MonthlyForecast[] = forecastForm.monthlyVolumeEstimate.map((row) => ({
+        month_date: row.month_date,
+        units: blankableNumberToNumber(row.units),
+        price: blankableNumberToNumber(row.price),
+      }))
+
       if (
-        forecastForm.monthlyVolumeEstimate.length === 0 ||
-        forecastForm.monthlyVolumeEstimate.some((row) => !row.month_date || row.units <= 0 || row.price <= 0)
+        normalizedMonthlyVolumeEstimate.length === 0 ||
+        normalizedMonthlyVolumeEstimate.some((row) => !row.month_date || row.units <= 0 || row.price <= 0)
       ) {
         throw new Error('Each monthly row needs a month, positive units, and positive price')
       }
@@ -210,7 +242,7 @@ export default function ProductDetailPage() {
           forecastId: editingForecastId,
           contributorRole: forecastForm.contributorRole,
           channelOrCustomer: forecastForm.channelOrCustomer,
-          monthlyVolumeEstimate: forecastForm.monthlyVolumeEstimate,
+          monthlyVolumeEstimate: normalizedMonthlyVolumeEstimate,
         }),
       })
 
@@ -241,9 +273,9 @@ export default function ProductDetailPage() {
   const closeCostModal = () => {
     setShowCostModal(false)
     setEditingCostId(null)
-    setCostForm(initialCostForm)
-    setBomParts(initialBomParts)
-    setLaborEntries(initialLaborEntries)
+    setCostForm(createInitialCostForm())
+    setBomParts(createInitialBomParts())
+    setLaborEntries(createInitialLaborEntries())
     setCostError(null)
     setCostLoading(false)
   }
@@ -268,7 +300,7 @@ export default function ProductDetailPage() {
               quantity: part.quantity,
               cashEffect: part.cashEffect,
             }))
-          : initialBomParts
+          : createInitialBomParts()
       )
       setLaborEntries(
         estimate.laborEntries.length
@@ -278,13 +310,13 @@ export default function ProductDetailPage() {
               minutes: entry.minutes,
               seconds: entry.seconds,
             }))
-          : initialLaborEntries
+          : createInitialLaborEntries()
       )
     } else {
       setEditingCostId(null)
-      setCostForm(initialCostForm)
-      setBomParts(initialBomParts)
-      setLaborEntries(initialLaborEntries)
+      setCostForm(createInitialCostForm())
+      setBomParts(createInitialBomParts())
+      setLaborEntries(createInitialLaborEntries())
     }
 
     setCostError(null)
@@ -300,12 +332,33 @@ export default function ProductDetailPage() {
       setCostLoading(true)
       setCostError(null)
 
-      if (!bomParts.every((part) => part.item && part.unitCost >= 0 && part.quantity > 0)) {
+      const normalizedCostForm = {
+        toolingCost: blankableNumberToNumber(costForm.toolingCost),
+        engineeringHours: blankableNumberToNumber(costForm.engineeringHours),
+        marketingBudget: blankableNumberToNumber(costForm.marketingBudget),
+        marketingCostPerUnit: blankableNumberToNumber(costForm.marketingCostPerUnit),
+        overheadRate: blankableNumberToNumber(costForm.overheadRate),
+        supportTimePct: blankableNumberToNumber(costForm.supportTimePct),
+        ppcBudget: blankableNumberToNumber(costForm.ppcBudget),
+      }
+      const normalizedBomParts = bomParts.map((part) => ({
+        ...part,
+        unitCost: blankableNumberToNumber(part.unitCost),
+        quantity: blankableNumberToNumber(part.quantity),
+      }))
+      const normalizedLaborEntries = laborEntries.map((entry) => ({
+        ...entry,
+        hours: blankableNumberToNumber(entry.hours),
+        minutes: blankableNumberToNumber(entry.minutes),
+        seconds: blankableNumberToNumber(entry.seconds),
+      }))
+
+      if (!normalizedBomParts.every((part) => part.item && part.unitCost >= 0 && part.quantity > 0)) {
         throw new Error('Every BOM row needs an item, cost, and quantity')
       }
 
       if (
-        !laborEntries.every(
+        !normalizedLaborEntries.every(
           (entry) =>
             entry.activityId &&
             (entry.hours > 0 || entry.minutes > 0 || entry.seconds > 0)
@@ -318,9 +371,9 @@ export default function ProductDetailPage() {
         method: editingCostId ? 'PATCH' : 'POST',
         body: JSON.stringify({
           costEstimateId: editingCostId,
-          ...costForm,
-          bomParts,
-          laborEntries,
+          ...normalizedCostForm,
+          bomParts: normalizedBomParts,
+          laborEntries: normalizedLaborEntries,
         }),
       })
 
@@ -466,11 +519,15 @@ export default function ProductDetailPage() {
   }
 
   const generateLevelLoadedForecast = () => {
+    const numberOfMonths = blankableNumberToNumber(levelLoadedForm.numberOfMonths)
+    const unitsPerMonth = blankableNumberToNumber(levelLoadedForm.unitsPerMonth)
+    const pricePerUnit = blankableNumberToNumber(levelLoadedForm.pricePerUnit)
+
     if (
       !levelLoadedForm.startMonth ||
-      levelLoadedForm.unitsPerMonth <= 0 ||
-      levelLoadedForm.pricePerUnit <= 0 ||
-      levelLoadedForm.numberOfMonths <= 0
+      unitsPerMonth <= 0 ||
+      pricePerUnit <= 0 ||
+      numberOfMonths <= 0
     ) {
       setForecastError('All level-loaded fields are required')
       return
@@ -479,12 +536,12 @@ export default function ProductDetailPage() {
     const monthlyForecasts: MonthlyForecast[] = []
     const startDate = parse(levelLoadedForm.startMonth, 'yyyy-MM', new Date())
 
-    for (let index = 0; index < levelLoadedForm.numberOfMonths; index += 1) {
+    for (let index = 0; index < numberOfMonths; index += 1) {
       const currentDate = addMonths(startDate, index)
       monthlyForecasts.push({
         month_date: format(currentDate, 'yyyy-MM'),
-        units: levelLoadedForm.unitsPerMonth,
-        price: levelLoadedForm.pricePerUnit,
+        units: unitsPerMonth,
+        price: pricePerUnit,
       })
     }
 
@@ -800,10 +857,7 @@ export default function ProductDetailPage() {
                           onClick={() =>
                             setForecastForm((current) => ({
                               ...current,
-                              monthlyVolumeEstimate: [
-                                ...current.monthlyVolumeEstimate,
-                                { month_date: '', units: 0, price: 0 },
-                              ],
+                              monthlyVolumeEstimate: [...current.monthlyVolumeEstimate, createEmptyForecastRow()],
                             }))
                           }
                         >
@@ -849,17 +903,16 @@ export default function ProductDetailPage() {
                             <label className="form-label" htmlFor="quick-fill-month-count">
                               Number of months
                             </label>
-                            <input
+                            <BlankNumberInput
                               id="quick-fill-month-count"
-                              type="number"
                               className="input-field"
                               min={1}
                               max={60}
                               value={levelLoadedForm.numberOfMonths}
-                              onChange={(event) =>
+                              onChange={(value) =>
                                 setLevelLoadedForm((current) => ({
                                   ...current,
-                                  numberOfMonths: Number(event.target.value),
+                                  numberOfMonths: value,
                                 }))
                               }
                             />
@@ -868,16 +921,15 @@ export default function ProductDetailPage() {
                             <label className="form-label" htmlFor="quick-fill-units">
                               Units sold per month
                             </label>
-                            <input
+                            <BlankNumberInput
                               id="quick-fill-units"
-                              type="number"
                               className="input-field"
                               min={0}
                               value={levelLoadedForm.unitsPerMonth}
-                              onChange={(event) =>
+                              onChange={(value) =>
                                 setLevelLoadedForm((current) => ({
                                   ...current,
-                                  unitsPerMonth: Number(event.target.value),
+                                  unitsPerMonth: value,
                                 }))
                               }
                               placeholder="Example: 500"
@@ -887,17 +939,16 @@ export default function ProductDetailPage() {
                             <label className="form-label" htmlFor="quick-fill-price">
                               Selling price per unit
                             </label>
-                            <input
+                            <BlankNumberInput
                               id="quick-fill-price"
-                              type="number"
                               className="input-field"
                               min={0}
                               step={0.01}
                               value={levelLoadedForm.pricePerUnit}
-                              onChange={(event) =>
+                              onChange={(value) =>
                                 setLevelLoadedForm((current) => ({
                                   ...current,
-                                  pricePerUnit: Number(event.target.value),
+                                  pricePerUnit: value,
                                 }))
                               }
                               placeholder="Example: 79.99"
@@ -958,18 +1009,17 @@ export default function ProductDetailPage() {
                               <label className="form-label" htmlFor={`forecast-units-${index}`}>
                                 Units sold
                               </label>
-                              <input
+                              <BlankNumberInput
                                 id={`forecast-units-${index}`}
-                                type="number"
                                 className="input-field"
                                 min={0}
                                 value={row.units}
-                                onChange={(event) =>
+                                onChange={(value) =>
                                   setForecastForm((current) => ({
                                     ...current,
                                     monthlyVolumeEstimate: current.monthlyVolumeEstimate.map((currentRow, currentIndex) =>
                                       currentIndex === index
-                                        ? { ...currentRow, units: Number(event.target.value) }
+                                        ? { ...currentRow, units: value }
                                         : currentRow
                                     ),
                                   }))
@@ -980,19 +1030,18 @@ export default function ProductDetailPage() {
                               <label className="form-label" htmlFor={`forecast-price-${index}`}>
                                 Selling price per unit
                               </label>
-                              <input
+                              <BlankNumberInput
                                 id={`forecast-price-${index}`}
-                                type="number"
                                 className="input-field"
                                 min={0}
                                 step={0.01}
                                 value={row.price}
-                                onChange={(event) =>
+                                onChange={(value) =>
                                   setForecastForm((current) => ({
                                     ...current,
                                     monthlyVolumeEstimate: current.monthlyVolumeEstimate.map((currentRow, currentIndex) =>
                                       currentIndex === index
-                                        ? { ...currentRow, price: Number(event.target.value) }
+                                        ? { ...currentRow, price: value }
                                         : currentRow
                                     ),
                                   }))
@@ -1158,10 +1207,10 @@ export default function ProductDetailPage() {
                       id="cost-support-time"
                       label="Support time allocation (%)"
                       hint="Percent of labor time expected again for support, service, or warranty work."
-                      value={costForm.supportTimePct * 100}
+                      value={costForm.supportTimePct === '' ? '' : costForm.supportTimePct * 100}
                       min={0}
                       step={1}
-                      onChange={(value) => setCostForm((current) => ({ ...current, supportTimePct: value / 100 }))}
+                      onChange={(value) => setCostForm((current) => ({ ...current, supportTimePct: value === '' ? '' : value / 100 }))}
                     />
                   </div>
 
@@ -1174,7 +1223,7 @@ export default function ProductDetailPage() {
                       <button
                         type="button"
                         className="btn-secondary text-sm"
-                        onClick={() => setBomParts((current) => [...current, { item: '', unitCost: 0, quantity: 1, cashEffect: true }])}
+                        onClick={() => setBomParts((current) => [...current, { item: '', unitCost: '', quantity: '', cashEffect: true }])}
                       >
                         Add BOM row
                       </button>
@@ -1218,17 +1267,16 @@ export default function ProductDetailPage() {
                             <label className="form-label" htmlFor={`bom-cost-${index}`}>
                               Cost per item
                             </label>
-                            <input
+                            <BlankNumberInput
                               id={`bom-cost-${index}`}
-                              type="number"
                               min={0}
                               step={0.01}
                               className="input-field"
                               value={part.unitCost}
-                              onChange={(event) =>
+                              onChange={(value) =>
                                 setBomParts((current) =>
                                   current.map((currentPart, currentIndex) =>
-                                    currentIndex === index ? { ...currentPart, unitCost: Number(event.target.value) } : currentPart
+                                    currentIndex === index ? { ...currentPart, unitCost: value } : currentPart
                                   )
                                 )
                               }
@@ -1238,17 +1286,16 @@ export default function ProductDetailPage() {
                             <label className="form-label" htmlFor={`bom-quantity-${index}`}>
                               Quantity per unit
                             </label>
-                            <input
+                            <BlankNumberInput
                               id={`bom-quantity-${index}`}
-                              type="number"
                               min={0}
                               step={1}
                               className="input-field"
                               value={part.quantity}
-                              onChange={(event) =>
+                              onChange={(value) =>
                                 setBomParts((current) =>
                                   current.map((currentPart, currentIndex) =>
-                                    currentIndex === index ? { ...currentPart, quantity: Number(event.target.value) } : currentPart
+                                    currentIndex === index ? { ...currentPart, quantity: value } : currentPart
                                   )
                                 )
                               }
@@ -1282,7 +1329,7 @@ export default function ProductDetailPage() {
                       <button
                         type="button"
                         className="btn-secondary text-sm"
-                        onClick={() => setLaborEntries((current) => [...current, { activityId: '', hours: 0, minutes: 0, seconds: 0 }])}
+                        onClick={() => setLaborEntries((current) => [...current, { activityId: '', hours: '', minutes: '', seconds: '' }])}
                       >
                         Add labor row
                       </button>
@@ -1332,17 +1379,16 @@ export default function ProductDetailPage() {
                             <label className="form-label" htmlFor={`labor-hours-${index}`}>
                               Hours
                             </label>
-                            <input
+                            <BlankNumberInput
                               id={`labor-hours-${index}`}
-                              type="number"
                               min={0}
                               step={1}
                               className="input-field"
                               value={entry.hours}
-                              onChange={(event) =>
+                              onChange={(value) =>
                                 setLaborEntries((current) =>
                                   current.map((currentEntry, currentIndex) =>
-                                    currentIndex === index ? { ...currentEntry, hours: Number(event.target.value) } : currentEntry
+                                    currentIndex === index ? { ...currentEntry, hours: value } : currentEntry
                                   )
                                 )
                               }
@@ -1352,17 +1398,16 @@ export default function ProductDetailPage() {
                             <label className="form-label" htmlFor={`labor-minutes-${index}`}>
                               Minutes
                             </label>
-                            <input
+                            <BlankNumberInput
                               id={`labor-minutes-${index}`}
-                              type="number"
                               min={0}
                               step={1}
                               className="input-field"
                               value={entry.minutes}
-                              onChange={(event) =>
+                              onChange={(value) =>
                                 setLaborEntries((current) =>
                                   current.map((currentEntry, currentIndex) =>
-                                    currentIndex === index ? { ...currentEntry, minutes: Number(event.target.value) } : currentEntry
+                                    currentIndex === index ? { ...currentEntry, minutes: value } : currentEntry
                                   )
                                 )
                               }
@@ -1372,17 +1417,16 @@ export default function ProductDetailPage() {
                             <label className="form-label" htmlFor={`labor-seconds-${index}`}>
                               Seconds
                             </label>
-                            <input
+                            <BlankNumberInput
                               id={`labor-seconds-${index}`}
-                              type="number"
                               min={0}
                               step={1}
                               className="input-field"
                               value={entry.seconds}
-                              onChange={(event) =>
+                              onChange={(value) =>
                                 setLaborEntries((current) =>
                                   current.map((currentEntry, currentIndex) =>
-                                    currentIndex === index ? { ...currentEntry, seconds: Number(event.target.value) } : currentEntry
+                                    currentIndex === index ? { ...currentEntry, seconds: value } : currentEntry
                                   )
                                 )
                               }
@@ -1509,10 +1553,10 @@ function FieldNumber({
   id: string
   label: string
   hint?: string
-  value: number
+  value: BlankableNumber
   min?: number
   step?: number
-  onChange: (value: number) => void
+  onChange: (value: BlankableNumber) => void
 }) {
   return (
     <div className="form-group">
@@ -1520,14 +1564,13 @@ function FieldNumber({
         {label}
       </label>
       {hint && <p className="mb-2 text-xs text-slate-500">{hint}</p>}
-      <input
+      <BlankNumberInput
         id={id}
-        type="number"
         className="input-field"
         min={min}
         step={step}
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={onChange}
       />
     </div>
   )

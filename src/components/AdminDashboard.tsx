@@ -2,8 +2,21 @@
 
 import React, { useEffect, useState } from 'react'
 
+import BlankNumberInput, { blankableNumberToNumber, type BlankableNumber } from '@/components/BlankNumberInput'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { apiFetch, type ActivityRateRecord, type AdminUserRecord, type CategoryOptionRecord } from '@/lib/api'
+
+type ActivityRateDraft = {
+  activityName: string
+  ratePerHour: BlankableNumber
+}
+
+function createInitialRateDraft(): ActivityRateDraft {
+  return {
+    activityName: '',
+    ratePerHour: '',
+  }
+}
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<AdminUserRecord[]>([])
@@ -11,7 +24,7 @@ export default function AdminDashboard() {
   const [categories, setCategories] = useState<CategoryOptionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [draftRate, setDraftRate] = useState({ activityName: '', ratePerHour: 0 })
+  const [draftRate, setDraftRate] = useState<ActivityRateDraft>(createInitialRateDraft)
   const [editingRateId, setEditingRateId] = useState<string | null>(null)
   const [draftCategory, setDraftCategory] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
@@ -45,23 +58,28 @@ export default function AdminDashboard() {
         return
       }
 
+      const normalizedRatePerHour = blankableNumberToNumber(draftRate.ratePerHour)
+
       if (editingRateId) {
         await apiFetch<ActivityRateRecord>('/api/admin/activity-rates', {
           method: 'PATCH',
           body: JSON.stringify({
             id: editingRateId,
             activityName: draftRate.activityName,
-            ratePerHour: draftRate.ratePerHour,
+            ratePerHour: normalizedRatePerHour,
           }),
         })
       } else {
         await apiFetch<ActivityRateRecord>('/api/admin/activity-rates', {
           method: 'POST',
-          body: JSON.stringify(draftRate),
+          body: JSON.stringify({
+            activityName: draftRate.activityName,
+            ratePerHour: normalizedRatePerHour,
+          }),
         })
       }
 
-      setDraftRate({ activityName: '', ratePerHour: 0 })
+      setDraftRate(createInitialRateDraft())
       setEditingRateId(null)
       await loadAdminData()
     } catch (saveError) {
@@ -282,13 +300,12 @@ export default function AdminDashboard() {
                   <label className="form-label" htmlFor="activity-rate-hourly">
                     Hourly rate
                   </label>
-                  <input
+                  <BlankNumberInput
                     id="activity-rate-hourly"
-                    type="number"
                     min={0}
                     step={0.01}
                     value={draftRate.ratePerHour}
-                    onChange={(event) => setDraftRate((current) => ({ ...current, ratePerHour: Number(event.target.value) }))}
+                    onChange={(value) => setDraftRate((current) => ({ ...current, ratePerHour: value }))}
                     className="input-field"
                     placeholder="Example: 85"
                   />
@@ -301,7 +318,7 @@ export default function AdminDashboard() {
                 {editingRateId && (
                   <button
                     onClick={() => {
-                      setDraftRate({ activityName: '', ratePerHour: 0 })
+                      setDraftRate(createInitialRateDraft())
                       setEditingRateId(null)
                     }}
                     className="btn-secondary"

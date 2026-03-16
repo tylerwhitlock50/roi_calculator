@@ -145,6 +145,8 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
             items={unitEconomics.costStack}
           />
 
+          <ProfitInvestmentMatrixCard profile={unitEconomics.profitInvestmentProfile} />
+
           <div className={`rounded-[24px] border px-5 py-5 text-sm ${marginTone}`}>
             <div className="text-[11px] font-semibold uppercase tracking-[0.22em]">Margin callout</div>
             <div className="mt-2 text-3xl font-semibold">{formatCurrency(unitEconomics.profitPerUnit)}</div>
@@ -251,6 +253,157 @@ function BreakdownCard({
   )
 }
 
+function ProfitInvestmentMatrixCard({
+  profile,
+}: {
+  profile: UnitEconomicsBreakdown['profitInvestmentProfile']
+}) {
+  const quadrantCopy = getQuadrantCopy(profile.quadrant)
+  const pointLeft = `${Math.min(Math.max(profile.xPosition * 100, 3), 97)}%`
+  const pointTop = `${Math.min(Math.max((1 - profile.yPosition) * 100, 3), 97)}%`
+
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">Profit vs. investment</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Tooling spend is mapped against projected net income across the saved forecast horizon.
+          </p>
+        </div>
+        <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+          {quadrantCopy.badge}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <div className="mb-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+          High profit impact
+        </div>
+
+        <div className="relative aspect-square rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#f8fafc_0%,#eef2ff_100%)] p-4">
+          <div className="absolute inset-x-1/2 top-4 bottom-4 w-px -translate-x-1/2 bg-slate-300" />
+          <div className="absolute inset-y-1/2 left-4 right-4 h-px -translate-y-1/2 bg-slate-300" />
+
+          <QuadrantTile title="Scale" subtitle="Lean in" className="left-4 top-4 border-emerald-200 bg-emerald-50/90 text-emerald-900" />
+          <QuadrantTile title="Premium" subtitle="High impact" className="right-4 top-4 border-sky-200 bg-sky-50/90 text-sky-900" />
+          <QuadrantTile title="Accessory" subtitle="Visors, mounts" className="left-4 bottom-4 border-slate-200 bg-white/90 text-slate-700" />
+          <QuadrantTile
+            title="Concept / halo"
+            subtitle="Marketing piece"
+            className="right-4 bottom-4 border-amber-200 bg-amber-50/90 text-amber-900"
+          />
+
+          <div
+            className="absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white bg-slate-950 shadow-[0_12px_24px_-12px_rgba(15,23,42,0.8)]"
+            style={{ left: pointLeft, top: pointTop }}
+            aria-hidden="true"
+          />
+        </div>
+
+        <div className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+          Low profit impact
+        </div>
+        <div className="mt-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+          <span>Low investment</span>
+          <span>High investment</span>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+        <div className="text-sm font-semibold text-slate-900">{quadrantCopy.title}</div>
+        <p className="mt-1 text-sm leading-6 text-slate-600">{quadrantCopy.body}</p>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <MiniStat
+          label="Projected net income"
+          value={formatCurrency(profile.projectedNetIncome)}
+          detail={
+            profile.toolingCost > 0
+              ? `${formatMultiple(profile.profitCoverageRatio)} of tooling recovered`
+              : 'No upfront tooling modeled'
+          }
+        />
+        <MiniStat
+          label="Tooling investment"
+          value={formatCurrency(profile.toolingCost)}
+          detail={`${(profile.investmentRatio * 100).toFixed(1)}% of projected revenue`}
+        />
+      </div>
+
+      <p className="mt-4 text-xs leading-5 text-slate-500">
+        The center lines split at tooling equal to 10% of projected revenue and projected net income equal to 1.0x tooling.
+      </p>
+    </div>
+  )
+}
+
+function QuadrantTile({
+  title,
+  subtitle,
+  className,
+}: {
+  title: string
+  subtitle: string
+  className: string
+}) {
+  return (
+    <div className={`absolute w-[calc(50%-1.25rem)] rounded-2xl border px-3 py-2 ${className}`}>
+      <div className="text-sm font-semibold">{title}</div>
+      <div className="text-xs">{subtitle}</div>
+    </div>
+  )
+}
+
+function MiniStat({
+  label,
+  value,
+  detail,
+}: {
+  label: string
+  value: string
+  detail: string
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</div>
+      <div className="mt-2 text-lg font-semibold text-slate-900">{value}</div>
+      <div className="mt-1 text-xs text-slate-500">{detail}</div>
+    </div>
+  )
+}
+
+function getQuadrantCopy(quadrant: UnitEconomicsBreakdown['profitInvestmentProfile']['quadrant']) {
+  switch (quadrant) {
+    case 'scale':
+      return {
+        badge: 'Scale product',
+        title: 'Scale product',
+        body: 'Low upfront tooling burden with net income that clears the investment. This is the profile to push harder through the channel.',
+      }
+    case 'premium':
+      return {
+        badge: 'Premium product',
+        title: 'Premium product',
+        body: 'This needs real upfront investment, but the modeled net income still pays it back. It fits a higher-commitment, high-impact launch.',
+      }
+    case 'concept-halo':
+      return {
+        badge: 'Concept / halo',
+        title: 'Concept / halo',
+        body: 'The model carries a heavier tooling burden without enough net income to repay it inside the saved forecast. Treat it more like a halo or marketing-led bet.',
+      }
+    case 'accessory':
+    default:
+      return {
+        badge: 'Accessory / add-on',
+        title: 'Accessory / add-on',
+        body: 'The tooling burden is light, but the current forecast still does not create enough net income to stand out. This is closer to a small add-on play.',
+      }
+  }
+}
+
 function SankeyNodeShape({ x = 0, y = 0, width = 0, height = 0, payload }: SankeyNodeShapeProps) {
   const label = payload?.name ?? ''
   const value = typeof payload?.value === 'number' ? payload.value : 0
@@ -303,4 +456,8 @@ function formatCurrency(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function formatMultiple(value: number) {
+  return `${value.toFixed(1)}x`
 }

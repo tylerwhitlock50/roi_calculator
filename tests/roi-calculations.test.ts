@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CostEstimateRecord, ForecastRecord } from '@/lib/api'
-import { calculateLaborCost, calculateRoiMetrics, calculateUnitEconomics } from '@/lib/roi-calculations'
+import {
+  calculateLaborCost,
+  calculateProfitInvestmentProfile,
+  calculateRoiMetrics,
+  calculateUnitEconomics,
+} from '@/lib/roi-calculations'
 
 function buildForecast(month: string, units: number, price: number): ForecastRecord {
   return {
@@ -179,5 +184,39 @@ describe('roi calculations', () => {
     expect(unitEconomics.canRenderSankey).toBe(true)
     expect(unitEconomics.costStack.at(-1)?.label).toBe('Funding needed')
     expect(unitEconomics.sankeyData.nodes.some((node) => node.name === 'Funding needed / unit')).toBe(true)
+  })
+
+  it('classifies the profit-vs-investment matrix from tooling burden and projected payback', () => {
+    expect(
+      calculateProfitInvestmentProfile({
+        toolingCost: 5000,
+        projectedRevenue: 120000,
+        projectedNetIncome: 20000,
+      }).quadrant
+    ).toBe('scale')
+
+    expect(
+      calculateProfitInvestmentProfile({
+        toolingCost: 18000,
+        projectedRevenue: 120000,
+        projectedNetIncome: 25000,
+      }).quadrant
+    ).toBe('premium')
+
+    expect(
+      calculateProfitInvestmentProfile({
+        toolingCost: 18000,
+        projectedRevenue: 120000,
+        projectedNetIncome: 6000,
+      }).quadrant
+    ).toBe('concept-halo')
+
+    expect(
+      calculateProfitInvestmentProfile({
+        toolingCost: 5000,
+        projectedRevenue: 120000,
+        projectedNetIncome: 3000,
+      }).quadrant
+    ).toBe('accessory')
   })
 })
