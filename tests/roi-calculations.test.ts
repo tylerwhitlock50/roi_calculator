@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { CostEstimateRecord, ForecastRecord } from '@/lib/api'
 import {
+  calculateEngineeringLaunchCost,
   calculateLaborCost,
   calculateProfitInvestmentProfile,
   calculateRoiMetrics,
@@ -31,6 +32,7 @@ function buildEstimate(): CostEstimateRecord {
     ideaId: 'idea-1',
     toolingCost: 50000,
     engineeringHours: 85,
+    engineeringRatePerHour: 0,
     marketingBudget: 500,
     marketingCostPerUnit: 30,
     overheadRate: 60,
@@ -83,12 +85,35 @@ describe('roi calculations', () => {
 
     const calculations = calculateRoiMetrics(forecasts, [estimate])
 
-    expect(calculations.assumptions.upfrontLaborCost).toBe(0)
+    expect(calculations.assumptions.upfrontEngineeringCost).toBe(0)
     expect(calculations.cashFlows[0].labor).toBe(0)
     expect(calculations.cashFlows[0].tooling).toBe(-50000)
     expect(calculations.cashFlows[1].labor).toBe(-15000)
     expect(calculations.cashFlows[1].marketing).toBe(-6500)
     expect(calculations.cashFlows[1].cac).toBe(-1000)
+  })
+
+  it('rolls launch engineering cost into upfront tooling investment', () => {
+    const estimate = buildEstimate()
+    estimate.toolingCost = 1000
+    estimate.engineeringHours = 10.5
+    estimate.engineeringRatePerHour = 120
+    estimate.marketingBudget = 0
+    estimate.marketingCostPerUnit = 0
+    estimate.overheadRate = 0
+    estimate.supportTimePct = 0
+    estimate.ppcBudget = 0
+    estimate.laborEntries = []
+
+    const forecasts = [buildForecast('2026-01', 100, 50)]
+    const calculations = calculateRoiMetrics(forecasts, [estimate])
+    const unitEconomics = calculateUnitEconomics(forecasts, [estimate])
+
+    expect(calculateEngineeringLaunchCost(estimate)).toBe(1260)
+    expect(calculations.assumptions.upfrontToolingCost).toBe(1000)
+    expect(calculations.assumptions.upfrontEngineeringCost).toBe(1260)
+    expect(calculations.cashFlows[0].tooling).toBe(-2260)
+    expect(unitEconomics.toolingPerUnit).toBeCloseTo(22.6)
   })
 
   it('aggregates cash flow totals and overall roi from the modeled cash flows', () => {

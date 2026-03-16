@@ -268,7 +268,7 @@ function ProfitInvestmentMatrixCard({
         <div>
           <h3 className="text-lg font-semibold text-slate-900">Profit vs. investment</h3>
           <p className="mt-1 text-sm text-slate-500">
-            Tooling spend is mapped against projected net income across the saved forecast horizon.
+            Upfront tooling plus launch engineering are mapped against projected net income across the saved forecast horizon.
           </p>
         </div>
         <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
@@ -321,19 +321,19 @@ function ProfitInvestmentMatrixCard({
           value={formatCurrency(profile.projectedNetIncome)}
           detail={
             profile.toolingCost > 0
-              ? `${formatMultiple(profile.profitCoverageRatio)} of tooling recovered`
-              : 'No upfront tooling modeled'
+              ? `${formatMultiple(profile.profitCoverageRatio)} of upfront investment recovered`
+              : 'No upfront investment modeled'
           }
         />
         <MiniStat
-          label="Tooling investment"
+          label="Upfront investment"
           value={formatCurrency(profile.toolingCost)}
           detail={`${(profile.investmentRatio * 100).toFixed(1)}% of projected revenue`}
         />
       </div>
 
       <p className="mt-4 text-xs leading-5 text-slate-500">
-        The center lines split at tooling equal to 10% of projected revenue and projected net income equal to 1.0x tooling.
+        The center lines split at upfront investment equal to 10% of projected revenue and projected net income equal to 1.0x investment.
       </p>
     </div>
   )

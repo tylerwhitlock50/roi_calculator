@@ -51,6 +51,11 @@ function sanitizeLaborEntries(value: unknown) {
     .filter((entry) => entry.activityId)
 }
 
+function parseFiniteNumber(value: unknown, fallback: number) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 export async function GET(_request: Request, { params }: Params) {
   try {
     await requireUser()
@@ -87,13 +92,14 @@ export async function POST(request: Request, { params }: Params) {
     const body = await request.json()
 
     const payload = {
-      toolingCost: Number(body.toolingCost ?? 0),
-      engineeringHours: Number(body.engineeringHours ?? 0),
-      marketingBudget: Number(body.marketingBudget ?? 0),
-      marketingCostPerUnit: Number(body.marketingCostPerUnit ?? 0),
-      overheadRate: Number(body.overheadRate ?? 60),
-      supportTimePct: Number(body.supportTimePct ?? 0.2),
-      ppcBudget: Number(body.ppcBudget ?? 0),
+      toolingCost: parseFiniteNumber(body.toolingCost, 0),
+      engineeringHours: parseFiniteNumber(body.engineeringHours, 0),
+      engineeringRatePerHour: parseFiniteNumber(body.engineeringRatePerHour, 125),
+      marketingBudget: parseFiniteNumber(body.marketingBudget, 0),
+      marketingCostPerUnit: parseFiniteNumber(body.marketingCostPerUnit, 0),
+      overheadRate: parseFiniteNumber(body.overheadRate, 60),
+      supportTimePct: parseFiniteNumber(body.supportTimePct, 0.2),
+      ppcBudget: parseFiniteNumber(body.ppcBudget, 0),
       bomParts: sanitizeBomParts(body.bomParts),
       laborEntries: sanitizeLaborEntries(body.laborEntries),
     }
@@ -104,6 +110,7 @@ export async function POST(request: Request, { params }: Params) {
         createdById: user.id,
         toolingCost: payload.toolingCost,
         engineeringHours: payload.engineeringHours,
+        engineeringRatePerHour: payload.engineeringRatePerHour,
         marketingBudget: payload.marketingBudget,
         marketingCostPerUnit: payload.marketingCostPerUnit,
         overheadRate: payload.overheadRate,
@@ -159,13 +166,14 @@ export async function PATCH(request: Request, { params }: Params) {
       await tx.costEstimate.update({
         where: { id: existing.id },
         data: {
-          toolingCost: Number(body.toolingCost ?? existing.toolingCost),
-          engineeringHours: Number(body.engineeringHours ?? existing.engineeringHours),
-          marketingBudget: Number(body.marketingBudget ?? existing.marketingBudget),
-          marketingCostPerUnit: Number(body.marketingCostPerUnit ?? existing.marketingCostPerUnit),
-          overheadRate: Number(body.overheadRate ?? existing.overheadRate),
-          supportTimePct: Number(body.supportTimePct ?? existing.supportTimePct),
-          ppcBudget: Number(body.ppcBudget ?? existing.ppcBudget),
+          toolingCost: parseFiniteNumber(body.toolingCost, existing.toolingCost),
+          engineeringHours: parseFiniteNumber(body.engineeringHours, existing.engineeringHours),
+          engineeringRatePerHour: parseFiniteNumber(body.engineeringRatePerHour, existing.engineeringRatePerHour ?? 125),
+          marketingBudget: parseFiniteNumber(body.marketingBudget, existing.marketingBudget),
+          marketingCostPerUnit: parseFiniteNumber(body.marketingCostPerUnit, existing.marketingCostPerUnit),
+          overheadRate: parseFiniteNumber(body.overheadRate, existing.overheadRate),
+          supportTimePct: parseFiniteNumber(body.supportTimePct, existing.supportTimePct),
+          ppcBudget: parseFiniteNumber(body.ppcBudget, existing.ppcBudget),
         },
       })
 

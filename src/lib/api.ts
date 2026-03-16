@@ -50,6 +50,7 @@ export type CostEstimateRecord = {
   ideaId: string
   toolingCost: number
   engineeringHours: number
+  engineeringRatePerHour: number
   marketingBudget: number
   marketingCostPerUnit: number
   overheadRate: number

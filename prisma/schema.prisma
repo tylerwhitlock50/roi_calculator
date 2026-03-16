@@ -92,22 +92,23 @@ model Category {
 }
 
 model CostEstimate {
-  id                   String       @id @default(cuid())
-  ideaId               String
-  toolingCost          Float        @default(0)
-  engineeringHours     Int          @default(0)
-  marketingBudget      Float        @default(0)
-  marketingCostPerUnit Float        @default(0)
-  overheadRate         Float        @default(60)
-  supportTimePct       Float        @default(0.2)
-  ppcBudget            Float        @default(0)
-  createdById          String
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
-  idea                 Idea         @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  createdBy            User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  bomParts             BomPart[]
-  laborEntries         LaborEntry[]
+  id                     String       @id @default(cuid())
+  ideaId                 String
+  toolingCost            Float        @default(0)
+  engineeringHours       Float        @default(0)
+  engineeringRatePerHour Float        @default(125)
+  marketingBudget        Float        @default(0)
+  marketingCostPerUnit   Float        @default(0)
+  overheadRate           Float        @default(60)
+  supportTimePct         Float        @default(0.2)
+  ppcBudget              Float        @default(0)
+  createdById            String
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  idea                   Idea         @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  createdBy              User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  bomParts               BomPart[]
+  laborEntries           LaborEntry[]
 
   @@index([ideaId, createdAt])
   @@index([createdById])

@@ -51,6 +51,7 @@ This application helps a small internal team evaluate product ideas with a consi
   - Labor entries tied to activity rates
   - Tooling cost
   - Engineering hours
+  - Engineering rate per hour
   - Marketing budget
   - Marketing cost per unit
   - CAC per unit
@@ -112,6 +113,7 @@ This application helps a small internal team evaluate product ideas with a consi
    - ideaId
    - toolingCost
    - engineeringHours
+   - engineeringRatePerHour
    - marketingBudget
    - marketingCostPerUnit
    - overheadRate

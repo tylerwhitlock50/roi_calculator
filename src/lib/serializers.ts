@@ -139,6 +139,7 @@ export function serializeCostEstimate(
     ideaId: estimate.ideaId,
     toolingCost: estimate.toolingCost,
     engineeringHours: estimate.engineeringHours,
+    engineeringRatePerHour: estimate.engineeringRatePerHour,
     marketingBudget: estimate.marketingBudget,
     marketingCostPerUnit: estimate.marketingCostPerUnit,
     overheadRate: estimate.overheadRate,

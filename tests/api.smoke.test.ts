@@ -216,6 +216,7 @@ describe('API smoke flow', () => {
         body: JSON.stringify({
           toolingCost: 1000,
           engineeringHours: 12,
+          engineeringRatePerHour: 125,
           marketingBudget: 300,
           marketingCostPerUnit: 15,
           overheadRate: 60,
@@ -237,6 +238,7 @@ describe('API smoke flow', () => {
           costEstimateId: costPayload.id,
           toolingCost: 1200,
           engineeringHours: 14,
+          engineeringRatePerHour: 140,
           marketingBudget: 320,
           marketingCostPerUnit: 20,
           overheadRate: 65,
@@ -265,6 +267,7 @@ describe('API smoke flow', () => {
         body: JSON.stringify({
           toolingCost: 900,
           engineeringHours: 10,
+          engineeringRatePerHour: 130,
           marketingBudget: 250,
           marketingCostPerUnit: 18,
           overheadRate: 60,
@@ -328,6 +331,7 @@ describe('API smoke flow', () => {
 
     const persistentCostPayload = await persistentCost.json()
     expect(persistentCostPayload.bomParts).toHaveLength(1)
+    expect(persistentCostPayload.engineeringRatePerHour).toBe(130)
   })
 
   it('rejects unauthenticated access to ideas', async () => {

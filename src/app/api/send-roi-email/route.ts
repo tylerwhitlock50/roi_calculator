@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { emailIsConfigured, sendEmail } from '@/lib/email'
 import { badRequest, jsonError } from '@/lib/http'
 import { prisma } from '@/lib/prisma'
+import { calculateEngineeringLaunchCost } from '@/lib/roi-calculations'
 import { requireUser } from '@/lib/server-auth'
 
 function buildHtml(project: any, roi: any, cost: any) {
@@ -13,6 +14,7 @@ function buildHtml(project: any, roi: any, cost: any) {
   const bomTable = bomRows
     ? `<h3>BOM</h3><table border="1" cellpadding="4" cellspacing="0"><tr><th>Item</th><th>Qty</th><th>Cost</th></tr>${bomRows}</table>`
     : ''
+  const engineeringLaunchCost = calculateEngineeringLaunchCost(cost)
   return `
     <h2>${project.title}</h2>
     <p><strong>Description:</strong> ${project.description}</p>
@@ -27,6 +29,8 @@ function buildHtml(project: any, roi: any, cost: any) {
     </ul>
     ${bomTable}
     <p><strong>Engineering Hours:</strong> ${cost?.engineeringHours ?? 0}</p>
+    <p><strong>Engineering Rate / Hour:</strong> $${cost?.engineeringRatePerHour ?? 0}</p>
+    <p><strong>Engineering Launch Cost:</strong> $${engineeringLaunchCost}</p>
     <p><strong>Tooling Cost:</strong> $${cost?.toolingCost ?? 0}</p>
     <p><strong>Marketing Budget:</strong> $${cost?.marketingBudget ?? 0}</p>
     <p><strong>PPC Budget:</strong> $${cost?.ppcBudget ?? 0}</p>

@@ -17,7 +17,13 @@ import {
   type RoiSummaryRecord,
 } from '@/lib/api'
 import { IDEA_STATUS_OPTIONS } from '@/lib/constants'
-import { calculateLaborCost, calculateLaborHours, calculateRoiMetrics, calculateTotalEstimateCost } from '@/lib/roi-calculations'
+import {
+  calculateEngineeringLaunchCost,
+  calculateLaborCost,
+  calculateLaborHours,
+  calculateRoiMetrics,
+  calculateTotalEstimateCost,
+} from '@/lib/roi-calculations'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -26,6 +32,8 @@ const TABS = [
   { key: 'unit-economics', label: 'Unit Economics' },
   { key: 'finalize', label: 'Finalize ROI' },
 ] as const
+
+const DEFAULT_ENGINEERING_RATE_PER_HOUR = 125
 
 type ForecastFormState = {
   channelOrCustomer: string
@@ -42,6 +50,7 @@ type ForecastRowDraft = {
 type CostFormState = {
   toolingCost: BlankableNumber
   engineeringHours: BlankableNumber
+  engineeringRatePerHour: BlankableNumber
   marketingBudget: BlankableNumber
   marketingCostPerUnit: BlankableNumber
   overheadRate: BlankableNumber
@@ -86,6 +95,7 @@ function createInitialCostForm(): CostFormState {
   return {
     toolingCost: '',
     engineeringHours: '',
+    engineeringRatePerHour: DEFAULT_ENGINEERING_RATE_PER_HOUR,
     marketingBudget: '',
     marketingCostPerUnit: '',
     overheadRate: '',
@@ -286,6 +296,7 @@ export default function ProductDetailPage() {
       setCostForm({
         toolingCost: estimate.toolingCost,
         engineeringHours: estimate.engineeringHours,
+        engineeringRatePerHour: estimate.engineeringRatePerHour ?? DEFAULT_ENGINEERING_RATE_PER_HOUR,
         marketingBudget: estimate.marketingBudget,
         marketingCostPerUnit: estimate.marketingCostPerUnit,
         overheadRate: estimate.overheadRate,
@@ -335,6 +346,7 @@ export default function ProductDetailPage() {
       const normalizedCostForm = {
         toolingCost: blankableNumberToNumber(costForm.toolingCost),
         engineeringHours: blankableNumberToNumber(costForm.engineeringHours),
+        engineeringRatePerHour: blankableNumberToNumber(costForm.engineeringRatePerHour),
         marketingBudget: blankableNumberToNumber(costForm.marketingBudget),
         marketingCostPerUnit: blankableNumberToNumber(costForm.marketingCostPerUnit),
         overheadRate: blankableNumberToNumber(costForm.overheadRate),
@@ -1120,8 +1132,9 @@ export default function ProductDetailPage() {
                       </div>
                     </div>
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                       <Metric label="Tooling" value={formatCurrency(estimate.toolingCost)} />
+                      <Metric label="Eng launch" value={formatCurrency(calculateEngineeringLaunchCost(estimate))} />
                       <Metric label="Marketing" value={formatCurrency(estimate.marketingBudget)} />
                       <Metric label="CAC / Unit" value={formatCurrency(estimate.ppcBudget)} />
                       <Metric label="Overhead / Hr" value={formatCurrency(estimate.overheadRate)} />
@@ -1152,7 +1165,7 @@ export default function ProductDetailPage() {
                     <FieldNumber
                       id="cost-tooling"
                       label="Upfront tooling and setup cost"
-                      hint="One-time cost incurred before sales begin."
+                      hint="Cash spend incurred before sales begin, separate from engineering launch labor."
                       value={costForm.toolingCost}
                       min={0}
                       step={0.01}
@@ -1161,11 +1174,20 @@ export default function ProductDetailPage() {
                     <FieldNumber
                       id="cost-engineering-hours"
                       label="Engineering hours to launch"
-                      hint="Tracked for planning today. This field does not yet convert into ROI cash flow dollars."
+                      hint="One-time engineering effort rolled into upfront tooling using the launch rate below."
                       value={costForm.engineeringHours}
                       min={0}
                       step={0.25}
                       onChange={(value) => setCostForm((current) => ({ ...current, engineeringHours: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-engineering-rate"
+                      label="Engineering launch rate per hour"
+                      hint="Used to monetize launch engineering hours as upfront tooling investment."
+                      value={costForm.engineeringRatePerHour}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setCostForm((current) => ({ ...current, engineeringRatePerHour: value }))}
                     />
                     <FieldNumber
                       id="cost-marketing-budget"
@@ -1667,7 +1689,7 @@ function CostSummary({ costEstimates }: { costEstimates: CostEstimateRecord[] })
       <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Latest estimate</div>
       <div className="mt-2 text-3xl font-semibold text-primary-700">{formatCurrency(total)}</div>
       <p className="mt-1 text-sm text-slate-500">
-        Includes tooling, labor, BOM, marketing, and CAC assumptions from the latest saved estimate.
+        Includes tooling, launch engineering labor, BOM, marketing, and CAC assumptions from the latest saved estimate.
       </p>
     </div>
   )

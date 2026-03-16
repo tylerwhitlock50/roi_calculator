@@ -130,6 +130,19 @@ export function calculateLaborCost(laborEntries: CostEstimateRecord['laborEntrie
   }, 0)
 }
 
+export function calculateEngineeringLaunchCost(
+  estimate?: Pick<CostEstimateRecord, 'engineeringHours' | 'engineeringRatePerHour'>
+): number {
+  if (!estimate) {
+    return 0
+  }
+
+  const engineeringHours = Number.isFinite(estimate.engineeringHours) ? estimate.engineeringHours : 0
+  const engineeringRatePerHour = Number.isFinite(estimate.engineeringRatePerHour) ? estimate.engineeringRatePerHour : 125
+
+  return engineeringHours * engineeringRatePerHour
+}
+
 function summarizeForecastSales(forecasts: ForecastRecord[]): ForecastSalesSummary {
   const salesByMonth: Record<string, { units: number; sales: number }> = {}
 
@@ -248,7 +261,7 @@ function buildSankeyData({
     { label: 'Overhead', value: overheadPerUnit, color: COST_COLORS.overhead, kind: 'cost' as const },
     { label: 'Support', value: supportPerUnit, color: COST_COLORS.support, kind: 'cost' as const },
     { label: 'Direct labor', value: laborPerUnit, color: COST_COLORS.labor, kind: 'cost' as const },
-    { label: 'Tooling', value: toolingPerUnit, color: COST_COLORS.tooling, kind: 'cost' as const },
+    { label: 'Tooling + launch', value: toolingPerUnit, color: COST_COLORS.tooling, kind: 'cost' as const },
     { label: 'Profit', value: profitPerUnit, color: COST_COLORS.profit, kind: 'profit' as const },
   ]
 
@@ -316,7 +329,8 @@ function buildUnitEconomicsFromSummary(
   const bomCostPerUnit = bomParts.reduce((sum, part) => sum + part.value, 0)
   const totalLaborHours = estimate ? calculateLaborHours(estimate.laborEntries) : 0
   const totalLaborCost = estimate ? calculateLaborCost(estimate.laborEntries) : 0
-  const upfrontToolingCost = estimate?.toolingCost ?? 0
+  const engineeringLaunchCost = calculateEngineeringLaunchCost(estimate)
+  const upfrontToolingCost = (estimate?.toolingCost ?? 0) + engineeringLaunchCost
   const laborPerUnit = totalLaborCost
   const overheadPerUnit = totalLaborHours * (estimate?.overheadRate ?? 0)
   const supportPerUnit = (estimate?.supportTimePct ?? 0) * (laborPerUnit + overheadPerUnit)
@@ -339,7 +353,7 @@ function buildUnitEconomicsFromSummary(
     { label: 'Direct labor / unit', value: laborPerUnit, color: COST_COLORS.labor, pctOfRevenue: 0 },
     { label: 'Overhead', value: overheadPerUnit, color: COST_COLORS.overhead, pctOfRevenue: 0 },
     { label: 'Support', value: supportPerUnit, color: COST_COLORS.support, pctOfRevenue: 0 },
-    { label: 'Tooling / unit', value: toolingPerUnit, color: COST_COLORS.tooling, pctOfRevenue: 0 },
+    { label: 'Tooling + launch / unit', value: toolingPerUnit, color: COST_COLORS.tooling, pctOfRevenue: 0 },
     {
       label: profitPerUnit >= 0 ? 'Profit' : NEGATIVE_MARGIN_LABEL,
       value: Math.abs(profitPerUnit),
@@ -413,14 +427,15 @@ function buildUnitEconomicsFromSummary(
     usesOtherBomBucket: bomParts.length > 6,
     canRenderSankey: salesSummary.averagePrice > 0 && (recurringCostPerUnit > 0 || upfrontCostPerUnit > 0 || profitPerUnit !== 0),
     note:
-      'Selling price is the weighted average across saved forecast rows. Marketing blends fixed monthly spend plus any per-unit marketing cost. Labor entries are treated as direct labor per unit, while overhead and support scale from the modeled labor time. When the unit is underwater, the Sankey adds a funding-needed source so the shortfall still maps across the cost buckets.',
+      'Selling price is the weighted average across saved forecast rows. Marketing blends fixed monthly spend plus any per-unit marketing cost. Labor entries are treated as direct labor per unit, while overhead and support scale from the modeled labor time. Engineering launch hours are monetized and rolled into upfront tooling. When the unit is underwater, the Sankey adds a funding-needed source so the shortfall still maps across the cost buckets.',
   }
 }
 
 export function calculateTotalEstimateCost(estimate: CostEstimateRecord): number {
   const bom = estimate.bomParts.reduce((sum, part) => sum + part.unitCost * part.quantity, 0)
   const labor = calculateLaborCost(estimate.laborEntries)
-  return estimate.toolingCost + estimate.marketingBudget + estimate.ppcBudget + bom + labor
+  const engineeringLaunchCost = calculateEngineeringLaunchCost(estimate)
+  return estimate.toolingCost + engineeringLaunchCost + estimate.marketingBudget + estimate.ppcBudget + bom + labor
 }
 
 export function calculateUnitEconomics(
@@ -444,9 +459,9 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
   const laborHoursPerUnit = estimate ? calculateLaborHours(estimate.laborEntries) : 0
   const totalLaborCost = estimate ? calculateLaborCost(estimate.laborEntries) : 0
   const upfrontToolingCost = estimate?.toolingCost ?? 0
+  const upfrontEngineeringCost = calculateEngineeringLaunchCost(estimate)
   const laborCostPerUnit = totalLaborCost
-  const upfrontLaborCost = 0
-  const upfrontCost = upfrontToolingCost
+  const upfrontCost = upfrontToolingCost + upfrontEngineeringCost
   const overheadRate = estimate?.overheadRate ?? 60
   const supportPct = estimate?.supportTimePct ?? 0.2
   const marketingPerMonth = estimate?.marketingBudget ?? 0
@@ -466,7 +481,7 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
       labor: 0,
       overhead: 0,
       support: 0,
-      tooling: -upfrontToolingCost,
+      tooling: -upfrontCost,
     },
   ]
 
@@ -568,7 +583,7 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
   const assumptions = {
     upfrontCost,
     upfrontToolingCost,
-    upfrontLaborCost,
+    upfrontEngineeringCost,
     averageSellingPrice: Number(unitEconomics.averageSellingPrice.toFixed(2)),
     totalUnits: salesSummary.totalUnits,
     recurringCostPerUnit: Number(unitEconomics.recurringCostPerUnit.toFixed(2)),
@@ -576,7 +591,7 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
     allocatedMarketingPerUnit: Number(unitEconomics.allocatedMarketingPerUnit.toFixed(2)),
     profitMarginPct: Number(unitEconomics.profitMarginPct.toFixed(4)),
     discountRateAnnual: 0.1,
-    note: 'Tooling is treated as the upfront outflow. Labor entries are modeled as direct labor per unit; overhead and support are derived from the modeled labor time. Engineering hours are tracked separately and are not monetized in the ROI cash flow today.',
+    note: 'Tooling plus launch engineering are treated as the upfront outflow. Labor entries are modeled as direct labor per unit; overhead and support are derived from the modeled labor time.',
     months,
   }
 
