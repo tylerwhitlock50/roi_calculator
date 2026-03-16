@@ -5,6 +5,7 @@ import { addMonths, format, parse } from 'date-fns'
 import { useParams, useRouter } from 'next/navigation'
 
 import ProductIdeaForm from '@/components/ProductIdeaForm'
+import UnitEconomicsTab from '@/components/UnitEconomicsTab'
 import {
   apiFetch,
   type ActivityRateRecord,
@@ -21,6 +22,7 @@ const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'forecast', label: 'Forecast' },
   { key: 'cost', label: 'Cost' },
+  { key: 'unit-economics', label: 'Unit Economics' },
   { key: 'finalize', label: 'Finalize ROI' },
 ] as const
 
@@ -1330,6 +1332,12 @@ export default function ProductDetailPage() {
                 </div>
               </Modal>
             )}
+          </section>
+        )}
+
+        {activeTab === 'unit-economics' && (
+          <section className="card space-y-6">
+            <UnitEconomicsTab forecasts={forecasts} costEstimates={costEstimates} />
           </section>
         )}
 

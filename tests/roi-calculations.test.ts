@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CostEstimateRecord, ForecastRecord } from '@/lib/api'
-import { calculateLaborCost, calculateRoiMetrics } from '@/lib/roi-calculations'
+import { calculateLaborCost, calculateRoiMetrics, calculateUnitEconomics } from '@/lib/roi-calculations'
 
 function buildForecast(month: string, units: number, price: number): ForecastRecord {
   return {
@@ -81,5 +81,34 @@ describe('roi calculations', () => {
     expect(calculations.assumptions.upfrontLaborCost).toBe(75)
     expect(calculations.cashFlows[0].labor).toBe(-75)
     expect(calculations.cashFlows[1].labor).toBe(0)
+  })
+
+  it('builds a fully-loaded unit economics view from the blended price and latest cost model', () => {
+    const estimate = buildEstimate()
+    estimate.toolingCost = 1000
+    estimate.marketingCostPerUnit = 3
+    estimate.overheadRate = 10
+    estimate.supportTimePct = 0.2
+    estimate.bomParts = [
+      {
+        id: 'bom-1',
+        item: 'Main housing',
+        unitCost: 20,
+        quantity: 2,
+        cashEffect: true,
+      },
+    ]
+
+    const forecasts = [buildForecast('2026-01', 100, 100), buildForecast('2026-02', 100, 100)]
+    const unitEconomics = calculateUnitEconomics(forecasts, [estimate])
+
+    expect(unitEconomics.averageSellingPrice).toBe(100)
+    expect(unitEconomics.bomCostPerUnit).toBe(40)
+    expect(unitEconomics.allocatedMarketingPerUnit).toBe(5)
+    expect(unitEconomics.customerAcquisitionPerUnit).toBe(8)
+    expect(unitEconomics.launchLaborPerUnit).toBeCloseTo(0.375)
+    expect(unitEconomics.toolingPerUnit).toBe(5)
+    expect(unitEconomics.profitPerUnit).toBeCloseTo(29.625)
+    expect(unitEconomics.canRenderSankey).toBe(true)
   })
 })

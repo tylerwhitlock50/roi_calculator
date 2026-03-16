@@ -24,6 +24,75 @@ type RoiCalculations = {
   assumptions: Record<string, unknown>
 }
 
+type ForecastSalesSummary = {
+  salesByMonth: Record<string, { units: number; sales: number }>
+  months: string[]
+  totalUnits: number
+  totalRevenue: number
+  averagePrice: number
+}
+
+export type UnitEconomicsSegment = {
+  label: string
+  value: number
+  color: string
+  pctOfRevenue: number
+}
+
+export type UnitEconomicsNode = {
+  name: string
+  color: string
+  kind: 'source' | 'aggregate' | 'cost' | 'profit'
+}
+
+export type UnitEconomicsLink = {
+  source: number
+  target: number
+  value: number
+  color: string
+}
+
+export type UnitEconomicsBreakdown = {
+  totalUnits: number
+  totalRevenue: number
+  monthsCount: number
+  averageSellingPrice: number
+  bomCostPerUnit: number
+  allocatedMarketingPerUnit: number
+  customerAcquisitionPerUnit: number
+  overheadPerUnit: number
+  supportPerUnit: number
+  launchLaborPerUnit: number
+  toolingPerUnit: number
+  upfrontCostPerUnit: number
+  contributionMarginPerUnit: number
+  profitPerUnit: number
+  profitMarginPct: number
+  recurringCostPerUnit: number
+  bomParts: UnitEconomicsSegment[]
+  costStack: UnitEconomicsSegment[]
+  sankeyData: {
+    nodes: UnitEconomicsNode[]
+    links: UnitEconomicsLink[]
+  }
+  usesOtherBomBucket: boolean
+  canRenderSankey: boolean
+  note: string
+}
+
+const BOM_PART_COLORS = ['#f59e0b', '#fb923c', '#f97316', '#facc15', '#fbbf24', '#fdba74']
+const COST_COLORS = {
+  bom: '#f59e0b',
+  marketing: '#0ea5e9',
+  acquisition: '#06b6d4',
+  overhead: '#6366f1',
+  support: '#8b5cf6',
+  labor: '#64748b',
+  tooling: '#94a3b8',
+  profit: '#16a34a',
+  loss: '#dc2626',
+} as const
+
 export function calculateLaborHours(laborEntries: CostEstimateRecord['laborEntries']): number {
   return laborEntries.reduce((sum, entry) => sum + entry.hours + entry.minutes / 60 + entry.seconds / 3600, 0)
 }
@@ -35,13 +104,7 @@ export function calculateLaborCost(laborEntries: CostEstimateRecord['laborEntrie
   }, 0)
 }
 
-export function calculateTotalEstimateCost(estimate: CostEstimateRecord): number {
-  const bom = estimate.bomParts.reduce((sum, part) => sum + part.unitCost * part.quantity, 0)
-  const labor = calculateLaborCost(estimate.laborEntries)
-  return estimate.toolingCost + estimate.marketingBudget + estimate.ppcBudget + bom + labor
-}
-
-export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: CostEstimateRecord[]): RoiCalculations {
+function summarizeForecastSales(forecasts: ForecastRecord[]): ForecastSalesSummary {
   const salesByMonth: Record<string, { units: number; sales: number }> = {}
 
   for (const forecast of forecasts) {
@@ -60,7 +123,219 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
   }
 
   const months = Object.keys(salesByMonth).sort()
+  const totals = Object.values(salesByMonth).reduce(
+    (summary, month) => {
+      summary.totalUnits += month.units
+      summary.totalRevenue += month.sales
+      return summary
+    },
+    { totalUnits: 0, totalRevenue: 0 }
+  )
+
+  return {
+    salesByMonth,
+    months,
+    totalUnits: totals.totalUnits,
+    totalRevenue: totals.totalRevenue,
+    averagePrice: totals.totalUnits > 0 ? totals.totalRevenue / totals.totalUnits : 0,
+  }
+}
+
+function buildSankeyData({
+  bomParts,
+  bomCostPerUnit,
+  allocatedMarketingPerUnit,
+  customerAcquisitionPerUnit,
+  overheadPerUnit,
+  supportPerUnit,
+  launchLaborPerUnit,
+  toolingPerUnit,
+  profitPerUnit,
+}: Pick<
+  UnitEconomicsBreakdown,
+  | 'bomParts'
+  | 'bomCostPerUnit'
+  | 'allocatedMarketingPerUnit'
+  | 'customerAcquisitionPerUnit'
+  | 'overheadPerUnit'
+  | 'supportPerUnit'
+  | 'launchLaborPerUnit'
+  | 'toolingPerUnit'
+  | 'profitPerUnit'
+>): UnitEconomicsBreakdown['sankeyData'] {
+  const nodes: UnitEconomicsNode[] = [{ name: 'Revenue / unit', color: '#0f172a', kind: 'source' }]
+  const links: UnitEconomicsLink[] = []
+
+  const addNode = (name: string, color: string, kind: UnitEconomicsNode['kind']) => {
+    nodes.push({ name, color, kind })
+    return nodes.length - 1
+  }
+
+  const revenueIndex = 0
+
+  if (bomCostPerUnit > 0) {
+    const bomIndex = addNode('Cash BOM', COST_COLORS.bom, 'aggregate')
+    links.push({ source: revenueIndex, target: bomIndex, value: bomCostPerUnit, color: COST_COLORS.bom })
+
+    for (const part of bomParts) {
+      const partIndex = addNode(part.label, part.color, 'cost')
+      links.push({ source: bomIndex, target: partIndex, value: part.value, color: part.color })
+    }
+  }
+
+  const directBranches = [
+    { label: 'Allocated marketing', value: allocatedMarketingPerUnit, color: COST_COLORS.marketing, kind: 'cost' as const },
+    { label: 'CAC + channel spend', value: customerAcquisitionPerUnit, color: COST_COLORS.acquisition, kind: 'cost' as const },
+    { label: 'Overhead', value: overheadPerUnit, color: COST_COLORS.overhead, kind: 'cost' as const },
+    { label: 'Support reserve', value: supportPerUnit, color: COST_COLORS.support, kind: 'cost' as const },
+    { label: 'Launch labor', value: launchLaborPerUnit, color: COST_COLORS.labor, kind: 'cost' as const },
+    { label: 'Tooling', value: toolingPerUnit, color: COST_COLORS.tooling, kind: 'cost' as const },
+    { label: 'Profit', value: profitPerUnit, color: COST_COLORS.profit, kind: 'profit' as const },
+  ]
+
+  for (const branch of directBranches) {
+    if (branch.value <= 0) {
+      continue
+    }
+
+    const branchIndex = addNode(branch.label, branch.color, branch.kind)
+    links.push({ source: revenueIndex, target: branchIndex, value: branch.value, color: branch.color })
+  }
+
+  return { nodes, links }
+}
+
+function buildUnitEconomicsFromSummary(
+  salesSummary: ForecastSalesSummary,
+  estimate?: CostEstimateRecord
+): UnitEconomicsBreakdown {
+  const bomParts = estimate
+    ? estimate.bomParts
+        .filter((part) => part.cashEffect)
+        .map((part, index) => ({
+          label: part.item,
+          value: part.unitCost * part.quantity,
+          color: BOM_PART_COLORS[index % BOM_PART_COLORS.length],
+        }))
+        .sort((left, right) => right.value - left.value)
+    : []
+  const bomCostPerUnit = bomParts.reduce((sum, part) => sum + part.value, 0)
+  const totalLaborCost = estimate ? calculateLaborCost(estimate.laborEntries) : 0
+  const upfrontToolingCost = estimate?.toolingCost ?? 0
+  const overheadPerUnit = estimate?.overheadRate ?? 0
+  const supportPerUnit = (estimate?.supportTimePct ?? 0) * overheadPerUnit
+  const customerAcquisitionPerUnit = (estimate?.ppcBudget ?? 0) + (estimate?.marketingCostPerUnit ?? 0)
+  const allocatedMarketingPerUnit =
+    salesSummary.totalUnits > 0 ? ((estimate?.marketingBudget ?? 0) * salesSummary.months.length) / salesSummary.totalUnits : 0
+  const launchLaborPerUnit = salesSummary.totalUnits > 0 ? totalLaborCost / salesSummary.totalUnits : 0
+  const toolingPerUnit = salesSummary.totalUnits > 0 ? upfrontToolingCost / salesSummary.totalUnits : 0
+  const upfrontCostPerUnit = launchLaborPerUnit + toolingPerUnit
+  const recurringCostPerUnit =
+    bomCostPerUnit + allocatedMarketingPerUnit + customerAcquisitionPerUnit + overheadPerUnit + supportPerUnit
+  const contributionMarginPerUnit = salesSummary.averagePrice - recurringCostPerUnit
+  const profitPerUnit = contributionMarginPerUnit - upfrontCostPerUnit
+  const profitMarginPct = salesSummary.averagePrice > 0 ? profitPerUnit / salesSummary.averagePrice : 0
+  const costStack: UnitEconomicsSegment[] = [
+    { label: 'Cash BOM', value: bomCostPerUnit, color: COST_COLORS.bom, pctOfRevenue: 0 },
+    { label: 'Allocated marketing', value: allocatedMarketingPerUnit, color: COST_COLORS.marketing, pctOfRevenue: 0 },
+    { label: 'CAC + channel spend', value: customerAcquisitionPerUnit, color: COST_COLORS.acquisition, pctOfRevenue: 0 },
+    { label: 'Overhead', value: overheadPerUnit, color: COST_COLORS.overhead, pctOfRevenue: 0 },
+    { label: 'Support reserve', value: supportPerUnit, color: COST_COLORS.support, pctOfRevenue: 0 },
+    { label: 'Launch labor / unit', value: launchLaborPerUnit, color: COST_COLORS.labor, pctOfRevenue: 0 },
+    { label: 'Tooling / unit', value: toolingPerUnit, color: COST_COLORS.tooling, pctOfRevenue: 0 },
+    {
+      label: profitPerUnit >= 0 ? 'Profit' : 'Loss',
+      value: Math.abs(profitPerUnit),
+      color: profitPerUnit >= 0 ? COST_COLORS.profit : COST_COLORS.loss,
+      pctOfRevenue: 0,
+    },
+  ]
+    .filter((segment) => segment.value > 0)
+    .map((segment) => ({
+      ...segment,
+      pctOfRevenue: salesSummary.averagePrice > 0 ? segment.value / salesSummary.averagePrice : 0,
+    }))
+
+  const sankeyBomParts =
+    bomParts.length > 6
+      ? [
+          ...bomParts.slice(0, 5),
+          {
+            label: 'Other BOM items',
+            value: bomParts.slice(5).reduce((sum, part) => sum + part.value, 0),
+            color: BOM_PART_COLORS[5],
+          },
+        ]
+      : bomParts
+
+  const detailedBomParts = bomParts.map((part) => ({
+    label: part.label,
+    value: part.value,
+    color: part.color,
+    pctOfRevenue: salesSummary.averagePrice > 0 ? part.value / salesSummary.averagePrice : 0,
+  }))
+
+  return {
+    totalUnits: salesSummary.totalUnits,
+    totalRevenue: salesSummary.totalRevenue,
+    monthsCount: salesSummary.months.length,
+    averageSellingPrice: salesSummary.averagePrice,
+    bomCostPerUnit,
+    allocatedMarketingPerUnit,
+    customerAcquisitionPerUnit,
+    overheadPerUnit,
+    supportPerUnit,
+    launchLaborPerUnit,
+    toolingPerUnit,
+    upfrontCostPerUnit,
+    contributionMarginPerUnit,
+    profitPerUnit,
+    profitMarginPct,
+    recurringCostPerUnit,
+    bomParts: detailedBomParts,
+    costStack,
+    sankeyData: buildSankeyData({
+      bomParts: sankeyBomParts.map((part) => ({
+        ...part,
+        pctOfRevenue: salesSummary.averagePrice > 0 ? part.value / salesSummary.averagePrice : 0,
+      })),
+      bomCostPerUnit,
+      allocatedMarketingPerUnit,
+      customerAcquisitionPerUnit,
+      overheadPerUnit,
+      supportPerUnit,
+      launchLaborPerUnit,
+      toolingPerUnit,
+      profitPerUnit,
+    }),
+    usesOtherBomBucket: bomParts.length > 6,
+    canRenderSankey: salesSummary.averagePrice > 0 && profitPerUnit >= 0,
+    note:
+      'Selling price is the weighted average across saved forecast rows. Monthly marketing is allocated across expected units, and launch labor plus tooling are amortized across the modeled forecast volume.',
+  }
+}
+
+export function calculateTotalEstimateCost(estimate: CostEstimateRecord): number {
+  const bom = estimate.bomParts.reduce((sum, part) => sum + part.unitCost * part.quantity, 0)
+  const labor = calculateLaborCost(estimate.laborEntries)
+  return estimate.toolingCost + estimate.marketingBudget + estimate.ppcBudget + bom + labor
+}
+
+export function calculateUnitEconomics(
+  forecasts: ForecastRecord[],
+  costEstimates: CostEstimateRecord[]
+): UnitEconomicsBreakdown {
+  const salesSummary = summarizeForecastSales(forecasts)
   const estimate = costEstimates[0]
+
+  return buildUnitEconomicsFromSummary(salesSummary, estimate)
+}
+
+export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: CostEstimateRecord[]): RoiCalculations {
+  const salesSummary = summarizeForecastSales(forecasts)
+  const { salesByMonth, months } = salesSummary
+  const estimate = costEstimates[0]
+  const unitEconomics = buildUnitEconomicsFromSummary(salesSummary, estimate)
   const bomUnitCost = estimate
     ? estimate.bomParts.filter((part) => part.cashEffect).reduce((sum, part) => sum + part.unitCost * part.quantity, 0)
     : 0
@@ -149,19 +424,18 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
     }
   }
 
-  const totalUnits = Object.values(salesByMonth).reduce((sum, month) => sum + month.units, 0)
-  const averagePrice =
-    totalUnits > 0
-      ? Object.values(salesByMonth).reduce((sum, month) => sum + month.sales, 0) / totalUnits
-      : 0
-  const contributionMarginPerUnit = averagePrice - bomUnitCost
-  const profitPerUnit = contributionMarginPerUnit
   const assumptions = {
     upfrontCost,
     upfrontToolingCost,
     upfrontLaborCost,
+    averageSellingPrice: Number(unitEconomics.averageSellingPrice.toFixed(2)),
+    totalUnits: salesSummary.totalUnits,
+    recurringCostPerUnit: Number(unitEconomics.recurringCostPerUnit.toFixed(2)),
+    upfrontCostPerUnit: Number(unitEconomics.upfrontCostPerUnit.toFixed(2)),
+    allocatedMarketingPerUnit: Number(unitEconomics.allocatedMarketingPerUnit.toFixed(2)),
+    profitMarginPct: Number(unitEconomics.profitMarginPct.toFixed(4)),
     discountRateAnnual: 0.1,
-    note: 'Tooling and modeled labor are treated as upfront outflows. Monthly cash flow subtracts marketing, CAC, BOM, overhead, and support from sales.',
+    note: 'Tooling and modeled labor are treated as upfront outflows. Monthly cash flow subtracts marketing, CAC, BOM, overhead, and support from sales. Per-unit contribution excludes amortized launch costs; per-unit profit includes them.',
     months,
   }
 
@@ -171,8 +445,8 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
     irr,
     breakEvenMonth,
     paybackPeriod,
-    contributionMarginPerUnit,
-    profitPerUnit,
+    contributionMarginPerUnit: unitEconomics.contributionMarginPerUnit,
+    profitPerUnit: unitEconomics.profitPerUnit,
     assumptions,
   }
 }
