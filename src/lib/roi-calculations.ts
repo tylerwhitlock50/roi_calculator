@@ -90,6 +90,8 @@ export type UnitEconomicsBreakdown = {
   supportPerUnit: number
   laborPerUnit: number
   toolingPerUnit: number
+  scrapRate: number
+  effectiveYieldRate: number
   upfrontCostPerUnit: number
   contributionMarginPerUnit: number
   profitPerUnit: number
@@ -125,6 +127,18 @@ const INVESTMENT_THRESHOLD_RATIO = 0.1
 const INVESTMENT_AXIS_MAX_RATIO = 0.2
 const PROFIT_COVERAGE_THRESHOLD = 1
 const PROFIT_COVERAGE_AXIS_MAX = 2
+
+function clampScrapRate(scrapRate: number): number {
+  if (!Number.isFinite(scrapRate)) {
+    return 0
+  }
+
+  return Math.min(Math.max(scrapRate, 0), 0.99)
+}
+
+function getYieldMultiplier(scrapRate: number): number {
+  return 1 / (1 - clampScrapRate(scrapRate))
+}
 
 export function calculateLaborHours(laborEntries: CostEstimateRecord['laborEntries']): number {
   return laborEntries.reduce((sum, entry) => sum + entry.hours + entry.minutes / 60 + entry.seconds / 3600, 0)
@@ -341,25 +355,29 @@ function buildUnitEconomicsFromSummary(
         .sort((left, right) => right.value - left.value)
     : []
   const bomCostPerUnit = bomParts.reduce((sum, part) => sum + part.value, 0)
+  const scrapRate = clampScrapRate(estimate?.scrapRate ?? 0)
+  const effectiveYieldRate = 1 - scrapRate
+  const yieldMultiplier = getYieldMultiplier(scrapRate)
+  const adjustedBomCostPerUnit = bomCostPerUnit * yieldMultiplier
   const totalLaborHours = estimate ? calculateLaborHours(estimate.laborEntries) : 0
   const totalLaborCost = estimate ? calculateLaborCost(estimate.laborEntries) : 0
   const engineeringLaunchCost = calculateEngineeringLaunchCost(estimate)
   const upfrontToolingCost = (estimate?.toolingCost ?? 0) + engineeringLaunchCost
-  const laborPerUnit = totalLaborCost
-  const overheadPerUnit = totalLaborHours * (estimate?.overheadRate ?? 0)
+  const laborPerUnit = totalLaborCost * yieldMultiplier
+  const overheadPerUnit = totalLaborHours * (estimate?.overheadRate ?? 0) * yieldMultiplier
   const supportPerUnit = (estimate?.supportTimePct ?? 0) * (laborPerUnit + overheadPerUnit)
   const customerAcquisitionPerUnit = salesSummary.totalUnits > 0 ? salesSummary.totalCac / salesSummary.totalUnits : 0
   const allocatedMarketingPerUnit = salesSummary.totalUnits > 0 ? salesSummary.totalMarketing / salesSummary.totalUnits : 0
   const toolingPerUnit = salesSummary.totalUnits > 0 ? upfrontToolingCost / salesSummary.totalUnits : 0
   const upfrontCostPerUnit = toolingPerUnit
   const recurringCostPerUnit =
-    bomCostPerUnit + allocatedMarketingPerUnit + customerAcquisitionPerUnit + laborPerUnit + overheadPerUnit + supportPerUnit
+    adjustedBomCostPerUnit + allocatedMarketingPerUnit + customerAcquisitionPerUnit + laborPerUnit + overheadPerUnit + supportPerUnit
   const contributionMarginPerUnit = salesSummary.averagePrice - recurringCostPerUnit
   const profitPerUnit = contributionMarginPerUnit - upfrontCostPerUnit
   const profitMarginPct = salesSummary.averagePrice > 0 ? profitPerUnit / salesSummary.averagePrice : 0
   const projectedNetIncome = profitPerUnit * salesSummary.totalUnits
   const costStack: UnitEconomicsSegment[] = [
-    { label: 'Cash BOM', value: bomCostPerUnit, color: COST_COLORS.bom, pctOfRevenue: 0 },
+    { label: 'Cash BOM', value: adjustedBomCostPerUnit, color: COST_COLORS.bom, pctOfRevenue: 0 },
     { label: 'Marketing', value: allocatedMarketingPerUnit, color: COST_COLORS.marketing, pctOfRevenue: 0 },
     { label: 'CAC', value: customerAcquisitionPerUnit, color: COST_COLORS.acquisition, pctOfRevenue: 0 },
     { label: 'Direct labor / unit', value: laborPerUnit, color: COST_COLORS.labor, pctOfRevenue: 0 },
@@ -393,7 +411,7 @@ function buildUnitEconomicsFromSummary(
 
   const detailedBomParts = bomParts.map((part) => ({
     label: part.label,
-    value: part.value,
+    value: part.value * yieldMultiplier,
     color: part.color,
     pctOfRevenue: salesSummary.averagePrice > 0 ? part.value / salesSummary.averagePrice : 0,
     unitCost: part.unitCost,
@@ -405,13 +423,15 @@ function buildUnitEconomicsFromSummary(
     totalRevenue: salesSummary.totalRevenue,
     monthsCount: salesSummary.months.length,
     averageSellingPrice: salesSummary.averagePrice,
-    bomCostPerUnit,
+    bomCostPerUnit: adjustedBomCostPerUnit,
     allocatedMarketingPerUnit,
     customerAcquisitionPerUnit,
     overheadPerUnit,
     supportPerUnit,
     laborPerUnit,
     toolingPerUnit,
+    scrapRate,
+    effectiveYieldRate,
     upfrontCostPerUnit,
     contributionMarginPerUnit,
     profitPerUnit,
@@ -427,9 +447,10 @@ function buildUnitEconomicsFromSummary(
     sankeyData: buildSankeyData({
       bomParts: sankeyBomParts.map((part) => ({
         ...part,
-        pctOfRevenue: salesSummary.averagePrice > 0 ? part.value / salesSummary.averagePrice : 0,
+        value: part.value * yieldMultiplier,
+        pctOfRevenue: salesSummary.averagePrice > 0 ? (part.value * yieldMultiplier) / salesSummary.averagePrice : 0,
       })),
-      bomCostPerUnit,
+      bomCostPerUnit: adjustedBomCostPerUnit,
       allocatedMarketingPerUnit,
       customerAcquisitionPerUnit,
       overheadPerUnit,
@@ -441,7 +462,7 @@ function buildUnitEconomicsFromSummary(
     usesOtherBomBucket: bomParts.length > 6,
     canRenderSankey: salesSummary.averagePrice > 0 && (recurringCostPerUnit > 0 || upfrontCostPerUnit > 0 || profitPerUnit !== 0),
     note:
-      'Selling price is the weighted average across saved forecast rows. Marketing and CAC are blended from the saved forecast channel assumptions, including fixed monthly spend and per-unit selling costs. Labor entries are treated as direct labor per unit, while overhead and support scale from the modeled labor time. Engineering launch hours are monetized and rolled into upfront tooling. When the unit is underwater, the Sankey adds a funding-needed source so the shortfall still maps across the cost buckets.',
+      'Selling price is the weighted average across saved forecast rows. Marketing and CAC are blended from the saved forecast channel assumptions, including fixed monthly spend and per-unit selling costs. Scrap rate applies a yield multiplier to cash BOM and labor-driven costs so one finished unit carries expected COPQ loss. Engineering launch hours are monetized and rolled into upfront tooling. When the unit is underwater, the Sankey adds a funding-needed source so the shortfall still maps across the cost buckets.',
   }
 }
 
@@ -467,18 +488,19 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
   const { salesByMonth, months } = salesSummary
   const estimate = costEstimates[0]
   const unitEconomics = buildUnitEconomicsFromSummary(salesSummary, estimate)
+  const yieldMultiplier = getYieldMultiplier(estimate?.scrapRate ?? 0)
   const bomUnitCost = estimate
-    ? estimate.bomParts.filter((part) => part.cashEffect).reduce((sum, part) => sum + part.unitCost * part.quantity, 0)
+    ? estimate.bomParts.filter((part) => part.cashEffect).reduce((sum, part) => sum + part.unitCost * part.quantity, 0) * yieldMultiplier
     : 0
   const laborHoursPerUnit = estimate ? calculateLaborHours(estimate.laborEntries) : 0
   const totalLaborCost = estimate ? calculateLaborCost(estimate.laborEntries) : 0
   const upfrontToolingCost = estimate?.toolingCost ?? 0
   const upfrontEngineeringCost = calculateEngineeringLaunchCost(estimate)
-  const laborCostPerUnit = totalLaborCost
+  const laborCostPerUnit = totalLaborCost * yieldMultiplier
   const upfrontCost = upfrontToolingCost + upfrontEngineeringCost
   const overheadRate = estimate?.overheadRate ?? 60
   const supportPct = estimate?.supportTimePct ?? 0.2
-  const overheadPerUnit = laborHoursPerUnit * overheadRate
+  const overheadPerUnit = laborHoursPerUnit * overheadRate * yieldMultiplier
   const supportPerUnit = supportPct * (laborCostPerUnit + overheadPerUnit)
 
   const cashFlows: CashFlow[] = [
@@ -601,6 +623,8 @@ export function calculateRoiMetrics(forecasts: ForecastRecord[], costEstimates: 
     upfrontCostPerUnit: Number(unitEconomics.upfrontCostPerUnit.toFixed(2)),
     allocatedMarketingPerUnit: Number(unitEconomics.allocatedMarketingPerUnit.toFixed(2)),
     customerAcquisitionPerUnit: Number(unitEconomics.customerAcquisitionPerUnit.toFixed(2)),
+    scrapRate: Number(unitEconomics.scrapRate.toFixed(4)),
+    effectiveYieldRate: Number(unitEconomics.effectiveYieldRate.toFixed(4)),
     profitMarginPct: Number(unitEconomics.profitMarginPct.toFixed(4)),
     discountRateAnnual: 0.1,
     note: 'Tooling plus launch engineering are treated as the upfront outflow. Forecast rows drive revenue, channel marketing, and CAC. Labor entries are modeled as direct labor per unit; overhead and support are derived from the modeled labor time.',
