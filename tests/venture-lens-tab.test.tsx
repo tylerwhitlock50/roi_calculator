@@ -97,7 +97,7 @@ function buildSavedSummary(): VentureSummaryRecord {
       marketCeiling24Month: 4_000_000,
       marketCeiling36Month: 5_000_000,
       probabilitySuccessPct: 0.5,
-      adjacencyScore: 9,
+      adjacencyScore: 2,
       asymmetricUpsideScore: 10,
       attentionDemandScore: 1,
       speedToSignalDays: 30,
@@ -130,10 +130,16 @@ describe('VentureLensTab', () => {
     )
 
     expect(screen.getByText('Venture lens')).toBeInTheDocument()
-    expect(screen.getByText('Fund aggressively')).toBeInTheDocument()
+    expect(screen.getAllByText('Fund aggressively').length).toBeGreaterThan(0)
     expect(screen.getByText('Next stage:')).toBeInTheDocument()
+    expect(screen.getByText(/out of 100/i)).toBeInTheDocument()
     expect(screen.getByDisplayValue(4000000)).toBeInTheDocument()
     expect(screen.getByDisplayValue(50)).toBeInTheDocument()
     expect(screen.getByText('$100,000')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('2')).toBeInTheDocument()
+    expect(screen.getByText(/\$2,000,000 expected opportunity \/ 1 attention/i)).toBeInTheDocument()
+    expect(screen.getByText(/\$20,000 validation \+ \$80,000 focused build/i)).toBeInTheDocument()
+    expect(screen.getByText(/\$4,000,000 ceiling \/ \$100,000 access capital/i)).toBeInTheDocument()
+    expect(screen.getByText(/\$24,000 forecast \/ 20 hr/i)).toBeInTheDocument()
   })
 })

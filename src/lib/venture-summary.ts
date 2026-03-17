@@ -34,6 +34,14 @@ export type VentureComputedSummary = VentureManualInputs & {
   assumptions: Record<string, unknown>
 }
 
+export const VENTURE_SCORE_MAX = 100
+export const VENTURE_SCORE_BUCKETS = [
+  { label: 'Kill', min: 0, max: 39 },
+  { label: 'Validate cheaply', min: 40, max: 59 },
+  { label: 'Stage build', min: 60, max: 79 },
+  { label: 'Fund aggressively', min: 80, max: 100 },
+] as const
+
 export function getVentureRecommendationTone(bucket: VentureRecommendationBucket) {
   if (bucket === 'Fund aggressively') {
     return 'positive'
@@ -86,9 +94,11 @@ function roundRatio(value: number) {
 }
 
 function normalizeManualInputs(inputs: VentureManualInputs): VentureManualInputs {
+  const normalized24Month = Math.max(0, Number(inputs.marketCeiling24Month) || 0)
+
   return {
-    marketCeiling24Month: Math.max(0, Number(inputs.marketCeiling24Month) || 0),
-    marketCeiling36Month: Math.max(0, Number(inputs.marketCeiling36Month) || 0),
+    marketCeiling24Month: normalized24Month,
+    marketCeiling36Month: Math.max(0, Number(inputs.marketCeiling36Month) || normalized24Month),
     probabilitySuccessPct: clamp(Number(inputs.probabilitySuccessPct) || 0, 0, 1),
     adjacencyScore: Math.round(clamp(Number(inputs.adjacencyScore) || 1, 1, 10)),
     asymmetricUpsideScore: Math.round(clamp(Number(inputs.asymmetricUpsideScore) || 1, 1, 10)),
@@ -207,7 +217,7 @@ export function buildVentureSummary(
   const scoreBreakdown = {
     expectedOpportunity: scoreLinear(expectedOpportunityValue, EXPECTED_OPPORTUNITY_TARGET, 30),
     capitalEfficiency: scoreLinear(capitalEfficiencyRatio, CAPITAL_EFFICIENCY_TARGET, 15),
-    adjacency: scoreTenPointInput(normalized.adjacencyScore, 15),
+    operationalEase: scoreTenPointInput(11 - normalized.adjacencyScore, 15),
     asymmetricUpside: scoreTenPointInput(normalized.asymmetricUpsideScore, 15),
     speedToSignal: SPEED_SCORE_BY_DAYS[normalized.speedToSignalDays] ?? 0,
     contributionLeverage: calculateContributionLeveragePoints(contributionMarginPct),
@@ -217,7 +227,7 @@ export function buildVentureSummary(
   const rawScore = clamp(
     scoreBreakdown.expectedOpportunity +
       scoreBreakdown.capitalEfficiency +
-      scoreBreakdown.adjacency +
+      scoreBreakdown.operationalEase +
       scoreBreakdown.asymmetricUpside +
       scoreBreakdown.speedToSignal +
       scoreBreakdown.contributionLeverage -
@@ -257,7 +267,7 @@ export function buildVentureSummary(
       scoreBreakdown: {
         expectedOpportunity: roundCurrency(scoreBreakdown.expectedOpportunity),
         capitalEfficiency: roundCurrency(scoreBreakdown.capitalEfficiency),
-        adjacency: roundCurrency(scoreBreakdown.adjacency),
+        operationalEase: roundCurrency(scoreBreakdown.operationalEase),
         asymmetricUpside: roundCurrency(scoreBreakdown.asymmetricUpside),
         speedToSignal: roundCurrency(scoreBreakdown.speedToSignal),
         contributionLeverage: roundCurrency(scoreBreakdown.contributionLeverage),
@@ -267,6 +277,14 @@ export function buildVentureSummary(
         expectedOpportunityTarget: EXPECTED_OPPORTUNITY_TARGET,
         capitalEfficiencyTarget: CAPITAL_EFFICIENCY_TARGET,
         speedToSignal: SPEED_SCORE_BY_DAYS,
+        scoreMaximum: VENTURE_SCORE_MAX,
+        buckets: VENTURE_SCORE_BUCKETS,
+        operationalEase: {
+          inputLabel: 'Operational lift / adjacency gap',
+          bestInput: 1,
+          worstInput: 10,
+          note: 'Lower lift scores better because it fits current processes more easily.',
+        },
         contributionLeverage: {
           under20Pct: 0,
           between20And30Pct: 4,

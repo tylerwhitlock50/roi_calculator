@@ -602,7 +602,7 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
         <div class="metric-grid">
           <div class="metric"><div class="label">Recommendation</div><div class="value">${escapeHtml(ventureSummary.recommendationBucket)}</div></div>
           <div class="metric"><div class="label">Next stage</div><div class="value">${escapeHtml(ventureSummary.recommendedStage)}</div></div>
-          <div class="metric"><div class="label">Venture score</div><div class="value">${escapeHtml(ventureSummary.ventureScore.toFixed(1))}</div></div>
+          <div class="metric"><div class="label">Venture score</div><div class="value">${escapeHtml(`${ventureSummary.ventureScore.toFixed(1)} / 100`)}</div></div>
           <div class="metric"><div class="label">Expected opportunity</div><div class="value">${formatCurrency(ventureSummary.expectedOpportunityValue)}</div></div>
           <div class="metric"><div class="label">Return on focus</div><div class="value">${formatCurrency(ventureSummary.returnOnFocus)}</div></div>
           <div class="metric"><div class="label">24-month ceiling</div><div class="value">${formatCurrency(ventureSummary.marketCeiling24Month)}</div></div>
@@ -613,9 +613,8 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
           <div class="detail-card">
             <div class="detail-label">Saved scorecard inputs</div>
             <div class="note">
-              <p>36-month ceiling: ${formatCurrency(ventureSummary.marketCeiling36Month)}</p>
               <p>Probability of success: ${formatPercent(ventureSummary.probabilitySuccessPct)}</p>
-              <p>Adjacency: ${escapeHtml(String(ventureSummary.adjacencyScore))} / 10</p>
+              <p>Operational lift / adjacency gap: ${escapeHtml(String(ventureSummary.adjacencyScore))} / 10</p>
               <p>Asymmetric upside: ${escapeHtml(String(ventureSummary.asymmetricUpsideScore))} / 10</p>
               <p>Attention demand: ${escapeHtml(String(ventureSummary.attentionDemandScore))} / 10</p>
               <p>Speed to signal: ${escapeHtml(String(ventureSummary.speedToSignalDays))} days</p>
@@ -628,7 +627,6 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
               <p>Focused-build capital: ${formatCurrency(ventureSummary.buildCapital)}</p>
               <p>Scale capital: ${formatCurrency(ventureSummary.scaleCapital)}</p>
               <p>24-month forecast revenue: ${formatCurrency(ventureSummary.forecastRevenue24Month)}</p>
-              <p>36-month forecast revenue: ${formatCurrency(ventureSummary.forecastRevenue36Month)}</p>
             </div>
           </div>
           <div class="detail-card">

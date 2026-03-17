@@ -341,9 +341,8 @@ describe('API smoke flow', () => {
         method: 'POST',
         body: JSON.stringify({
           marketCeiling24Month: 2_000_000,
-          marketCeiling36Month: 3_500_000,
           probabilitySuccessPct: 0.45,
-          adjacencyScore: 8,
+          adjacencyScore: 3,
           asymmetricUpsideScore: 9,
           attentionDemandScore: 3,
           speedToSignalDays: 60,

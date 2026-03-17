@@ -59,12 +59,18 @@ export async function POST(request: Request, { params }: Params) {
 
     const body = await request.json()
 
+    const marketCeiling24Month = parseNumber(body.marketCeiling24Month, '24-month market ceiling')
+    const marketCeiling36Month =
+      body.marketCeiling36Month === undefined
+        ? marketCeiling24Month
+        : parseNumber(body.marketCeiling36Month, '36-month market ceiling')
+
     const summary = buildVentureSummary(
       {
-        marketCeiling24Month: parseNumber(body.marketCeiling24Month, '24-month market ceiling'),
-        marketCeiling36Month: parseNumber(body.marketCeiling36Month, '36-month market ceiling'),
+        marketCeiling24Month,
+        marketCeiling36Month,
         probabilitySuccessPct: parseNumber(body.probabilitySuccessPct, 'probability of success'),
-        adjacencyScore: parseNumber(body.adjacencyScore, 'adjacency score'),
+        adjacencyScore: parseNumber(body.adjacencyScore, 'operational lift score'),
         asymmetricUpsideScore: parseNumber(body.asymmetricUpsideScore, 'asymmetric upside score'),
         attentionDemandScore: parseNumber(body.attentionDemandScore, 'attention demand score'),
         speedToSignalDays: parseNumber(body.speedToSignalDays, 'speed to signal'),

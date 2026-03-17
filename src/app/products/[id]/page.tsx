@@ -2319,7 +2319,7 @@ function VentureSnapshotCard({ ventureSummary }: { ventureSummary: VentureSummar
         <div>
           <div className="text-3xl font-semibold">{ventureSummary.recommendationBucket}</div>
           <p className="mt-2 text-sm">
-            Venture score {ventureSummary.ventureScore.toFixed(1)} with next stage{' '}
+            Venture score {ventureSummary.ventureScore.toFixed(1)} / 100 with next stage{' '}
             <span className="font-semibold">{ventureSummary.recommendedStage}</span>.
           </p>
         </div>

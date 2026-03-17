@@ -14,12 +14,13 @@ import type {
 import {
   buildVentureSummary,
   getVentureRecommendationTone,
+  VENTURE_SCORE_BUCKETS,
+  VENTURE_SCORE_MAX,
   type VentureManualInputs,
 } from '@/lib/venture-summary'
 
 type VentureFormState = {
   marketCeiling24Month: BlankableNumber
-  marketCeiling36Month: BlankableNumber
   probabilitySuccessPct: BlankableNumber
   adjacencyScore: number
   asymmetricUpsideScore: number
@@ -43,7 +44,6 @@ function createInitialForm(ventureSummary: VentureSummaryRecord | null): Venture
   if (!ventureSummary) {
     return {
       marketCeiling24Month: '',
-      marketCeiling36Month: '',
       probabilitySuccessPct: '',
       adjacencyScore: 5,
       asymmetricUpsideScore: 5,
@@ -57,7 +57,6 @@ function createInitialForm(ventureSummary: VentureSummaryRecord | null): Venture
 
   return {
     marketCeiling24Month: ventureSummary.marketCeiling24Month,
-    marketCeiling36Month: ventureSummary.marketCeiling36Month,
     probabilitySuccessPct: ventureSummary.probabilitySuccessPct * 100,
     adjacencyScore: ventureSummary.adjacencyScore,
     asymmetricUpsideScore: ventureSummary.asymmetricUpsideScore,
@@ -72,7 +71,7 @@ function createInitialForm(ventureSummary: VentureSummaryRecord | null): Venture
 function toManualInputs(form: VentureFormState): VentureManualInputs {
   return {
     marketCeiling24Month: blankableNumberToNumber(form.marketCeiling24Month),
-    marketCeiling36Month: blankableNumberToNumber(form.marketCeiling36Month),
+    marketCeiling36Month: blankableNumberToNumber(form.marketCeiling24Month),
     probabilitySuccessPct: blankableNumberToNumber(form.probabilitySuccessPct) / 100,
     adjacencyScore: form.adjacencyScore,
     asymmetricUpsideScore: form.asymmetricUpsideScore,
@@ -114,7 +113,6 @@ export default function VentureLensTab({
     !ventureSummary ||
     JSON.stringify({
       marketCeiling24Month: ventureSummary.marketCeiling24Month,
-      marketCeiling36Month: ventureSummary.marketCeiling36Month,
       probabilitySuccessPct: ventureSummary.probabilitySuccessPct,
       adjacencyScore: ventureSummary.adjacencyScore,
       asymmetricUpsideScore: ventureSummary.asymmetricUpsideScore,
@@ -153,7 +151,12 @@ export default function VentureLensTab({
           </div>
           <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-4 text-right text-slate-900">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Venture score</div>
-            <div className="mt-2 text-3xl font-semibold">{preview.ventureScore.toFixed(1)}</div>
+            <div className="mt-2 text-3xl font-semibold">
+              {preview.ventureScore.toFixed(1)} <span className="text-lg text-slate-500">/ {VENTURE_SCORE_MAX}</span>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              This is a relative ranking score, not a percentage grade.
+            </p>
           </div>
         </div>
         {hardGates.length > 0 && (
@@ -170,12 +173,32 @@ export default function VentureLensTab({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Metric label="Expected opportunity" value={formatCurrency(preview.expectedOpportunityValue)} />
-        <Metric label="Return on focus" value={formatCurrency(preview.returnOnFocus)} />
+        <Metric
+          label="Return on focus"
+          value={formatCurrency(preview.returnOnFocus)}
+          detail={`${formatCurrency(preview.expectedOpportunityValue)} expected opportunity / ${preview.attentionDemandScore} attention`}
+        />
         <Metric label="24-month forecast" value={formatCurrency(preview.forecastRevenue24Month)} />
-        <Metric label="36-month forecast" value={formatCurrency(preview.forecastRevenue36Month)} />
-        <Metric label="Access capital" value={formatCurrency(preview.accessCapital)} />
-        <Metric label="Capital efficiency" value={`${preview.capitalEfficiencyRatio.toFixed(1)}x`} />
-        <Metric label="Sales / engineering hr" value={formatCurrency(preview.salesPerEngineeringHour)} />
+        <Metric label="24-month ceiling" value={formatCurrency(preview.marketCeiling24Month)} />
+        <Metric
+          label="Access capital"
+          value={formatCurrency(preview.accessCapital)}
+          detail={`${formatCurrency(preview.validationCapital)} validation + ${formatCurrency(preview.buildCapital)} focused build`}
+        />
+        <Metric
+          label="Capital efficiency"
+          value={`${preview.capitalEfficiencyRatio.toFixed(1)}x`}
+          detail={`${formatCurrency(preview.marketCeiling24Month)} ceiling / ${formatCurrency(preview.accessCapital)} access capital`}
+        />
+        <Metric
+          label="Sales / engineering hr"
+          value={formatCurrency(preview.salesPerEngineeringHour)}
+          detail={
+            costEstimates[0] && costEstimates[0].engineeringHours > 0
+              ? `${formatCurrency(preview.forecastRevenue24Month)} forecast / ${formatHours(costEstimates[0].engineeringHours)}`
+              : 'Needs latest cost estimate engineering hours'
+          }
+        />
         <Metric label="Contribution margin" value={formatPercent(preview.contributionMarginPct)} />
       </div>
 
@@ -194,20 +217,11 @@ export default function VentureLensTab({
             <FieldNumber
               id="marketCeiling24Month"
               label="24-month market ceiling"
-              hint="Primary opportunity ceiling used for the score."
+              hint="Dollar estimate of the revenue ceiling this idea could realistically reach within 24 months."
               value={form.marketCeiling24Month}
               min={0}
               step={1000}
               onChange={(value) => setForm((current) => ({ ...current, marketCeiling24Month: value }))}
-            />
-            <FieldNumber
-              id="marketCeiling36Month"
-              label="36-month market ceiling"
-              hint="Stored for context and export, not the primary v1 score driver."
-              value={form.marketCeiling36Month}
-              min={0}
-              step={1000}
-              onChange={(value) => setForm((current) => ({ ...current, marketCeiling36Month: value }))}
             />
             <FieldNumber
               id="probabilitySuccessPct"
@@ -236,8 +250,8 @@ export default function VentureLensTab({
             />
             <RangeField
               id="adjacencyScore"
-              label="Capacity leverage / adjacency"
-              hint="1 means a heavy operational lift; 10 means it rides existing processes cleanly."
+              label="Operational lift / adjacency gap"
+              hint="1 means it is easy and close to current processes. 10 means it would require a heavy operational lift."
               value={form.adjacencyScore}
               onChange={(value) => setForm((current) => ({ ...current, adjacencyScore: value }))}
             />
@@ -299,20 +313,45 @@ export default function VentureLensTab({
 
         <div className="space-y-6">
           <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+            <h3 className="text-lg font-semibold text-slate-900">How to read the score</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              The venture score is out of {VENTURE_SCORE_MAX}. It helps rank bets against each other; it is not meant to imply that most ideas should naturally land near 100.
+            </p>
+            <div className="mt-4 grid gap-3">
+              {VENTURE_SCORE_BUCKETS.map((bucket) => (
+                <div key={bucket.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                  <div className="font-semibold text-slate-900">{bucket.label}</div>
+                  <div className="mt-1">
+                    {bucket.min}-{bucket.max} points
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
             <h3 className="text-lg font-semibold text-slate-900">Score breakdown</h3>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
               {[
-                ['Expected opportunity', scoreBreakdown.expectedOpportunity ?? 0],
-                ['Capital efficiency', scoreBreakdown.capitalEfficiency ?? 0],
-                ['Adjacency', scoreBreakdown.adjacency ?? 0],
-                ['Asymmetric upside', scoreBreakdown.asymmetricUpside ?? 0],
-                ['Speed to signal', scoreBreakdown.speedToSignal ?? 0],
-                ['Contribution leverage', scoreBreakdown.contributionLeverage ?? 0],
-                ['Attention penalty', -(scoreBreakdown.attentionPenalty ?? 0)],
-              ].map(([label, score]) => (
+                ['Expected opportunity', scoreBreakdown.expectedOpportunity ?? 0, 30, '24-month ceiling x probability of success'],
+                ['Capital efficiency', scoreBreakdown.capitalEfficiency ?? 0, 15, '24-month ceiling divided by stage-1 + stage-2 access capital'],
+                ['Operational ease', scoreBreakdown.operationalEase ?? 0, 15, 'Derived from the operational-lift input; lower lift scores better'],
+                ['Asymmetric upside', scoreBreakdown.asymmetricUpside ?? 0, 15, 'How much the idea expands the game board if it works'],
+                ['Speed to signal', scoreBreakdown.speedToSignal ?? 0, 15, '30 days = 15, 60 = 10, 90 = 5, 120 = 0'],
+                ['Contribution margin leverage', scoreBreakdown.contributionLeverage ?? 0, 10, 'Uses saved forecast + latest cost estimate margin bands'],
+                ['Attention penalty', -(scoreBreakdown.attentionPenalty ?? 0), 20, 'Subtracts points when the idea would distract the core business'],
+              ].map(([label, score, maxPoints, note]) => (
                 <div key={String(label)} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                  <div className="font-medium text-slate-900">{label}</div>
-                  <div className="font-semibold text-slate-900">{Number(score).toFixed(1)}</div>
+                  <div>
+                    <div className="font-medium text-slate-900">{label}</div>
+                    <div className="mt-1 text-xs text-slate-500">{String(note)}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-slate-900">
+                      {Number(score).toFixed(1)}
+                      {Number(score) >= 0 ? ` / ${String(maxPoints)}` : ` / -${String(maxPoints)}`}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -349,11 +388,20 @@ export default function VentureLensTab({
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  detail,
+}: {
+  label: string
+  value: string
+  detail?: string
+}) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
       <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{label}</div>
       <div className="mt-2 text-lg font-semibold text-slate-900">{value}</div>
+      {detail && <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>}
     </div>
   )
 }
@@ -478,4 +526,11 @@ function formatCurrency(value: number) {
 
 function formatPercent(value: number) {
   return `${(value * 100).toFixed(1)}%`
+}
+
+function formatHours(value: number) {
+  return `${value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })} hr`
 }

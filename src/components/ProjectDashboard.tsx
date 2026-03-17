@@ -15,6 +15,7 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
   const [projects, setProjects] = useState<IdeaRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeView, setActiveView] = useState<'pipeline' | 'venture'>('pipeline')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [visibilityFilter, setVisibilityFilter] = useState<'visible' | 'hidden' | 'all'>('visible')
@@ -88,13 +89,37 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
         </div>
       </section>
 
-      <VenturePortfolioSection ideas={filteredProjects} />
-
       <section className="card space-y-6">
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-4">
+          {[
+            { key: 'pipeline', label: 'Pipeline' },
+            { key: 'venture', label: 'Venture Portfolio' },
+          ].map((view) => (
+            <button
+              key={view.key}
+              type="button"
+              className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                activeView === view.key
+                  ? 'bg-slate-950 text-white'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:text-slate-900'
+              }`}
+              onClick={() => setActiveView(view.key as 'pipeline' | 'venture')}
+            >
+              {view.label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold text-slate-900">Project pipeline</h2>
-            <p className="text-sm text-slate-500">Review active concepts and jump directly into forecasts, costs, and ROI.</p>
+            <h2 className="text-2xl font-semibold text-slate-900">
+              {activeView === 'pipeline' ? 'Project pipeline' : 'Venture portfolio filters'}
+            </h2>
+            <p className="text-sm text-slate-500">
+              {activeView === 'pipeline'
+                ? 'Review active concepts and jump directly into forecasts, costs, and ROI.'
+                : 'Use the same search and visibility filters to focus the venture portfolio view on the slice of ideas you want to compare.'}
+            </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="form-group mb-0">
@@ -166,6 +191,8 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
               Try a different search, status, or visibility filter to bring hidden or archived work back into view.
             </p>
           </div>
+        ) : activeView === 'venture' ? (
+          <VenturePortfolioSection ideas={filteredProjects} />
         ) : (
           <div className="grid gap-5 xl:grid-cols-2">
             {filteredProjects.map((project) => (
