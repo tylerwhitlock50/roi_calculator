@@ -1,4 +1,5 @@
 import type { CostEstimateRecord, ForecastRecord, IdeaDetailRecord } from '@/lib/api'
+import { buildRoiDecisionSummary, formatBreakEvenSummary } from '@/lib/roi-decision'
 import {
   calculateEngineeringLaunchCost,
   calculateLaborCost,
@@ -9,11 +10,6 @@ import {
   type RoiCalculations,
   type UnitEconomicsBreakdown,
 } from '@/lib/roi-calculations'
-import {
-  findRequiredForecastChangeForTargetIrr,
-  scaleCostEstimates,
-  scaleForecasts,
-} from '@/lib/stress-test'
 
 type RoiExportProject = Pick<
   IdeaDetailRecord,
@@ -36,7 +32,22 @@ type RoiExportInput = {
   exportedAt?: Date
 }
 
-const BASE_TABLE_HEADERS = ['Month', 'Total', 'Sales', 'Marketing', 'CAC', 'Materials', 'Labor', 'Overhead', 'Support', 'Tooling']
+const BASE_TABLE_HEADERS = [
+  'Month',
+  'Total',
+  'Sales',
+  'Marketing',
+  'CAC',
+  'Materials',
+  'Labor',
+  'Overhead',
+  'Support',
+  'Fulfillment',
+  'Warranty',
+  'Tooling',
+  'Launch cash',
+  'Compliance',
+]
 
 type StressScenario = {
   label: string
@@ -61,6 +72,7 @@ export function buildRoiExportFilename(title: string, exportedAt = new Date()) {
 export function buildRoiExportHtml({ project, forecasts, costEstimates, calculations, exportedAt = new Date() }: RoiExportInput) {
   const assumptions = calculations.assumptions
   const unitEconomics = calculateUnitEconomics(forecasts, costEstimates)
+  const decisionSummary = buildRoiDecisionSummary({ forecasts, costEstimates, calculations })
   const stressScenarios = buildStressScenarios({ forecasts, costEstimates, baseCalculations: calculations })
   const assumptionRows = Object.entries(assumptions)
     .map(([key, value]) => {
@@ -90,7 +102,11 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
           <td>${formatCurrencyOrDash(flow.labor)}</td>
           <td>${formatCurrencyOrDash(flow.overhead)}</td>
           <td>${formatCurrencyOrDash(flow.support)}</td>
+          <td>${formatCurrencyOrDash(flow.fulfillment)}</td>
+          <td>${formatCurrencyOrDash(flow.warranty)}</td>
           <td>${formatCurrencyOrDash(flow.tooling)}</td>
+          <td>${formatCurrencyOrDash(flow.launchCash)}</td>
+          <td>${formatCurrencyOrDash(flow.compliance)}</td>
         </tr>
       `
     )
@@ -109,6 +125,10 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
                 <div class="detail-card">
                   <div class="detail-label">Monthly marketing spend</div>
                   <div class="detail-value">${formatCurrency(forecast.monthlyMarketingSpend)}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="detail-label">Net price confirmed</div>
+                  <div class="detail-value">${escapeHtml(forecast.priceBasisConfirmed ? 'Yes' : 'Needs review')}</div>
                 </div>
                 <div class="detail-card">
                   <div class="detail-label">Marketing / unit</div>
@@ -160,6 +180,22 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
                 <div class="detail-card">
                   <div class="detail-label">Engineering rate / hour</div>
                   <div class="detail-value">${formatUnitCurrency(estimate.engineeringRatePerHour)}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="detail-label">Launch cash requirement</div>
+                  <div class="detail-value">${formatNullableCurrency(estimate.launchCashRequirement)}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="detail-label">Compliance cost</div>
+                  <div class="detail-value">${formatNullableCurrency(estimate.complianceCost)}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="detail-label">Fulfillment / unit</div>
+                  <div class="detail-value">${formatNullableUnitCurrency(estimate.fulfillmentCostPerUnit)}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="detail-label">Warranty reserve</div>
+                  <div class="detail-value">${formatNullablePercent(estimate.warrantyReservePct)}</div>
                 </div>
                 <div class="detail-card">
                   <div class="detail-label">Scrap rate</div>
@@ -498,12 +534,40 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
         <div class="metric-grid">
           <div class="metric"><div class="label">NPV</div><div class="value">${formatCurrency(calculations.npv)}</div></div>
           <div class="metric"><div class="label">IRR</div><div class="value">${formatPercent(calculations.irr)}</div></div>
-          <div class="metric"><div class="label">Break-even month</div><div class="value">${escapeHtml(String(calculations.breakEvenMonth))}</div></div>
+          <div class="metric"><div class="label">Break-even</div><div class="value">${escapeHtml(formatBreakEvenSummary(calculations))}</div></div>
           <div class="metric"><div class="label">Payback period</div><div class="value">${escapeHtml(`${calculations.paybackPeriod.toFixed(2)} years`)}</div></div>
           <div class="metric"><div class="label">ROI</div><div class="value">${formatPercent(calculations.roiPct)}</div></div>
           <div class="metric"><div class="label">Contribution / unit</div><div class="value">${formatUnitCurrency(calculations.contributionMarginPerUnit)}</div></div>
           <div class="metric"><div class="label">Profit / unit</div><div class="value">${formatUnitCurrency(calculations.profitPerUnit)}</div></div>
           <div class="metric"><div class="label">Units forecasted</div><div class="value">${escapeHtml(formatWholeNumber(Number(assumptions.totalUnits ?? 0)))}</div></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Decision summary</h2>
+        <div class="metric-grid">
+          <div class="metric"><div class="label">Verdict</div><div class="value">${escapeHtml(decisionSummary.verdict)}</div></div>
+          <div class="metric"><div class="label">Downside result</div><div class="value">${escapeHtml(decisionSummary.downside.survives ? 'Survives downside' : 'Fails downside')}</div></div>
+          <div class="metric"><div class="label">Downside NPV</div><div class="value">${formatCurrency(decisionSummary.downside.calculations.npv)}</div></div>
+          <div class="metric"><div class="label">Downside IRR</div><div class="value">${formatPercent(decisionSummary.downside.calculations.irr)}</div></div>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-label">Why</div>
+            <div class="note">${decisionSummary.why.map((item) => `<p>${escapeHtml(item)}</p>`).join('')}</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-label">Missing review items</div>
+            <div class="note">${
+              decisionSummary.missingReviewItems.length
+                ? decisionSummary.missingReviewItems.map((item) => `<p>${escapeHtml(item)}</p>`).join('')
+                : '<p>All required review items are marked as reviewed.</p>'
+            }</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-label">Next action</div>
+            <div class="note">${escapeHtml(decisionSummary.nextAction)}</div>
+          </div>
         </div>
       </section>
 
@@ -568,7 +632,11 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
               <td>${formatCurrency(calculations.totals.labor)}</td>
               <td>${formatCurrency(calculations.totals.overhead)}</td>
               <td>${formatCurrency(calculations.totals.support)}</td>
+              <td>${formatCurrency(calculations.totals.fulfillment)}</td>
+              <td>${formatCurrency(calculations.totals.warranty)}</td>
               <td>${formatCurrency(calculations.totals.tooling)}</td>
+              <td>${formatCurrency(calculations.totals.launchCash)}</td>
+              <td>${formatCurrency(calculations.totals.compliance)}</td>
             </tr>
           </tfoot>
         </table>
@@ -690,12 +758,10 @@ function buildStressScenarios({
   costEstimates: CostEstimateRecord[]
   baseCalculations: RoiCalculations
 }): StressScenario[] {
-  const priceTarget = findRequiredForecastChangeForTargetIrr({
+  const decisionSummary = buildRoiDecisionSummary({
     forecasts,
     costEstimates,
-    mode: 'price',
-    targetIrr: 0.1,
-    baseCalculations,
+    calculations: baseCalculations,
   })
 
   return [
@@ -705,29 +771,9 @@ function buildStressScenarios({
       calculations: baseCalculations,
     },
     {
-      label: 'Price pressure',
-      description: 'Average selling price down 10% across every saved forecast month.',
-      calculations: calculateRoiMetrics(scaleForecasts(forecasts, { priceFactor: 0.9 }), costEstimates),
-    },
-    {
-      label: 'Demand miss',
-      description: 'Forecast units down 20% while fixed monthly spend stays in place.',
-      calculations: calculateRoiMetrics(scaleForecasts(forecasts, { unitFactor: 0.8 }), costEstimates),
-    },
-    {
-      label: '10% IRR price target',
-      description: buildTargetIrrPriceDescription(priceTarget),
-      calculations: priceTarget?.calculations ?? null,
-    },
-    {
-      label: 'Cost creep',
-      description: 'Modeled BOM, labor, overhead, tooling, and engineering costs up 10%.',
-      calculations: calculateRoiMetrics(forecasts, scaleCostEstimates(costEstimates, 1.1)),
-    },
-    {
-      label: 'Combined downside',
-      description: 'Price down 10%, units down 20%, and modeled costs up 10% at the same time.',
-      calculations: calculateRoiMetrics(scaleForecasts(forecasts, { priceFactor: 0.9, unitFactor: 0.8 }), scaleCostEstimates(costEstimates, 1.1)),
+      label: 'Standard downside',
+      description: decisionSummary.downside.description,
+      calculations: decisionSummary.downside.calculations,
     },
   ]
 }
@@ -896,6 +942,18 @@ function formatCurrencyOrDash(value: number) {
   return value ? formatCurrency(value) : '–'
 }
 
+function formatNullableCurrency(value: number | null) {
+  return value === null ? 'Needs review' : formatCurrency(value)
+}
+
+function formatNullableUnitCurrency(value: number | null) {
+  return value === null ? 'Needs review' : formatUnitCurrency(value)
+}
+
+function formatNullablePercent(value: number | null) {
+  return value === null ? 'Needs review' : formatPercent(value)
+}
+
 function formatWholeNumber(value: number) {
   return value.toLocaleString('en-US', {
     maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
@@ -980,25 +1038,6 @@ function formatAssumptionValue(value: unknown) {
   }
 
   return String(value)
-}
-
-function buildTargetIrrPriceDescription(target: ReturnType<typeof findRequiredForecastChangeForTargetIrr>) {
-  if (!target) {
-    return '10% IRR is not reachable through price changes alone within the modeled search range.'
-  }
-
-  const targetPrice = Number(target.calculations.assumptions.averageSellingPrice ?? 0)
-  const absChange = Math.abs(target.changePct).toFixed(1)
-
-  if (Math.abs(target.changePct) < 0.05) {
-    return `Current saved pricing already lands at roughly 10% IRR, with a blended selling price of ${formatUnitCurrency(targetPrice)}.`
-  }
-
-  if (target.changePct > 0) {
-    return `Average selling price would need to rise ${absChange}% to ${formatUnitCurrency(targetPrice)} per unit to reach a 10% IRR.`
-  }
-
-  return `Average selling price could fall ${absChange}% to ${formatUnitCurrency(targetPrice)} per unit and still hold a 10% IRR.`
 }
 
 function hasBreakEven(calculations: RoiCalculations) {

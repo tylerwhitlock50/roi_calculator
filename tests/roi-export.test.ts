@@ -36,6 +36,7 @@ function buildForecasts(): ForecastRecord[] {
       contributorId: 'user-1',
       contributorRole: 'Sales',
       channelOrCustomer: 'Direct',
+      priceBasisConfirmed: true,
       monthlyMarketingSpend: 100,
       marketingCostPerUnit: 5,
       customerAcquisitionCostPerUnit: 2,
@@ -61,6 +62,10 @@ function buildEstimates(): CostEstimateRecord[] {
       toolingCost: 400,
       engineeringHours: 2,
       engineeringRatePerHour: 125,
+      launchCashRequirement: 150,
+      complianceCost: 75,
+      fulfillmentCostPerUnit: 6,
+      warrantyReservePct: 0.03,
       scrapRate: 0,
       overheadRate: 10,
       supportTimePct: 0.1,
@@ -114,19 +119,22 @@ describe('roi export', () => {
 
     expect(html).toContain('Portable &lt;ROI&gt; &amp; Report')
     expect(html).toContain('ROI summary')
+    expect(html).toContain('Decision summary')
     expect(html).toContain('Revenue flow')
     expect(html).toContain('Stress test')
     expect(html).toContain('Cash flow detail')
     expect(html).toContain('Forecast 1: Direct')
     expect(html).toContain('Cost estimate 1')
     expect(html).toContain('Base case')
-    expect(html).toContain('10% IRR price target')
-    expect(html).toContain('Combined downside')
+    expect(html).toContain('Standard downside')
+    expect(html).toContain('Do not proceed')
     expect(html).toContain('Revenue / unit')
     expect(html).toContain('Scrap rate')
+    expect(html).toContain('Launch cash requirement')
     expect(html).toContain('Chassis')
     expect(html).toContain('Assembly')
-    expect(html).toContain('Break-even month')
+    expect(html).toContain('Net price confirmed')
+    expect(html).toContain('Break-even')
   })
 
   it('builds a filesystem-safe export filename', () => {

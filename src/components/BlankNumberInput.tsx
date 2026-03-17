@@ -16,6 +16,10 @@ export function blankableNumberToNumber(value: BlankableNumber): number {
   return value === '' ? 0 : value
 }
 
+export function blankableNumberToNullableNumber(value: BlankableNumber): number | null {
+  return value === '' ? null : value
+}
+
 type BlankNumberInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'onChange'> & {
   value: BlankableNumber
   onChange: (value: BlankableNumber) => void

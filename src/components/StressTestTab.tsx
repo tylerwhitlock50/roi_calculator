@@ -69,7 +69,6 @@ export default function StressTestTab({ forecasts, costEstimates }: StressTestTa
 
     const nextForecasts = forecasts.map((forecast) => ({
       ...forecast,
-      marketingCostPerUnit: Math.max(0, forecast.marketingCostPerUnit + shippingDeltaPerUnit),
       customerAcquisitionCostPerUnit: Math.max(0, forecast.customerAcquisitionCostPerUnit + cacDeltaPerUnit),
       monthlyVolumeEstimate: forecast.monthlyVolumeEstimate.map((month) => ({
         ...month,
@@ -80,6 +79,10 @@ export default function StressTestTab({ forecasts, costEstimates }: StressTestTa
 
     const nextCostEstimates = costEstimates.map((estimate) => ({
       ...estimate,
+      fulfillmentCostPerUnit:
+        estimate.fulfillmentCostPerUnit === null
+          ? Math.max(0, shippingDeltaPerUnit)
+          : Math.max(0, estimate.fulfillmentCostPerUnit + shippingDeltaPerUnit),
       scrapRate: Math.min(0.99, Math.max(0, estimate.scrapRate + scrapRateDelta)),
       bomParts: estimate.bomParts.map((part) => ({
         ...part,
@@ -139,7 +142,7 @@ export default function StressTestTab({ forecasts, costEstimates }: StressTestTa
             onChange={(value) => setControls((current) => ({ ...current, cacDeltaPerUnit: value }))}
           />
         </Field>
-        <Field label="Shipping change ($/unit)" hint="Adds to marketing/distribution cost per unit.">
+        <Field label="Fulfillment change ($/unit)" hint="Adds to the modeled fulfillment cost per shipped unit.">
           <BlankNumberInput
             className="input-field"
             value={controls.shippingDeltaPerUnit}

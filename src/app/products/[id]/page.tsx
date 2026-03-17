@@ -4,7 +4,11 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { addMonths, format, parse } from 'date-fns'
 import { useParams, useRouter } from 'next/navigation'
 
-import BlankNumberInput, { blankableNumberToNumber, type BlankableNumber } from '@/components/BlankNumberInput'
+import BlankNumberInput, {
+  blankableNumberToNullableNumber,
+  blankableNumberToNumber,
+  type BlankableNumber,
+} from '@/components/BlankNumberInput'
 import ProductIdeaForm from '@/components/ProductIdeaForm'
 import StressTestTab from '@/components/StressTestTab'
 import UnitEconomicsTab from '@/components/UnitEconomicsTab'
@@ -18,6 +22,12 @@ import {
   type RoiSummaryRecord,
 } from '@/lib/api'
 import { IDEA_STATUS_OPTIONS } from '@/lib/constants'
+import {
+  buildRoiDecisionSnapshot,
+  buildRoiDecisionSummary,
+  formatBreakEvenSummary,
+  formatVerdictTone,
+} from '@/lib/roi-decision'
 import {
   calculateEngineeringLaunchCost,
   calculateLaborCost,
@@ -41,6 +51,7 @@ const DEFAULT_ENGINEERING_RATE_PER_HOUR = 125
 type ForecastFormState = {
   channelOrCustomer: string
   contributorRole: string
+  priceBasisConfirmed: boolean
   monthlyMarketingSpend: BlankableNumber
   marketingCostPerUnit: BlankableNumber
   customerAcquisitionCostPerUnit: BlankableNumber
@@ -57,6 +68,10 @@ type CostFormState = {
   toolingCost: BlankableNumber
   engineeringHours: BlankableNumber
   engineeringRatePerHour: BlankableNumber
+  launchCashRequirement: BlankableNumber
+  complianceCost: BlankableNumber
+  fulfillmentCostPerUnit: BlankableNumber
+  warrantyReservePct: BlankableNumber
   scrapRate: BlankableNumber
   overheadRate: BlankableNumber
   supportTimePct: BlankableNumber
@@ -91,6 +106,7 @@ function createInitialForecastForm(): ForecastFormState {
   return {
     channelOrCustomer: '',
     contributorRole: '',
+    priceBasisConfirmed: false,
     monthlyMarketingSpend: '',
     marketingCostPerUnit: '',
     customerAcquisitionCostPerUnit: '',
@@ -103,6 +119,10 @@ function createInitialCostForm(): CostFormState {
     toolingCost: '',
     engineeringHours: '',
     engineeringRatePerHour: DEFAULT_ENGINEERING_RATE_PER_HOUR,
+    launchCashRequirement: '',
+    complianceCost: '',
+    fulfillmentCostPerUnit: '',
+    warrantyReservePct: '',
     scrapRate: '',
     overheadRate: '',
     supportTimePct: '',
@@ -212,6 +232,7 @@ export default function ProductDetailPage() {
       setForecastForm({
         channelOrCustomer: forecast.channelOrCustomer,
         contributorRole: forecast.contributorRole,
+        priceBasisConfirmed: forecast.priceBasisConfirmed === true,
         monthlyMarketingSpend: forecast.monthlyMarketingSpend,
         marketingCostPerUnit: forecast.marketingCostPerUnit,
         customerAcquisitionCostPerUnit: forecast.customerAcquisitionCostPerUnit,
@@ -241,6 +262,10 @@ export default function ProductDetailPage() {
         throw new Error('All forecast fields are required')
       }
 
+      if (!forecastForm.priceBasisConfirmed) {
+        throw new Error('Confirm that the forecast price is net to the business before saving')
+      }
+
       const normalizedMonthlyVolumeEstimate: MonthlyForecast[] = forecastForm.monthlyVolumeEstimate.map((row) => ({
         month_date: row.month_date,
         units: blankableNumberToNumber(row.units),
@@ -264,6 +289,7 @@ export default function ProductDetailPage() {
           forecastId: editingForecastId,
           contributorRole: forecastForm.contributorRole,
           channelOrCustomer: forecastForm.channelOrCustomer,
+          priceBasisConfirmed: forecastForm.priceBasisConfirmed,
           monthlyMarketingSpend: blankableNumberToNumber(forecastForm.monthlyMarketingSpend),
           marketingCostPerUnit: blankableNumberToNumber(forecastForm.marketingCostPerUnit),
           customerAcquisitionCostPerUnit: blankableNumberToNumber(forecastForm.customerAcquisitionCostPerUnit),
@@ -312,6 +338,10 @@ export default function ProductDetailPage() {
         toolingCost: estimate.toolingCost,
         engineeringHours: estimate.engineeringHours,
         engineeringRatePerHour: estimate.engineeringRatePerHour ?? DEFAULT_ENGINEERING_RATE_PER_HOUR,
+        launchCashRequirement: estimate.launchCashRequirement ?? '',
+        complianceCost: estimate.complianceCost ?? '',
+        fulfillmentCostPerUnit: estimate.fulfillmentCostPerUnit ?? '',
+        warrantyReservePct: estimate.warrantyReservePct === null ? '' : estimate.warrantyReservePct,
         scrapRate: estimate.scrapRate,
         overheadRate: estimate.overheadRate,
         supportTimePct: estimate.supportTimePct,
@@ -360,6 +390,11 @@ export default function ProductDetailPage() {
         toolingCost: blankableNumberToNumber(costForm.toolingCost),
         engineeringHours: blankableNumberToNumber(costForm.engineeringHours),
         engineeringRatePerHour: blankableNumberToNumber(costForm.engineeringRatePerHour),
+        launchCashRequirement: blankableNumberToNullableNumber(costForm.launchCashRequirement),
+        complianceCost: blankableNumberToNullableNumber(costForm.complianceCost),
+        fulfillmentCostPerUnit: blankableNumberToNullableNumber(costForm.fulfillmentCostPerUnit),
+        warrantyReservePct:
+          costForm.warrantyReservePct === '' ? null : blankableNumberToNumber(costForm.warrantyReservePct),
         scrapRate: blankableNumberToNumber(costForm.scrapRate),
         overheadRate: blankableNumberToNumber(costForm.overheadRate),
         supportTimePct: blankableNumberToNumber(costForm.supportTimePct),
@@ -786,6 +821,15 @@ export default function ProductDetailPage() {
                         </div>
                         <h3 className="mt-2 text-xl font-semibold text-slate-900">{forecast.channelOrCustomer}</h3>
                         <p className="mt-1 text-sm text-slate-500">{forecast.contributorRole}</p>
+                        <div className="mt-3">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              forecast.priceBasisConfirmed ? 'bg-success-50 text-success-700' : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {forecast.priceBasisConfirmed ? 'Net price confirmed' : 'Price basis needs review'}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <button className="btn-secondary text-sm" onClick={() => openForecastModal(forecast)}>
@@ -807,7 +851,7 @@ export default function ProductDetailPage() {
                           <tr>
                             <th className="px-4 py-3 font-medium">Month</th>
                             <th className="px-4 py-3 font-medium">Units</th>
-                            <th className="px-4 py-3 font-medium">Price</th>
+                            <th className="px-4 py-3 font-medium">Net price</th>
                             <th className="px-4 py-3 font-medium">Sales</th>
                           </tr>
                         </thead>
@@ -998,7 +1042,7 @@ export default function ProductDetailPage() {
                           </div>
                           <div className="form-group mb-0">
                             <label className="form-label" htmlFor="quick-fill-price">
-                              Selling price per unit
+                              Net selling price to us per unit
                             </label>
                             <BlankNumberInput
                               id="quick-fill-price"
@@ -1089,7 +1133,7 @@ export default function ProductDetailPage() {
                             </div>
                             <div className="form-group mb-0">
                               <label className="form-label" htmlFor={`forecast-price-${index}`}>
-                                Selling price per unit
+                                Net selling price to us per unit
                               </label>
                               <BlankNumberInput
                                 id={`forecast-price-${index}`}
@@ -1114,6 +1158,20 @@ export default function ProductDetailPage() {
                       ))}
                     </div>
                   </div>
+
+                  <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={forecastForm.priceBasisConfirmed}
+                      onChange={(event) =>
+                        setForecastForm((current) => ({
+                          ...current,
+                          priceBasisConfirmed: event.target.checked,
+                        }))
+                      }
+                    />
+                    <span>This price is net to the business after dealer margin, discounts, and promos.</span>
+                  </label>
 
                   {forecastError && (
                     <div className="rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
@@ -1184,6 +1242,12 @@ export default function ProductDetailPage() {
                     <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                       <Metric label="Tooling" value={formatCurrency(estimate.toolingCost)} />
                       <Metric label="Eng launch" value={formatCurrency(calculateEngineeringLaunchCost(estimate))} />
+                      <Metric label="Launch cash" value={estimate.launchCashRequirement === null ? 'Review' : formatCurrency(estimate.launchCashRequirement)} />
+                      <Metric label="Compliance" value={estimate.complianceCost === null ? 'Review' : formatCurrency(estimate.complianceCost)} />
+                      <Metric label="Fulfillment / unit" value={estimate.fulfillmentCostPerUnit === null ? 'Review' : formatCurrency(estimate.fulfillmentCostPerUnit)} />
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <Metric label="Warranty %" value={estimate.warrantyReservePct === null ? 'Review' : `${(estimate.warrantyReservePct * 100).toFixed(1)}%`} />
                       <Metric label="Scrap" value={`${(estimate.scrapRate * 100).toFixed(1)}%`} />
                       <Metric label="Overhead / Hr" value={formatCurrency(estimate.overheadRate)} />
                       <Metric label="Support %" value={`${(estimate.supportTimePct * 100).toFixed(0)}%`} />
@@ -1230,6 +1294,47 @@ export default function ProductDetailPage() {
                       min={0}
                       step={0.01}
                       onChange={(value) => setCostForm((current) => ({ ...current, engineeringRatePerHour: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-launch-cash"
+                      label="Launch cash requirement"
+                      hint="Optional upfront cash needed for launch execution outside tooling and engineering. Leave blank until reviewed."
+                      value={costForm.launchCashRequirement}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setCostForm((current) => ({ ...current, launchCashRequirement: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-compliance"
+                      label="Compliance cost"
+                      hint="Optional approvals, testing, or certification spend. Leave blank until reviewed."
+                      value={costForm.complianceCost}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setCostForm((current) => ({ ...current, complianceCost: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-fulfillment"
+                      label="Fulfillment cost per unit"
+                      hint="Recurring pick, pack, ship, or handling cost per shipped unit. Leave blank until reviewed."
+                      value={costForm.fulfillmentCostPerUnit}
+                      min={0}
+                      step={0.01}
+                      onChange={(value) => setCostForm((current) => ({ ...current, fulfillmentCostPerUnit: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-warranty-reserve"
+                      label="Warranty reserve (%)"
+                      hint="Percent of revenue held as warranty reserve. Leave blank until reviewed."
+                      value={costForm.warrantyReservePct === '' ? '' : costForm.warrantyReservePct * 100}
+                      min={0}
+                      step={0.1}
+                      onChange={(value) =>
+                        setCostForm((current) => ({
+                          ...current,
+                          warrantyReservePct: value === '' ? '' : value / 100,
+                        }))
+                      }
                     />
                     <FieldNumber
                       id="cost-scrap-rate"
@@ -1843,7 +1948,7 @@ function CostSummary({ costEstimates }: { costEstimates: CostEstimateRecord[] })
       <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Latest estimate</div>
       <div className="mt-2 text-3xl font-semibold text-primary-700">{formatCurrency(total)}</div>
       <p className="mt-1 text-sm text-slate-500">
-        Includes tooling, launch engineering labor, BOM, and modeled manufacturing/support assumptions from the latest saved estimate.
+        Includes tooling, launch engineering, launch cash, compliance, BOM, and the latest modeled manufacturing/support assumptions.
       </p>
     </div>
   )
@@ -1864,13 +1969,16 @@ function SuggestedMSRP({ costEstimates }: { costEstimates: CostEstimateRecord[] 
   const laborCostWithScrap = laborCost * yieldMultiplier
   const overheadCost = totalLaborHours * latest.overheadRate * yieldMultiplier
   const supportCost = latest.supportTimePct * (laborCostWithScrap + overheadCost)
-  const msrp = (bomCost * yieldMultiplier + laborCostWithScrap + supportCost + overheadCost) / 0.45
+  const fulfillmentCost = latest.fulfillmentCostPerUnit ?? 0
+  const warrantyReservePct = latest.warrantyReservePct ?? 0
+  const costBase = bomCost * yieldMultiplier + laborCostWithScrap + supportCost + overheadCost + fulfillmentCost
+  const msrp = (costBase / Math.max(0.01, 0.45 - warrantyReservePct))
 
   return (
     <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
       <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Suggested MSRP</div>
       <div className="mt-2 text-3xl font-semibold text-primary-700">{formatCurrency(msrp)}</div>
-      <p className="mt-1 text-sm text-slate-500">Calculated from cash-affecting BOM, labor, support, and overhead at a 55% gross margin target, including scrap/yield loss.</p>
+      <p className="mt-1 text-sm text-slate-500">Calculated from cash-affecting BOM, labor, support, overhead, fulfillment, and any reviewed warranty reserve at a 55% gross margin target, including scrap/yield loss.</p>
     </div>
   )
 }
@@ -1901,14 +2009,27 @@ function ROICalculator({
   saveError: string | null
 }) {
   const calculations = useMemo(() => calculateRoiMetrics(forecasts, costEstimates), [costEstimates, forecasts])
+  const decisionSummary = useMemo(
+    () => buildRoiDecisionSummary({ forecasts, costEstimates, calculations }),
+    [calculations, costEstimates, forecasts]
+  )
+  const decisionSnapshot = useMemo(() => buildRoiDecisionSnapshot(decisionSummary), [decisionSummary])
   const [exportError, setExportError] = useState<string | null>(null)
+  const verdictTone = formatVerdictTone(decisionSummary.verdict)
+  const verdictClasses =
+    verdictTone === 'positive'
+      ? 'border-success-200 bg-success-50 text-success-900'
+      : verdictTone === 'caution'
+        ? 'border-amber-200 bg-amber-50 text-amber-900'
+        : 'border-danger-200 bg-danger-50 text-danger-900'
 
   const hasChanges =
     !roiSummary ||
     roiSummary.npv.toFixed(2) !== calculations.npv.toFixed(2) ||
     roiSummary.irr.toFixed(4) !== calculations.irr.toFixed(4) ||
     roiSummary.breakEvenMonth !== calculations.breakEvenMonth ||
-    roiSummary.paybackPeriod.toFixed(2) !== calculations.paybackPeriod.toFixed(2)
+    roiSummary.paybackPeriod.toFixed(2) !== calculations.paybackPeriod.toFixed(2) ||
+    JSON.stringify((roiSummary.assumptions as Record<string, unknown>)?.decisionSummary ?? null) !== JSON.stringify(decisionSnapshot)
 
   const exportReport = () => {
     try {
@@ -1942,13 +2063,63 @@ function ROICalculator({
 
   return (
     <div className="space-y-6">
+      <div className={`rounded-[24px] border px-5 py-5 ${verdictClasses}`}>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.22em]">Decision summary</div>
+        <div className="mt-2 text-3xl font-semibold">{decisionSummary.verdict}</div>
+        <p className="mt-2 text-sm">
+          {decisionSummary.downside.survives
+            ? 'The standardized downside still holds the decision threshold.'
+            : 'The standardized downside breaks the decision threshold.'}
+        </p>
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-4 text-sm text-slate-700">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Why</div>
+            <div className="mt-2 space-y-2">
+              {decisionSummary.why.map((item) => (
+                <p key={item}>{item}</p>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-4 text-sm text-slate-700">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Missing review items</div>
+            <div className="mt-2 space-y-2">
+              {decisionSummary.missingReviewItems.length ? (
+                decisionSummary.missingReviewItems.map((item) => <p key={item}>{item}</p>)
+              ) : (
+                <p>All required review items are marked as reviewed.</p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-4 text-sm text-slate-700">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Next action</div>
+            <p className="mt-2">{decisionSummary.nextAction}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Metric label="NPV" value={formatCurrency(calculations.npv)} />
         <Metric label="IRR" value={`${(calculations.irr * 100).toFixed(1)}%`} />
-        <Metric label="Break-even month" value={String(calculations.breakEvenMonth)} />
+        <Metric label="Break-even" value={formatBreakEvenSummary(calculations)} />
         <Metric label="Payback period" value={`${calculations.paybackPeriod.toFixed(2)} years`} />
         <Metric label="Contribution / unit" value={formatCurrency(calculations.contributionMarginPerUnit)} />
         <Metric label="Profit / unit" value={formatCurrency(calculations.profitPerUnit)} />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Downside NPV" value={formatCurrency(decisionSummary.downside.calculations.npv)} />
+        <Metric label="Downside IRR" value={`${(decisionSummary.downside.calculations.irr * 100).toFixed(1)}%`} />
+        <Metric label="Downside profit / unit" value={formatCurrency(decisionSummary.downside.calculations.profitPerUnit)} />
+        <Metric
+          label="Downside result"
+          value={decisionSummary.downside.survives ? 'Survives downside' : 'Fails downside'}
+        />
+      </div>
+
+      <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+        <div className="font-semibold text-slate-900">Standard downside check</div>
+        <p className="mt-2">{decisionSummary.downside.description}</p>
+        <p className="mt-2">{formatBreakEvenSummary(decisionSummary.downside.calculations)}</p>
       </div>
 
       <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
@@ -1966,7 +2137,11 @@ function ROICalculator({
                 <th className="px-4 py-3 font-medium">Labor</th>
                 <th className="px-4 py-3 font-medium">Overhead</th>
                 <th className="px-4 py-3 font-medium">Support</th>
+                <th className="px-4 py-3 font-medium">Fulfillment</th>
+                <th className="px-4 py-3 font-medium">Warranty</th>
                 <th className="px-4 py-3 font-medium">Tooling</th>
+                <th className="px-4 py-3 font-medium">Launch cash</th>
+                <th className="px-4 py-3 font-medium">Compliance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1981,7 +2156,11 @@ function ROICalculator({
                   <td className="px-4 py-3">{flow.labor ? formatCurrency(flow.labor) : '-'}</td>
                   <td className="px-4 py-3">{flow.overhead ? formatCurrency(flow.overhead) : '-'}</td>
                   <td className="px-4 py-3">{flow.support ? formatCurrency(flow.support) : '-'}</td>
+                  <td className="px-4 py-3">{flow.fulfillment ? formatCurrency(flow.fulfillment) : '-'}</td>
+                  <td className="px-4 py-3">{flow.warranty ? formatCurrency(flow.warranty) : '-'}</td>
                   <td className="px-4 py-3">{flow.tooling ? formatCurrency(flow.tooling) : '-'}</td>
+                  <td className="px-4 py-3">{flow.launchCash ? formatCurrency(flow.launchCash) : '-'}</td>
+                  <td className="px-4 py-3">{flow.compliance ? formatCurrency(flow.compliance) : '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1999,7 +2178,11 @@ function ROICalculator({
                 <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.labor)}</td>
                 <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.overhead)}</td>
                 <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.support)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.fulfillment)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.warranty)}</td>
                 <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.tooling)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.launchCash)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(calculations.totals.compliance)}</td>
               </tr>
             </tfoot>
           </table>
@@ -2040,7 +2223,10 @@ function ROICalculator({
                   paybackPeriod: Number(calculations.paybackPeriod.toFixed(2)),
                   contributionMarginPerUnit: Number(calculations.contributionMarginPerUnit.toFixed(2)),
                   profitPerUnit: Number(calculations.profitPerUnit.toFixed(2)),
-                  assumptions: calculations.assumptions,
+                  assumptions: {
+                    ...calculations.assumptions,
+                    decisionSummary: decisionSnapshot,
+                  },
                 })
               }
               disabled={saving}
@@ -2051,7 +2237,7 @@ function ROICalculator({
         </div>
 
         <p className="text-sm text-slate-500">
-          Exports the current ROI snapshot as an HTML file, including the revenue-flow Sankey and downside stress-test table.
+          Exports the current ROI snapshot as an HTML file, including the decision summary, revenue-flow Sankey, and standardized downside check.
         </p>
 
         {!hasChanges && (

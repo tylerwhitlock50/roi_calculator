@@ -62,6 +62,7 @@ model SalesForecast {
   contributorId                  String
   contributorRole                String
   channelOrCustomer              String
+  priceBasisConfirmed            Boolean?
   monthlyMarketingSpend          Float    @default(0)
   marketingCostPerUnit           Float    @default(0)
   customerAcquisitionCostPerUnit Float    @default(0)
@@ -100,6 +101,10 @@ model CostEstimate {
   toolingCost            Float        @default(0)
   engineeringHours       Float        @default(0)
   engineeringRatePerHour Float        @default(125)
+  launchCashRequirement  Float?
+  complianceCost         Float?
+  fulfillmentCostPerUnit Float?
+  warrantyReservePct     Float?
   scrapRate              Float        @default(0)
   overheadRate           Float        @default(60)
   supportTimePct         Float        @default(0.2)

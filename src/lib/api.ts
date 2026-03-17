@@ -22,6 +22,7 @@ export type ForecastRecord = {
   contributorId: string
   contributorRole: string
   channelOrCustomer: string
+  priceBasisConfirmed: boolean | null
   monthlyMarketingSpend: number
   marketingCostPerUnit: number
   customerAcquisitionCostPerUnit: number
@@ -54,6 +55,10 @@ export type CostEstimateRecord = {
   toolingCost: number
   engineeringHours: number
   engineeringRatePerHour: number
+  launchCashRequirement: number | null
+  complianceCost: number | null
+  fulfillmentCostPerUnit: number | null
+  warrantyReservePct: number | null
   scrapRate: number
   overheadRate: number
   supportTimePct: number

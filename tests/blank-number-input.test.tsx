@@ -5,7 +5,11 @@ import React, { useState } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import BlankNumberInput, { blankableNumberToNumber, parseBlankableNumber } from '@/components/BlankNumberInput'
+import BlankNumberInput, {
+  blankableNumberToNullableNumber,
+  blankableNumberToNumber,
+  parseBlankableNumber,
+} from '@/components/BlankNumberInput'
 
 describe('BlankNumberInput', () => {
   it('keeps the field blank when the value is empty', () => {
@@ -48,5 +52,7 @@ describe('BlankNumberInput', () => {
     expect(parseBlankableNumber('12.5')).toBe(12.5)
     expect(blankableNumberToNumber('')).toBe(0)
     expect(blankableNumberToNumber(12.5)).toBe(12.5)
+    expect(blankableNumberToNullableNumber('')).toBeNull()
+    expect(blankableNumberToNullableNumber(12.5)).toBe(12.5)
   })
 })

@@ -69,6 +69,7 @@ export async function POST(request: Request, { params }: Params) {
     const {
       contributorRole,
       channelOrCustomer,
+      priceBasisConfirmed,
       monthlyMarketingSpend,
       marketingCostPerUnit,
       customerAcquisitionCostPerUnit,
@@ -77,6 +78,10 @@ export async function POST(request: Request, { params }: Params) {
 
     if (!contributorRole || !channelOrCustomer || !Array.isArray(monthlyVolumeEstimate)) {
       throw badRequest('Missing required forecast fields')
+    }
+
+    if (priceBasisConfirmed !== true) {
+      throw badRequest('Net-price confirmation is required before saving a forecast')
     }
 
     if (hasDuplicateMonths(monthlyVolumeEstimate)) {
@@ -89,6 +94,7 @@ export async function POST(request: Request, { params }: Params) {
         contributorId: user.id,
         contributorRole: String(contributorRole).trim(),
         channelOrCustomer: String(channelOrCustomer).trim(),
+        priceBasisConfirmed: true,
         monthlyMarketingSpend: parseFiniteNumber(monthlyMarketingSpend, 0),
         marketingCostPerUnit: parseFiniteNumber(marketingCostPerUnit, 0),
         customerAcquisitionCostPerUnit: parseFiniteNumber(customerAcquisitionCostPerUnit, 0),
@@ -117,6 +123,10 @@ export async function PATCH(request: Request, { params }: Params) {
       throw badRequest('forecastId is required')
     }
 
+    if (body.priceBasisConfirmed !== true) {
+      throw badRequest('Net-price confirmation is required before saving a forecast')
+    }
+
     if (body.monthlyVolumeEstimate !== undefined && hasDuplicateMonths(body.monthlyVolumeEstimate)) {
       throw badRequest('Each forecast can only include one row per month')
     }
@@ -136,6 +146,7 @@ export async function PATCH(request: Request, { params }: Params) {
       data: {
         contributorRole: body.contributorRole !== undefined ? String(body.contributorRole).trim() : undefined,
         channelOrCustomer: body.channelOrCustomer !== undefined ? String(body.channelOrCustomer).trim() : undefined,
+        priceBasisConfirmed: true,
         monthlyMarketingSpend:
           body.monthlyMarketingSpend !== undefined
             ? parseFiniteNumber(body.monthlyMarketingSpend, existing.monthlyMarketingSpend)

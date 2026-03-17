@@ -56,6 +56,19 @@ function parseFiniteNumber(value: unknown, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function parseNullableNumber(value: unknown, fallback: number | null = null) {
+  if (value === undefined) {
+    return fallback
+  }
+
+  if (value === null || value === '') {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 export async function GET(_request: Request, { params }: Params) {
   try {
     await requireUser()
@@ -95,6 +108,10 @@ export async function POST(request: Request, { params }: Params) {
       toolingCost: parseFiniteNumber(body.toolingCost, 0),
       engineeringHours: parseFiniteNumber(body.engineeringHours, 0),
       engineeringRatePerHour: parseFiniteNumber(body.engineeringRatePerHour, 125),
+      launchCashRequirement: parseNullableNumber(body.launchCashRequirement),
+      complianceCost: parseNullableNumber(body.complianceCost),
+      fulfillmentCostPerUnit: parseNullableNumber(body.fulfillmentCostPerUnit),
+      warrantyReservePct: parseNullableNumber(body.warrantyReservePct),
       scrapRate: parseFiniteNumber(body.scrapRate, 0),
       overheadRate: parseFiniteNumber(body.overheadRate, 60),
       supportTimePct: parseFiniteNumber(body.supportTimePct, 0.2),
@@ -109,6 +126,10 @@ export async function POST(request: Request, { params }: Params) {
         toolingCost: payload.toolingCost,
         engineeringHours: payload.engineeringHours,
         engineeringRatePerHour: payload.engineeringRatePerHour,
+        launchCashRequirement: payload.launchCashRequirement,
+        complianceCost: payload.complianceCost,
+        fulfillmentCostPerUnit: payload.fulfillmentCostPerUnit,
+        warrantyReservePct: payload.warrantyReservePct,
         scrapRate: payload.scrapRate,
         overheadRate: payload.overheadRate,
         supportTimePct: payload.supportTimePct,
@@ -165,6 +186,10 @@ export async function PATCH(request: Request, { params }: Params) {
           toolingCost: parseFiniteNumber(body.toolingCost, existing.toolingCost),
           engineeringHours: parseFiniteNumber(body.engineeringHours, existing.engineeringHours),
           engineeringRatePerHour: parseFiniteNumber(body.engineeringRatePerHour, existing.engineeringRatePerHour ?? 125),
+          launchCashRequirement: parseNullableNumber(body.launchCashRequirement, existing.launchCashRequirement),
+          complianceCost: parseNullableNumber(body.complianceCost, existing.complianceCost),
+          fulfillmentCostPerUnit: parseNullableNumber(body.fulfillmentCostPerUnit, existing.fulfillmentCostPerUnit),
+          warrantyReservePct: parseNullableNumber(body.warrantyReservePct, existing.warrantyReservePct),
           scrapRate: parseFiniteNumber(body.scrapRate, existing.scrapRate),
           overheadRate: parseFiniteNumber(body.overheadRate, existing.overheadRate),
           supportTimePct: parseFiniteNumber(body.supportTimePct, existing.supportTimePct),

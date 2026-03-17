@@ -174,6 +174,9 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
             Dealer or channel differences can now be modeled with forecast-level price, monthly spend, marketing per unit, and CAC. Anything still netted into price shows up implicitly here.
           </p>
           <p className="mt-3 leading-6">
+            Fulfillment now shows as a recurring per-unit cost. Warranty reserve stays separate as a revenue-based reserve instead of getting buried in BOM or labor.
+          </p>
+          <p className="mt-3 leading-6">
             Overhead and support are derived from the modeled labor time and the saved support allocation percentage.
           </p>
           <p className="mt-3 leading-6">
@@ -281,7 +284,7 @@ function ProfitInvestmentMatrixCard({
         <div>
           <h3 className="text-lg font-semibold text-slate-900">Profit vs. investment</h3>
           <p className="mt-1 text-sm text-slate-500">
-            Upfront tooling plus launch engineering are mapped against projected net income across the saved forecast horizon.
+            Upfront launch investment is mapped against projected net income across the saved forecast horizon.
           </p>
         </div>
         <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">

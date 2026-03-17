@@ -36,6 +36,10 @@ export function scaleCostEstimates(costEstimates: CostEstimateRecord[], factor: 
     ...estimate,
     toolingCost: estimate.toolingCost * factor,
     engineeringRatePerHour: estimate.engineeringRatePerHour * factor,
+    launchCashRequirement: estimate.launchCashRequirement === null ? null : estimate.launchCashRequirement * factor,
+    complianceCost: estimate.complianceCost === null ? null : estimate.complianceCost * factor,
+    fulfillmentCostPerUnit: estimate.fulfillmentCostPerUnit === null ? null : estimate.fulfillmentCostPerUnit * factor,
+    warrantyReservePct: estimate.warrantyReservePct === null ? null : estimate.warrantyReservePct * factor,
     overheadRate: estimate.overheadRate * factor,
     bomParts: estimate.bomParts.map((part) => ({
       ...part,

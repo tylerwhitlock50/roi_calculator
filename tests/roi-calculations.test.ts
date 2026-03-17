@@ -23,6 +23,7 @@ function buildForecast(
     contributorId: 'user-1',
     contributorRole: 'Sales',
     channelOrCustomer: 'Direct',
+    priceBasisConfirmed: true,
     monthlyMarketingSpend: channelEconomics.monthlyMarketingSpend ?? 500,
     marketingCostPerUnit: channelEconomics.marketingCostPerUnit ?? 30,
     customerAcquisitionCostPerUnit: channelEconomics.customerAcquisitionCostPerUnit ?? 5,
@@ -43,6 +44,10 @@ function buildEstimate(): CostEstimateRecord {
     toolingCost: 50000,
     engineeringHours: 85,
     engineeringRatePerHour: 0,
+    launchCashRequirement: null,
+    complianceCost: null,
+    fulfillmentCostPerUnit: null,
+    warrantyReservePct: null,
     scrapRate: 0,
     overheadRate: 60,
     supportTimePct: 0.2,
@@ -313,7 +318,7 @@ describe('roi calculations', () => {
         'Overhead',
         'Support',
         'Direct labor',
-        'Tooling + launch',
+        'Upfront launch',
         'Profit',
       ])
     )
@@ -323,6 +328,48 @@ describe('roi calculations', () => {
     expect(calculations.cashFlows[1].support).toBeCloseTo(-194.4444, 3)
     expect(calculations.assumptions.scrapRate).toBeCloseTo(0.1)
     expect(calculations.assumptions.effectiveYieldRate).toBeCloseTo(0.9)
+  })
+
+  it('routes launch cash, compliance, fulfillment, and warranty into the correct outputs', () => {
+    const estimate = buildEstimate()
+    estimate.toolingCost = 1000
+    estimate.engineeringHours = 0
+    estimate.launchCashRequirement = 400
+    estimate.complianceCost = 250
+    estimate.fulfillmentCostPerUnit = 4
+    estimate.warrantyReservePct = 0.05
+    estimate.overheadRate = 0
+    estimate.supportTimePct = 0
+    estimate.laborEntries = []
+    estimate.bomParts = [
+      {
+        id: 'bom-1',
+        item: 'Housing',
+        unitCost: 10,
+        quantity: 1,
+        cashEffect: true,
+      },
+    ]
+
+    const forecasts = [
+      buildForecast('2026-01', 10, 100, {
+        monthlyMarketingSpend: 0,
+        marketingCostPerUnit: 0,
+        customerAcquisitionCostPerUnit: 0,
+      }),
+    ]
+    const calculations = calculateRoiMetrics(forecasts, [estimate])
+    const unitEconomics = calculateUnitEconomics(forecasts, [estimate])
+
+    expect(calculations.cashFlows[0].launchCash).toBe(-400)
+    expect(calculations.cashFlows[0].compliance).toBe(-250)
+    expect(calculations.cashFlows[1].fulfillment).toBe(-40)
+    expect(calculations.cashFlows[1].warranty).toBe(-50)
+    expect(calculations.totals.fulfillment).toBe(-40)
+    expect(calculations.totals.warranty).toBe(-50)
+    expect(unitEconomics.fulfillmentPerUnit).toBe(4)
+    expect(unitEconomics.warrantyReservePerUnit).toBe(5)
+    expect(unitEconomics.contributionMarginPerUnit).toBe(81)
   })
 
   it('classifies the profit-vs-investment matrix from tooling burden and projected payback', () => {

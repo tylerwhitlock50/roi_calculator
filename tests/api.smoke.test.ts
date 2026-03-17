@@ -168,6 +168,7 @@ describe('API smoke flow', () => {
         body: JSON.stringify({
           contributorRole: 'Sales',
           channelOrCustomer: 'Direct',
+          priceBasisConfirmed: true,
           monthlyMarketingSpend: 300,
           marketingCostPerUnit: 15,
           customerAcquisitionCostPerUnit: 35,
@@ -178,6 +179,7 @@ describe('API smoke flow', () => {
     )
     expect(forecastCreate.status).toBe(201)
     const forecastPayload = await forecastCreate.json()
+    expect(forecastPayload.priceBasisConfirmed).toBe(true)
     expect(forecastPayload.monthlyMarketingSpend).toBe(300)
     expect(forecastPayload.marketingCostPerUnit).toBe(15)
     expect(forecastPayload.customerAcquisitionCostPerUnit).toBe(35)
@@ -189,6 +191,7 @@ describe('API smoke flow', () => {
           forecastId: forecastPayload.id,
           contributorRole: 'Sales Ops',
           channelOrCustomer: 'Distributor',
+          priceBasisConfirmed: true,
           monthlyMarketingSpend: 120,
           marketingCostPerUnit: 10,
           customerAcquisitionCostPerUnit: 5,
@@ -214,6 +217,7 @@ describe('API smoke flow', () => {
         body: JSON.stringify({
           contributorRole: 'Sales',
           channelOrCustomer: 'OEM Partner',
+          priceBasisConfirmed: true,
           monthlyMarketingSpend: 250,
           marketingCostPerUnit: 18,
           customerAcquisitionCostPerUnit: 30,
@@ -237,6 +241,10 @@ describe('API smoke flow', () => {
           toolingCost: 1000,
           engineeringHours: 12,
           engineeringRatePerHour: 125,
+          launchCashRequirement: null,
+          complianceCost: 350,
+          fulfillmentCostPerUnit: 12,
+          warrantyReservePct: null,
           overheadRate: 60,
           supportTimePct: 0.2,
           bomParts: [{ item: 'Frame', unitCost: 80, quantity: 1, cashEffect: true }],
@@ -256,6 +264,10 @@ describe('API smoke flow', () => {
           toolingCost: 1200,
           engineeringHours: 14,
           engineeringRatePerHour: 140,
+          launchCashRequirement: 500,
+          complianceCost: 275,
+          fulfillmentCostPerUnit: 10,
+          warrantyReservePct: 0.03,
           overheadRate: 65,
           supportTimePct: 0.25,
           bomParts: [{ item: 'Frame', unitCost: 95, quantity: 1, cashEffect: true }],
@@ -282,6 +294,10 @@ describe('API smoke flow', () => {
           toolingCost: 900,
           engineeringHours: 10,
           engineeringRatePerHour: 130,
+          launchCashRequirement: 250,
+          complianceCost: null,
+          fulfillmentCostPerUnit: 9,
+          warrantyReservePct: 0.02,
           overheadRate: 60,
           supportTimePct: 0.2,
           bomParts: [{ item: 'Frame', unitCost: 90, quantity: 1, cashEffect: true }],
@@ -326,7 +342,9 @@ describe('API smoke flow', () => {
     const detailPayload = await detailResponse.json()
     expect(detailPayload.forecasts).toHaveLength(1)
     expect(detailPayload.costEstimates).toHaveLength(1)
+    expect(detailPayload.forecasts[0].priceBasisConfirmed).toBe(true)
     expect(detailPayload.forecasts[0].customerAcquisitionCostPerUnit).toBe(30)
+    expect(detailPayload.costEstimates[0].launchCashRequirement).toBe(250)
     expect(detailPayload.roiSummary.npv).toBe(45000)
     expect(detailPayload.isHidden).toBe(false)
 
@@ -344,6 +362,7 @@ describe('API smoke flow', () => {
     const persistentCostPayload = await persistentCost.json()
     expect(persistentCostPayload.bomParts).toHaveLength(1)
     expect(persistentCostPayload.engineeringRatePerHour).toBe(130)
+    expect(persistentCostPayload.warrantyReservePct).toBe(0.02)
   })
 
   it('rejects unauthenticated access to ideas', async () => {
@@ -371,6 +390,42 @@ describe('API smoke flow', () => {
     expect(response.status).toBe(403)
   })
 
+  it('rejects forecasts that skip net-price confirmation', async () => {
+    const idea = await prisma.idea.create({
+      data: {
+        title: 'Unconfirmed Pricing',
+        description: 'Shared description',
+        category: 'Industrial Equipment',
+        positioningStatement: 'Positioning',
+        requiredAttributes: 'Attributes',
+        competitorOverview: 'Competition',
+        createdById: adminUser.id,
+      },
+    })
+
+    const forecastRoute = await loadRoute<typeof import('@/app/api/ideas/[id]/forecasts/route')>(
+      '@/app/api/ideas/[id]/forecasts/route',
+      { user: adminUser }
+    )
+
+    const response = await forecastRoute.POST(
+      new Request('http://localhost/api/ideas/id/forecasts', {
+        method: 'POST',
+        body: JSON.stringify({
+          contributorRole: 'Sales',
+          channelOrCustomer: 'Dealer',
+          monthlyMarketingSpend: 175,
+          marketingCostPerUnit: 10,
+          customerAcquisitionCostPerUnit: 5,
+          monthlyVolumeEstimate: [{ month_date: '2026-05', units: 12, price: 275 }],
+        }),
+      }),
+      { params: Promise.resolve({ id: idea.id }) }
+    )
+
+    expect(response.status).toBe(400)
+  })
+
   it('prevents members from editing forecasts they do not own', async () => {
     const idea = await prisma.idea.create({
       data: {
@@ -390,6 +445,7 @@ describe('API smoke flow', () => {
         contributorId: adminUser.id,
         contributorRole: 'Sales',
         channelOrCustomer: 'Dealer',
+        priceBasisConfirmed: true,
         monthlyMarketingSpend: 150,
         marketingCostPerUnit: 9,
         customerAcquisitionCostPerUnit: 4,
@@ -409,6 +465,7 @@ describe('API smoke flow', () => {
           forecastId: forecast.id,
           contributorRole: 'Marketing',
           channelOrCustomer: 'Dealer',
+          priceBasisConfirmed: true,
           monthlyMarketingSpend: 175,
           marketingCostPerUnit: 10,
           customerAcquisitionCostPerUnit: 5,
