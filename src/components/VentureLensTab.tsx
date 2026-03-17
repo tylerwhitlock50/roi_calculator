@@ -169,6 +169,19 @@ export default function VentureLensTab({
             </div>
           </div>
         )}
+        <div className="mt-4 rounded-2xl border border-white/60 bg-white/70 px-4 py-4 text-sm text-slate-700">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Score ranges</div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {VENTURE_SCORE_BUCKETS.map((bucket) => (
+              <p key={bucket.label}>
+                <span className="font-semibold text-slate-900">
+                  {bucket.min}-{bucket.max}
+                </span>{' '}
+                = {bucket.label}
+              </p>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -317,16 +330,6 @@ export default function VentureLensTab({
             <p className="mt-2 text-sm text-slate-600">
               The venture score is out of {VENTURE_SCORE_MAX}. It helps rank bets against each other; it is not meant to imply that most ideas should naturally land near 100.
             </p>
-            <div className="mt-4 grid gap-3">
-              {VENTURE_SCORE_BUCKETS.map((bucket) => (
-                <div key={bucket.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-                  <div className="font-semibold text-slate-900">{bucket.label}</div>
-                  <div className="mt-1">
-                    {bucket.min}-{bucket.max} points
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
 
           <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
