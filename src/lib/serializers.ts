@@ -8,6 +8,7 @@ import type {
   RoiSummary,
   SalesForecast,
   User,
+  VentureSummary,
 } from '@prisma/client'
 
 import type {
@@ -17,6 +18,7 @@ import type {
   IdeaDetailRecord,
   IdeaRecord,
   RoiSummaryRecord,
+  VentureSummaryRecord,
 } from '@/lib/api'
 
 function serializeStatus(status: IdeaStatus): IdeaRecord['status'] {
@@ -53,6 +55,39 @@ export function serializeRoiSummary(summary: RoiSummary | null): RoiSummaryRecor
   }
 }
 
+export function serializeVentureSummary(summary: VentureSummary | null): VentureSummaryRecord | null {
+  if (!summary) {
+    return null
+  }
+
+  return {
+    id: summary.id,
+    marketCeiling24Month: summary.marketCeiling24Month,
+    marketCeiling36Month: summary.marketCeiling36Month,
+    probabilitySuccessPct: summary.probabilitySuccessPct,
+    adjacencyScore: summary.adjacencyScore,
+    asymmetricUpsideScore: summary.asymmetricUpsideScore,
+    attentionDemandScore: summary.attentionDemandScore,
+    speedToSignalDays: summary.speedToSignalDays,
+    validationCapital: summary.validationCapital,
+    buildCapital: summary.buildCapital,
+    scaleCapital: summary.scaleCapital,
+    ventureScore: summary.ventureScore,
+    recommendationBucket: summary.recommendationBucket as VentureSummaryRecord['recommendationBucket'],
+    recommendedStage: summary.recommendedStage as VentureSummaryRecord['recommendedStage'],
+    forecastRevenue24Month: summary.forecastRevenue24Month,
+    forecastRevenue36Month: summary.forecastRevenue36Month,
+    expectedOpportunityValue: summary.expectedOpportunityValue,
+    returnOnFocus: summary.returnOnFocus,
+    accessCapital: summary.accessCapital,
+    capitalEfficiencyRatio: summary.capitalEfficiencyRatio,
+    salesPerEngineeringHour: summary.salesPerEngineeringHour,
+    contributionMarginPct: summary.contributionMarginPct,
+    assumptions: (summary.assumptions ?? {}) as Record<string, unknown>,
+    createdAt: summary.createdAt.toISOString(),
+  }
+}
+
 export function serializeIdea(
   idea: Pick<
     Idea,
@@ -70,6 +105,7 @@ export function serializeIdea(
     isHidden: boolean
     createdBy: User
     roiSummary: RoiSummary | null
+    ventureSummary: VentureSummary | null
   }
 ): IdeaRecord {
   return {
@@ -90,6 +126,7 @@ export function serializeIdea(
       email: idea.createdBy.email,
     },
     roiSummary: serializeRoiSummary(idea.roiSummary),
+    ventureSummary: serializeVentureSummary(idea.ventureSummary),
   }
 }
 
@@ -180,6 +217,7 @@ export function serializeIdeaDetail(
   idea: Idea & {
     createdBy: User
     roiSummary: RoiSummary | null
+    ventureSummary: VentureSummary | null
     salesForecasts: Array<
       SalesForecast & {
         contributor: User

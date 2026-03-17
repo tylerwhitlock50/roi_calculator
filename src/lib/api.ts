@@ -98,6 +98,41 @@ export type RoiSummaryRecord = {
   createdAt: string
 }
 
+export type VentureRecommendationBucket =
+  | 'Kill'
+  | 'Validate cheaply'
+  | 'Stage build'
+  | 'Fund aggressively'
+
+export type VentureRecommendedStage = 'None' | 'Stage 1' | 'Stage 2' | 'Stage 3'
+
+export type VentureSummaryRecord = {
+  id: string
+  marketCeiling24Month: number
+  marketCeiling36Month: number
+  probabilitySuccessPct: number
+  adjacencyScore: number
+  asymmetricUpsideScore: number
+  attentionDemandScore: number
+  speedToSignalDays: number
+  validationCapital: number
+  buildCapital: number
+  scaleCapital: number
+  ventureScore: number
+  recommendationBucket: VentureRecommendationBucket
+  recommendedStage: VentureRecommendedStage
+  forecastRevenue24Month: number
+  forecastRevenue36Month: number
+  expectedOpportunityValue: number
+  returnOnFocus: number
+  accessCapital: number
+  capitalEfficiencyRatio: number
+  salesPerEngineeringHour: number
+  contributionMarginPct: number
+  assumptions: Record<string, unknown>
+  createdAt: string
+}
+
 export type IdeaRecord = {
   id: string
   title: string
@@ -116,6 +151,7 @@ export type IdeaRecord = {
     email: string
   }
   roiSummary: RoiSummaryRecord | null
+  ventureSummary: VentureSummaryRecord | null
 }
 
 export type IdeaDetailRecord = IdeaRecord & {

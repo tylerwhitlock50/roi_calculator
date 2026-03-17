@@ -50,6 +50,7 @@ model Idea {
   salesForecasts       SalesForecast[]
   costEstimates        CostEstimate[]
   roiSummary           RoiSummary?
+  ventureSummary       VentureSummary?
 
   @@index([createdAt])
   @@index([createdById])
@@ -161,4 +162,34 @@ model RoiSummary {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
   idea                      Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+}
+
+model VentureSummary {
+  id                       String   @id @default(cuid())
+  ideaId                   String   @unique
+  marketCeiling24Month     Float    @default(0)
+  marketCeiling36Month     Float    @default(0)
+  probabilitySuccessPct    Float    @default(0)
+  adjacencyScore           Int      @default(1)
+  asymmetricUpsideScore    Int      @default(1)
+  attentionDemandScore     Int      @default(1)
+  speedToSignalDays        Int      @default(120)
+  validationCapital        Float    @default(0)
+  buildCapital             Float    @default(0)
+  scaleCapital             Float    @default(0)
+  ventureScore             Float    @default(0)
+  recommendationBucket     String   @default("Kill")
+  recommendedStage         String   @default("None")
+  forecastRevenue24Month   Float    @default(0)
+  forecastRevenue36Month   Float    @default(0)
+  expectedOpportunityValue Float    @default(0)
+  returnOnFocus            Float    @default(0)
+  accessCapital            Float    @default(0)
+  capitalEfficiencyRatio   Float    @default(0)
+  salesPerEngineeringHour  Float    @default(0)
+  contributionMarginPct    Float    @default(0)
+  assumptions              Json
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  idea                     Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
 }

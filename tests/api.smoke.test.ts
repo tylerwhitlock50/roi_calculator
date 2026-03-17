@@ -63,6 +63,7 @@ beforeEach(async () => {
   vi.unmock('@/lib/server-auth')
   vi.unmock('@/lib/auth/session')
 
+  await prisma.ventureSummary.deleteMany()
   await prisma.roiSummary.deleteMany()
   await prisma.laborEntry.deleteMany()
   await prisma.bomPart.deleteMany()
@@ -330,6 +331,31 @@ describe('API smoke flow', () => {
     )
     expect(roiSave.status).toBe(200)
 
+    const ventureRoute = await loadRoute<typeof import('@/app/api/ideas/[id]/venture-summary/route')>(
+      '@/app/api/ideas/[id]/venture-summary/route',
+      { user: adminUser }
+    )
+
+    const ventureSave = await ventureRoute.POST(
+      new Request('http://localhost/api/ideas/id/venture-summary', {
+        method: 'POST',
+        body: JSON.stringify({
+          marketCeiling24Month: 2_000_000,
+          marketCeiling36Month: 3_500_000,
+          probabilitySuccessPct: 0.45,
+          adjacencyScore: 8,
+          asymmetricUpsideScore: 9,
+          attentionDemandScore: 3,
+          speedToSignalDays: 60,
+          validationCapital: 25_000,
+          buildCapital: 75_000,
+          scaleCapital: 200_000,
+        }),
+      }),
+      { params: Promise.resolve({ id: createdIdea.id }) }
+    )
+    expect(ventureSave.status).toBe(200)
+
     const detailRoute = await loadRoute<typeof import('@/app/api/ideas/[id]/route')>(
       '@/app/api/ideas/[id]/route',
       { user: adminUser }
@@ -346,6 +372,8 @@ describe('API smoke flow', () => {
     expect(detailPayload.forecasts[0].customerAcquisitionCostPerUnit).toBe(30)
     expect(detailPayload.costEstimates[0].launchCashRequirement).toBe(250)
     expect(detailPayload.roiSummary.npv).toBe(45000)
+    expect(detailPayload.ventureSummary.recommendationBucket).toBe('Validate cheaply')
+    expect(detailPayload.ventureSummary.accessCapital).toBe(100000)
     expect(detailPayload.isHidden).toBe(false)
 
     const hideResponse = await detailRoute.PATCH(

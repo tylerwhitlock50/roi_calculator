@@ -3,11 +3,13 @@ import { prisma } from '@/lib/prisma'
 export const ideaSummaryInclude = {
   createdBy: true,
   roiSummary: true,
+  ventureSummary: true,
 } as const
 
 export const ideaDetailInclude = {
   createdBy: true,
   roiSummary: true,
+  ventureSummary: true,
   salesForecasts: {
     include: {
       contributor: true,

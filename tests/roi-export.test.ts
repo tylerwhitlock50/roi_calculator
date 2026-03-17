@@ -23,6 +23,7 @@ function buildProject(): IdeaDetailRecord {
       email: 'tyler@example.com',
     },
     roiSummary: null,
+    ventureSummary: null,
     forecasts: buildForecasts(),
     costEstimates: buildEstimates(),
   }

@@ -4,7 +4,7 @@ import { badRequest, jsonError, notFound } from '@/lib/http'
 import { parseIdeaStatus } from '@/lib/idea-status'
 import { prisma } from '@/lib/prisma'
 import { ensureCanManageRecord, requireUser } from '@/lib/server-auth'
-import { findIdeaForDetail } from '@/lib/server-data'
+import { findIdeaForDetail, ideaDetailInclude } from '@/lib/server-data'
 import { serializeIdeaDetail } from '@/lib/serializers'
 
 type Params = {
@@ -84,32 +84,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const idea = await prisma.idea.update({
       where: { id },
       data: updateData,
-      include: {
-        createdBy: true,
-        roiSummary: true,
-        salesForecasts: {
-          include: {
-            contributor: true,
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        },
-        costEstimates: {
-          include: {
-            createdBy: true,
-            bomParts: true,
-            laborEntries: {
-              include: {
-                activity: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        },
-      },
+      include: ideaDetailInclude,
     })
 
     return NextResponse.json(serializeIdeaDetail(idea))

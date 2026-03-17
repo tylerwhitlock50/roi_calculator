@@ -22,6 +22,7 @@ type RoiExportProject = Pick<
   | 'competitorOverview'
   | 'createdAt'
   | 'owner'
+  | 'ventureSummary'
 >
 
 type RoiExportInput = {
@@ -73,6 +74,7 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
   const assumptions = calculations.assumptions
   const unitEconomics = calculateUnitEconomics(forecasts, costEstimates)
   const decisionSummary = buildRoiDecisionSummary({ forecasts, costEstimates, calculations })
+  const ventureSummary = project.ventureSummary ?? null
   const stressScenarios = buildStressScenarios({ forecasts, costEstimates, baseCalculations: calculations })
   const assumptionRows = Object.entries(assumptions)
     .map(([key, value]) => {
@@ -111,6 +113,27 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
       `
     )
     .join('')
+
+  const ventureBreakdownRows = Object.entries(
+    ((ventureSummary?.assumptions as { scoreBreakdown?: Record<string, number> } | null)?.scoreBreakdown ?? {}) as Record<
+      string,
+      number
+    >
+  )
+    .map(
+      ([key, value]) => `
+        <tr>
+          <th>${escapeHtml(formatLabel(key))}</th>
+          <td>${escapeHtml(value.toFixed(1))}</td>
+        </tr>
+      `
+    )
+    .join('')
+  const ventureHardGates = Array.isArray(
+    (ventureSummary?.assumptions as { hardGates?: unknown[] } | null)?.hardGates
+  )
+    ? (((ventureSummary?.assumptions as { hardGates?: string[] } | null)?.hardGates ?? []) as string[])
+    : []
 
   const forecastSections = forecasts.length
     ? forecasts
@@ -570,6 +593,58 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
           </div>
         </div>
       </section>
+
+      ${
+        ventureSummary
+          ? `
+      <section class="section">
+        <h2>Venture lens</h2>
+        <div class="metric-grid">
+          <div class="metric"><div class="label">Recommendation</div><div class="value">${escapeHtml(ventureSummary.recommendationBucket)}</div></div>
+          <div class="metric"><div class="label">Next stage</div><div class="value">${escapeHtml(ventureSummary.recommendedStage)}</div></div>
+          <div class="metric"><div class="label">Venture score</div><div class="value">${escapeHtml(ventureSummary.ventureScore.toFixed(1))}</div></div>
+          <div class="metric"><div class="label">Expected opportunity</div><div class="value">${formatCurrency(ventureSummary.expectedOpportunityValue)}</div></div>
+          <div class="metric"><div class="label">Return on focus</div><div class="value">${formatCurrency(ventureSummary.returnOnFocus)}</div></div>
+          <div class="metric"><div class="label">24-month ceiling</div><div class="value">${formatCurrency(ventureSummary.marketCeiling24Month)}</div></div>
+          <div class="metric"><div class="label">Access capital</div><div class="value">${formatCurrency(ventureSummary.accessCapital)}</div></div>
+          <div class="metric"><div class="label">Capital efficiency</div><div class="value">${escapeHtml(`${ventureSummary.capitalEfficiencyRatio.toFixed(1)}x`)}</div></div>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-label">Saved scorecard inputs</div>
+            <div class="note">
+              <p>36-month ceiling: ${formatCurrency(ventureSummary.marketCeiling36Month)}</p>
+              <p>Probability of success: ${formatPercent(ventureSummary.probabilitySuccessPct)}</p>
+              <p>Adjacency: ${escapeHtml(String(ventureSummary.adjacencyScore))} / 10</p>
+              <p>Asymmetric upside: ${escapeHtml(String(ventureSummary.asymmetricUpsideScore))} / 10</p>
+              <p>Attention demand: ${escapeHtml(String(ventureSummary.attentionDemandScore))} / 10</p>
+              <p>Speed to signal: ${escapeHtml(String(ventureSummary.speedToSignalDays))} days</p>
+            </div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-label">Staged capital</div>
+            <div class="note">
+              <p>Validation capital: ${formatCurrency(ventureSummary.validationCapital)}</p>
+              <p>Focused-build capital: ${formatCurrency(ventureSummary.buildCapital)}</p>
+              <p>Scale capital: ${formatCurrency(ventureSummary.scaleCapital)}</p>
+              <p>24-month forecast revenue: ${formatCurrency(ventureSummary.forecastRevenue24Month)}</p>
+              <p>36-month forecast revenue: ${formatCurrency(ventureSummary.forecastRevenue36Month)}</p>
+            </div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-label">Hard gates</div>
+            <div class="note">${
+              ventureHardGates.length
+                ? ventureHardGates.map((item) => `<p>${escapeHtml(item)}</p>`).join('')
+                : '<p>No hard gates triggered.</p>'
+            }</div>
+          </div>
+        </div>
+        ${ventureBreakdownRows ? `<table><tbody>${ventureBreakdownRows}</tbody></table>` : ''}
+      </section>
+      `
+          : ''
+      }
 
       <section class="section">
         <h2>Revenue flow</h2>

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 import LoadingSpinner from '@/components/LoadingSpinner'
+import VenturePortfolioSection from '@/components/VenturePortfolioSection'
 import { apiFetch, type IdeaRecord } from '@/lib/api'
 
 interface ProjectDashboardProps {
@@ -86,6 +87,8 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
           </div>
         </div>
       </section>
+
+      <VenturePortfolioSection ideas={filteredProjects} />
 
       <section className="card space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

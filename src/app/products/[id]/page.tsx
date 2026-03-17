@@ -12,6 +12,7 @@ import BlankNumberInput, {
 import ProductIdeaForm from '@/components/ProductIdeaForm'
 import StressTestTab from '@/components/StressTestTab'
 import UnitEconomicsTab from '@/components/UnitEconomicsTab'
+import VentureLensTab from '@/components/VentureLensTab'
 import {
   apiFetch,
   type ActivityRateRecord,
@@ -20,6 +21,7 @@ import {
   type IdeaDetailRecord,
   type MonthlyForecast,
   type RoiSummaryRecord,
+  type VentureSummaryRecord,
 } from '@/lib/api'
 import { IDEA_STATUS_OPTIONS } from '@/lib/constants'
 import {
@@ -36,6 +38,7 @@ import {
   calculateTotalEstimateCost,
 } from '@/lib/roi-calculations'
 import { buildRoiExportFilename, buildRoiExportHtml } from '@/lib/roi-export'
+import { getVentureRecommendationTone, type VentureManualInputs } from '@/lib/venture-summary'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -43,6 +46,7 @@ const TABS = [
   { key: 'cost', label: 'Cost' },
   { key: 'unit-economics', label: 'Unit Economics' },
   { key: 'stress-test', label: 'Stress Test' },
+  { key: 'venture-lens', label: 'Venture Lens' },
   { key: 'finalize', label: 'Finalize ROI' },
 ] as const
 
@@ -182,6 +186,8 @@ export default function ProductDetailPage() {
   const [statusError, setStatusError] = useState<string | null>(null)
   const [visibilitySaving, setVisibilitySaving] = useState(false)
   const [visibilityError, setVisibilityError] = useState<string | null>(null)
+  const [savingVenture, setSavingVenture] = useState(false)
+  const [saveVentureError, setSaveVentureError] = useState<string | null>(null)
   const [savingROI, setSavingROI] = useState(false)
   const [saveROIError, setSaveROIError] = useState<string | null>(null)
 
@@ -215,6 +221,7 @@ export default function ProductDetailPage() {
   const forecasts = product?.forecasts ?? []
   const costEstimates = product?.costEstimates ?? []
   const roiSummary = product?.roiSummary ?? null
+  const ventureSummary = product?.ventureSummary ?? null
 
   const closeForecastModal = () => {
     setShowForecastModal(false)
@@ -576,6 +583,26 @@ export default function ProductDetailPage() {
     }
   }
 
+  const saveVentureSummary = async (payload: VentureManualInputs) => {
+    if (!product) {
+      return
+    }
+
+    try {
+      setSavingVenture(true)
+      setSaveVentureError(null)
+      await apiFetch(`/api/ideas/${product.id}/venture-summary`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      await loadPage(product.id)
+    } catch (saveError) {
+      setSaveVentureError(saveError instanceof Error ? saveError.message : 'Failed to save venture summary')
+    } finally {
+      setSavingVenture(false)
+    }
+  }
+
   const generateLevelLoadedForecast = () => {
     const numberOfMonths = blankableNumberToNumber(levelLoadedForm.numberOfMonths)
     const unitsPerMonth = blankableNumberToNumber(levelLoadedForm.unitsPerMonth)
@@ -756,6 +783,14 @@ export default function ProductDetailPage() {
                   product.roiSummary
                     ? `NPV ${formatCurrency(product.roiSummary.npv)}, IRR ${(product.roiSummary.irr * 100).toFixed(1)}%, break-even month ${product.roiSummary.breakEvenMonth}.`
                     : 'No saved ROI summary yet.'
+                }
+              />
+              <OverviewCard
+                title="Current venture snapshot"
+                body={
+                  product.ventureSummary
+                    ? `${product.ventureSummary.recommendationBucket} at score ${product.ventureSummary.ventureScore.toFixed(1)}. Recommended next stage: ${product.ventureSummary.recommendedStage}.`
+                    : 'No saved venture summary yet.'
                 }
               />
             </div>
@@ -1622,6 +1657,19 @@ export default function ProductDetailPage() {
           </section>
         )}
 
+        {activeTab === 'venture-lens' && (
+          <section className="card space-y-6">
+            <VentureLensTab
+              forecasts={forecasts}
+              costEstimates={costEstimates}
+              ventureSummary={ventureSummary}
+              onSave={saveVentureSummary}
+              saving={savingVenture}
+              saveError={saveVentureError}
+            />
+          </section>
+        )}
+
         {activeTab === 'finalize' && (
           <section className="card space-y-6">
             <div>
@@ -1635,6 +1683,7 @@ export default function ProductDetailPage() {
               forecasts={forecasts}
               costEstimates={costEstimates}
               roiSummary={roiSummary}
+              ventureSummary={ventureSummary}
               onSave={saveRoiSummary}
               saving={savingROI}
               saveError={saveROIError}
@@ -1988,6 +2037,7 @@ function ROICalculator({
   forecasts,
   costEstimates,
   roiSummary,
+  ventureSummary,
   onSave,
   saving,
   saveError,
@@ -1996,6 +2046,7 @@ function ROICalculator({
   forecasts: ForecastRecord[]
   costEstimates: CostEstimateRecord[]
   roiSummary: RoiSummaryRecord | null
+  ventureSummary: VentureSummaryRecord | null
   onSave: (payload: {
     npv: number
     irr: number
@@ -2096,6 +2147,8 @@ function ROICalculator({
           </div>
         </div>
       </div>
+
+      {ventureSummary && <VentureSnapshotCard ventureSummary={ventureSummary} />}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Metric label="NPV" value={formatCurrency(calculations.npv)} />
@@ -2245,6 +2298,36 @@ function ROICalculator({
             The saved ROI summary already matches the current forecast and cost assumptions.
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function VentureSnapshotCard({ ventureSummary }: { ventureSummary: VentureSummaryRecord }) {
+  const tone = getVentureRecommendationTone(ventureSummary.recommendationBucket)
+  const classes =
+    tone === 'positive'
+      ? 'border-success-200 bg-success-50 text-success-900'
+      : tone === 'caution'
+        ? 'border-amber-200 bg-amber-50 text-amber-900'
+        : 'border-danger-200 bg-danger-50 text-danger-900'
+
+  return (
+    <div className={`rounded-[24px] border px-5 py-5 ${classes}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.22em]">Venture lens snapshot</div>
+      <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="text-3xl font-semibold">{ventureSummary.recommendationBucket}</div>
+          <p className="mt-2 text-sm">
+            Venture score {ventureSummary.ventureScore.toFixed(1)} with next stage{' '}
+            <span className="font-semibold">{ventureSummary.recommendedStage}</span>.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Metric label="24-month ceiling" value={formatCurrency(ventureSummary.marketCeiling24Month)} />
+          <Metric label="Return on focus" value={formatCurrency(ventureSummary.returnOnFocus)} />
+          <Metric label="Access capital" value={formatCurrency(ventureSummary.accessCapital)} />
+        </div>
       </div>
     </div>
   )

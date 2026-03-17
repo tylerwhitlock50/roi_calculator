@@ -1,0 +1,139 @@
+// @vitest-environment jsdom
+
+import '@testing-library/jest-dom/vitest'
+import React from 'react'
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+
+import VentureLensTab from '@/components/VentureLensTab'
+import type { CostEstimateRecord, ForecastRecord, VentureSummaryRecord } from '@/lib/api'
+import { buildVentureSummary } from '@/lib/venture-summary'
+
+function buildForecasts(): ForecastRecord[] {
+  return [
+    {
+      id: 'forecast-1',
+      ideaId: 'idea-1',
+      contributorId: 'user-1',
+      contributorRole: 'Sales',
+      channelOrCustomer: 'Direct',
+      priceBasisConfirmed: true,
+      monthlyMarketingSpend: 0,
+      marketingCostPerUnit: 0,
+      customerAcquisitionCostPerUnit: 0,
+      monthlyVolumeEstimate: Array.from({ length: 24 }, (_, index) => {
+        const year = 2026 + Math.floor(index / 12)
+        const month = String((index % 12) + 1).padStart(2, '0')
+
+        return {
+          month_date: `${year}-${month}`,
+          units: 10,
+          price: 100,
+        }
+      }),
+      createdAt: '2026-03-17T00:00:00.000Z',
+      contributor: {
+        id: 'user-1',
+        fullName: 'User One',
+        email: 'user@example.com',
+      },
+    },
+  ]
+}
+
+function buildEstimate(): CostEstimateRecord[] {
+  return [
+    {
+      id: 'estimate-1',
+      ideaId: 'idea-1',
+      toolingCost: 5000,
+      engineeringHours: 20,
+      engineeringRatePerHour: 125,
+      launchCashRequirement: 0,
+      complianceCost: 0,
+      fulfillmentCostPerUnit: 5,
+      warrantyReservePct: 0.01,
+      scrapRate: 0,
+      overheadRate: 10,
+      supportTimePct: 0.1,
+      createdAt: '2026-03-17T00:00:00.000Z',
+      createdById: 'user-1',
+      contributor: {
+        id: 'user-1',
+        fullName: 'User One',
+        email: 'user@example.com',
+      },
+      bomParts: [
+        {
+          id: 'bom-1',
+          item: 'Housing',
+          unitCost: 25,
+          quantity: 1,
+          cashEffect: true,
+        },
+      ],
+      laborEntries: [
+        {
+          id: 'labor-1',
+          activityId: 'activity-1',
+          hours: 0,
+          minutes: 15,
+          seconds: 0,
+          activity: {
+            id: 'activity-1',
+            activityName: 'Assembly',
+            ratePerHour: 20,
+            createdAt: '2026-03-17T00:00:00.000Z',
+          },
+        },
+      ],
+    },
+  ]
+}
+
+function buildSavedSummary(): VentureSummaryRecord {
+  const summary = buildVentureSummary(
+    {
+      marketCeiling24Month: 4_000_000,
+      marketCeiling36Month: 5_000_000,
+      probabilitySuccessPct: 0.5,
+      adjacencyScore: 9,
+      asymmetricUpsideScore: 10,
+      attentionDemandScore: 1,
+      speedToSignalDays: 30,
+      validationCapital: 20_000,
+      buildCapital: 80_000,
+      scaleCapital: 250_000,
+    },
+    buildForecasts(),
+    buildEstimate()
+  )
+
+  return {
+    id: 'venture-1',
+    ...summary,
+    createdAt: '2026-03-17T00:00:00.000Z',
+  }
+}
+
+describe('VentureLensTab', () => {
+  it('renders the saved venture inputs and computed recommendation', () => {
+    render(
+      <VentureLensTab
+        forecasts={buildForecasts()}
+        costEstimates={buildEstimate()}
+        ventureSummary={buildSavedSummary()}
+        onSave={vi.fn()}
+        saving={false}
+        saveError={null}
+      />
+    )
+
+    expect(screen.getByText('Venture lens')).toBeInTheDocument()
+    expect(screen.getByText('Fund aggressively')).toBeInTheDocument()
+    expect(screen.getByText('Next stage:')).toBeInTheDocument()
+    expect(screen.getByDisplayValue(4000000)).toBeInTheDocument()
+    expect(screen.getByDisplayValue(50)).toBeInTheDocument()
+    expect(screen.getByText('$100,000')).toBeInTheDocument()
+  })
+})
