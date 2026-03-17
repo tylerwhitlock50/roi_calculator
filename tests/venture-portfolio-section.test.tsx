@@ -110,5 +110,7 @@ describe('VenturePortfolioSection', () => {
     expect(screen.getByText('Carbon Helmet')).toBeInTheDocument()
     expect(screen.getByText('Fund aggressively')).toBeInTheDocument()
     expect(screen.getByText('Validate cheaply')).toBeInTheDocument()
+    expect(screen.getAllByText('Stage 3 scale').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Stage 1 validation').length).toBeGreaterThan(0)
   })
 })

@@ -39,9 +39,12 @@ import {
 } from '@/lib/roi-calculations'
 import { buildRoiExportFilename, buildRoiExportHtml } from '@/lib/roi-export'
 import {
+  buildVentureSnapshotSummary,
   buildCurrentVentureSummary,
   doesSavedVentureSummaryMatchCurrentModel,
+  formatVentureRecommendedStage,
   getVentureRecommendationTone,
+  VENTURE_REFRESH_MESSAGE,
   type VentureComputedSummary,
   type VentureManualInputs,
 } from '@/lib/venture-summary'
@@ -850,7 +853,7 @@ export default function ProductDetailPage() {
                 title="Current venture snapshot"
                 body={
                   currentVentureSummary
-                    ? `${currentVentureSummary.recommendationBucket} at score ${currentVentureSummary.ventureScore.toFixed(1)}. Recommended next stage: ${currentVentureSummary.recommendedStage}.${ventureSummaryNeedsRefresh ? ' Based on current forecasts and cost assumptions; save Venture Lens to persist this score.' : ''}`
+                    ? `${buildVentureSnapshotSummary(currentVentureSummary)}${ventureSummaryNeedsRefresh ? ` ${VENTURE_REFRESH_MESSAGE}` : ''}`
                     : 'No saved venture summary yet.'
                 }
               />
@@ -2395,7 +2398,7 @@ function VentureSnapshotCard({
           <div className="text-3xl font-semibold">{ventureSummary.recommendationBucket}</div>
           <p className="mt-2 text-sm">
             Venture score {ventureSummary.ventureScore.toFixed(1)} / 100 with next stage{' '}
-            <span className="font-semibold">{ventureSummary.recommendedStage}</span>.
+            <span className="font-semibold">{formatVentureRecommendedStage(ventureSummary.recommendedStage)}</span>.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -2406,7 +2409,7 @@ function VentureSnapshotCard({
       </div>
       {needsRefresh && (
         <p className="mt-3 text-sm">
-          This venture snapshot has been recalculated from the current forecasts and latest cost estimate. Save Venture Lens to persist it.
+          {VENTURE_REFRESH_MESSAGE}
         </p>
       )}
     </div>

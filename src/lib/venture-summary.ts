@@ -42,6 +42,16 @@ export const VENTURE_SCORE_BUCKETS = [
   { label: 'Stage build', min: 60, max: 79 },
   { label: 'Fund aggressively', min: 80, max: 100 },
 ] as const
+export const VENTURE_STAGE_ORDER = ['Stage 1', 'Stage 2', 'Stage 3', 'None'] as const
+export const VENTURE_REFRESH_MESSAGE =
+  'This venture view has been recalculated from the current forecasts and latest cost estimate. Save Venture Lens to persist it.'
+
+const VENTURE_STAGE_LABELS: Record<VentureRecommendedStage, string> = {
+  None: 'No stage',
+  'Stage 1': 'Stage 1 validation',
+  'Stage 2': 'Stage 2 focused build',
+  'Stage 3': 'Stage 3 scale',
+}
 
 export function getVentureRecommendationTone(bucket: VentureRecommendationBucket) {
   if (bucket === 'Fund aggressively') {
@@ -53,6 +63,16 @@ export function getVentureRecommendationTone(bucket: VentureRecommendationBucket
   }
 
   return 'negative'
+}
+
+export function formatVentureRecommendedStage(stage: VentureRecommendedStage) {
+  return VENTURE_STAGE_LABELS[stage]
+}
+
+export function buildVentureSnapshotSummary(
+  summary: Pick<VentureComputedSummary, 'recommendationBucket' | 'ventureScore' | 'recommendedStage'>
+) {
+  return `${summary.recommendationBucket} at score ${summary.ventureScore.toFixed(1)}. Next stage: ${formatVentureRecommendedStage(summary.recommendedStage)}.`
 }
 
 export function getRecommendedStageCapital(

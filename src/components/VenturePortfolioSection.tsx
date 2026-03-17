@@ -5,15 +5,15 @@ import React, { useMemo, useState } from 'react'
 import BlankNumberInput, { type BlankableNumber } from '@/components/BlankNumberInput'
 import type { IdeaRecord } from '@/lib/api'
 import {
+  formatVentureRecommendedStage,
   getRecommendedStageCapital,
   getVentureRecommendationTone,
+  VENTURE_STAGE_ORDER,
 } from '@/lib/venture-summary'
 
 type VenturePortfolioSectionProps = {
   ideas: IdeaRecord[]
 }
-
-const STAGE_ORDER = ['Stage 1', 'Stage 2', 'Stage 3', 'None'] as const
 
 export default function VenturePortfolioSection({ ideas }: VenturePortfolioSectionProps) {
   const [capitalBudget, setCapitalBudget] = useState<BlankableNumber>(1_000_000)
@@ -39,7 +39,7 @@ export default function VenturePortfolioSection({ ideas }: VenturePortfolioSecti
     )
   }
 
-  const stageSummaries = STAGE_ORDER.map((stage) => {
+  const stageSummaries = VENTURE_STAGE_ORDER.map((stage) => {
     const stageIdeas = rankedIdeas.filter((idea) => idea.ventureSummary?.recommendedStage === stage)
     return {
       stage,
@@ -97,7 +97,9 @@ export default function VenturePortfolioSection({ ideas }: VenturePortfolioSecti
       <div className="grid gap-4 xl:grid-cols-4">
         {stageSummaries.map((summary) => (
           <div key={summary.stage} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">{summary.stage}</div>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+              {formatVentureRecommendedStage(summary.stage)}
+            </div>
             <div className="mt-2 text-2xl font-semibold text-slate-900">{summary.count}</div>
             <p className="mt-2 text-sm text-slate-500">{formatCurrency(summary.capital)} staged capital</p>
           </div>
@@ -148,7 +150,9 @@ export default function VenturePortfolioSection({ ideas }: VenturePortfolioSecti
                     >
                       {summary.recommendationBucket}
                     </span>
-                    <div className="mt-1 text-xs text-slate-500">{summary.recommendedStage}</div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      {formatVentureRecommendedStage(summary.recommendedStage)}
+                    </div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-slate-900">{summary.ventureScore.toFixed(1)}</td>
                   <td className="px-4 py-3">{formatCurrency(summary.returnOnFocus)}</td>

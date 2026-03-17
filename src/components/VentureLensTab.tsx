@@ -12,10 +12,12 @@ import type {
   VentureSummaryRecord,
 } from '@/lib/api'
 import {
-  doesSavedVentureSummaryMatchCurrentModel,
   buildVentureSummary,
+  doesSavedVentureSummaryMatchCurrentModel,
+  formatVentureRecommendedStage,
   getVentureManualInputsFromSummary,
   getVentureRecommendationTone,
+  VENTURE_REFRESH_MESSAGE,
   VENTURE_SCORE_BUCKETS,
   VENTURE_SCORE_MAX,
   type VentureManualInputs,
@@ -183,7 +185,7 @@ export default function VentureLensTab({
           <div>
             <div className="text-3xl font-semibold">{preview.recommendationBucket}</div>
             <p className="mt-2 text-sm">
-              Next stage: <span className="font-semibold">{preview.recommendedStage}</span>
+              Next stage: <span className="font-semibold">{formatVentureRecommendedStage(preview.recommendedStage)}</span>
             </p>
           </div>
           <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-4 text-right text-slate-900">
@@ -228,7 +230,7 @@ export default function VentureLensTab({
           value={formatCurrency(preview.returnOnFocus)}
           detail={`${formatCurrency(preview.expectedOpportunityValue)} expected opportunity / ${preview.attentionDemandScore} attention`}
         />
-        <Metric label="24-month forecast" value={formatCurrency(preview.forecastRevenue24Month)} />
+        <Metric label="24-month forecast revenue" value={formatCurrency(preview.forecastRevenue24Month)} />
         <Metric label="24-month ceiling" value={formatCurrency(preview.marketCeiling24Month)} />
         <Metric
           label="Access capital"
@@ -342,7 +344,7 @@ export default function VentureLensTab({
             />
             <FieldNumber
               id="buildCapital"
-              label="Stage 2 focused-build capital"
+              label="Stage 2 focused build capital"
               hint="Engineering, tooling, and pilot-run capital to get the bet into market."
               value={form.buildCapital}
               min={0}
@@ -424,7 +426,7 @@ export default function VentureLensTab({
 
             {hasChanges && ventureSummary && !manualInputsChanged && !savedSummaryMatchesCurrentModel && (
               <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Forecast or cost changes have shifted the venture score. Save the scorecard again to persist the current VC view.
+                Forecast or cost changes have shifted the venture score. {VENTURE_REFRESH_MESSAGE}
               </div>
             )}
           </div>

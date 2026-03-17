@@ -10,6 +10,7 @@ import {
   type RoiCalculations,
   type UnitEconomicsBreakdown,
 } from '@/lib/roi-calculations'
+import { formatVentureRecommendedStage } from '@/lib/venture-summary'
 
 type RoiExportProject = Pick<
   IdeaDetailRecord,
@@ -601,7 +602,7 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
         <h2>Venture lens</h2>
         <div class="metric-grid">
           <div class="metric"><div class="label">Recommendation</div><div class="value">${escapeHtml(ventureSummary.recommendationBucket)}</div></div>
-          <div class="metric"><div class="label">Next stage</div><div class="value">${escapeHtml(ventureSummary.recommendedStage)}</div></div>
+          <div class="metric"><div class="label">Next stage</div><div class="value">${escapeHtml(formatVentureRecommendedStage(ventureSummary.recommendedStage))}</div></div>
           <div class="metric"><div class="label">Venture score</div><div class="value">${escapeHtml(`${ventureSummary.ventureScore.toFixed(1)} / 100`)}</div></div>
           <div class="metric"><div class="label">Expected opportunity</div><div class="value">${formatCurrency(ventureSummary.expectedOpportunityValue)}</div></div>
           <div class="metric"><div class="label">Return on focus</div><div class="value">${formatCurrency(ventureSummary.returnOnFocus)}</div></div>
@@ -624,7 +625,7 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
             <div class="detail-label">Staged capital</div>
             <div class="note">
               <p>Validation capital: ${formatCurrency(ventureSummary.validationCapital)}</p>
-              <p>Focused-build capital: ${formatCurrency(ventureSummary.buildCapital)}</p>
+              <p>Focused build capital: ${formatCurrency(ventureSummary.buildCapital)}</p>
               <p>Scale capital: ${formatCurrency(ventureSummary.scaleCapital)}</p>
               <p>24-month forecast revenue: ${formatCurrency(ventureSummary.forecastRevenue24Month)}</p>
             </div>

@@ -132,6 +132,7 @@ describe('VentureLensTab', () => {
     expect(screen.getByText('Venture lens')).toBeInTheDocument()
     expect(screen.getAllByText('Fund aggressively').length).toBeGreaterThan(0)
     expect(screen.getByText('Next stage:')).toBeInTheDocument()
+    expect(screen.getByText('Stage 3 scale')).toBeInTheDocument()
     expect(screen.getByText(/out of 100/i)).toBeInTheDocument()
     expect(screen.getByText(/0-39/i)).toBeInTheDocument()
     expect(screen.getByText(/40-59/i)).toBeInTheDocument()
@@ -168,6 +169,9 @@ describe('VentureLensTab', () => {
     expect(screen.getByRole('button', { name: 'Update venture scorecard' })).toBeInTheDocument()
     expect(
       screen.getByText(/Forecast or cost changes have shifted the venture score/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/This venture view has been recalculated from the current forecasts and latest cost estimate/i)
     ).toBeInTheDocument()
   })
 })

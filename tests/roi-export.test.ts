@@ -3,8 +3,26 @@ import { describe, expect, it } from 'vitest'
 import type { CostEstimateRecord, ForecastRecord, IdeaDetailRecord } from '@/lib/api'
 import { buildRoiExportFilename, buildRoiExportHtml } from '@/lib/roi-export'
 import { calculateRoiMetrics } from '@/lib/roi-calculations'
+import { buildVentureSummary } from '@/lib/venture-summary'
 
 function buildProject(): IdeaDetailRecord {
+  const ventureSummary = buildVentureSummary(
+    {
+      marketCeiling24Month: 2_000_000,
+      marketCeiling36Month: 3_000_000,
+      probabilitySuccessPct: 0.4,
+      adjacencyScore: 3,
+      asymmetricUpsideScore: 8,
+      attentionDemandScore: 3,
+      speedToSignalDays: 60,
+      validationCapital: 25_000,
+      buildCapital: 75_000,
+      scaleCapital: 150_000,
+    },
+    buildForecasts(),
+    buildEstimates()
+  )
+
   return {
     id: 'idea-1',
     title: 'Portable <ROI> & Report',
@@ -23,7 +41,11 @@ function buildProject(): IdeaDetailRecord {
       email: 'tyler@example.com',
     },
     roiSummary: null,
-    ventureSummary: null,
+    ventureSummary: {
+      id: 'venture-1',
+      ...ventureSummary,
+      createdAt: '2026-03-16T00:00:00.000Z',
+    },
     forecasts: buildForecasts(),
     costEstimates: buildEstimates(),
   }
@@ -136,6 +158,9 @@ describe('roi export', () => {
     expect(html).toContain('Assembly')
     expect(html).toContain('Net price confirmed')
     expect(html).toContain('Break-even')
+    expect(html).toContain('Venture lens')
+    expect(html).toContain('Stage 1 validation')
+    expect(html).toContain('Focused build capital')
   })
 
   it('builds a filesystem-safe export filename', () => {

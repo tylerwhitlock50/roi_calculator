@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import type { CostEstimateRecord, ForecastRecord } from '@/lib/api'
 import {
+  buildVentureSnapshotSummary,
   buildVentureSummary,
   doesSavedVentureSummaryMatchCurrentModel,
+  formatVentureRecommendedStage,
 } from '@/lib/venture-summary'
 import type { VentureSummaryRecord } from '@/lib/api'
 
@@ -210,6 +212,30 @@ describe('venture summary', () => {
     expect(summary.salesPerEngineeringHour).toBe(1_200)
     expect(summary.accessCapital).toBe(100_000)
     expect(summary.capitalEfficiencyRatio).toBe(20)
+  })
+
+  it('formats recommended stages and snapshot copy consistently across views', () => {
+    const summary = buildVentureSummary(
+      {
+        marketCeiling24Month: 4_000_000,
+        marketCeiling36Month: 5_000_000,
+        probabilitySuccessPct: 0.5,
+        adjacencyScore: 2,
+        asymmetricUpsideScore: 10,
+        attentionDemandScore: 1,
+        speedToSignalDays: 30,
+        validationCapital: 20_000,
+        buildCapital: 80_000,
+        scaleCapital: 250_000,
+      },
+      buildForecasts(24, 100, 100),
+      buildEstimate()
+    )
+
+    expect(formatVentureRecommendedStage(summary.recommendedStage)).toBe('Stage 3 scale')
+    expect(buildVentureSnapshotSummary(summary)).toBe(
+      `Fund aggressively at score ${summary.ventureScore.toFixed(1)}. Next stage: Stage 3 scale.`
+    )
   })
 
   it('detects when the saved venture summary is stale relative to current costs', () => {
