@@ -120,6 +120,7 @@ describe('roi export', () => {
     expect(html).toContain('Forecast 1: Direct')
     expect(html).toContain('Cost estimate 1')
     expect(html).toContain('Base case')
+    expect(html).toContain('10% IRR price target')
     expect(html).toContain('Combined downside')
     expect(html).toContain('Revenue / unit')
     expect(html).toContain('Scrap rate')

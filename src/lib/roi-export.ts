@@ -9,6 +9,11 @@ import {
   type RoiCalculations,
   type UnitEconomicsBreakdown,
 } from '@/lib/roi-calculations'
+import {
+  findRequiredForecastChangeForTargetIrr,
+  scaleCostEstimates,
+  scaleForecasts,
+} from '@/lib/stress-test'
 
 type RoiExportProject = Pick<
   IdeaDetailRecord,
@@ -36,7 +41,7 @@ const BASE_TABLE_HEADERS = ['Month', 'Total', 'Sales', 'Marketing', 'CAC', 'Mate
 type StressScenario = {
   label: string
   description: string
-  calculations: RoiCalculations
+  calculations: RoiCalculations | null
 }
 
 export function buildRoiExportFilename(title: string, exportedAt = new Date()) {
@@ -612,6 +617,20 @@ function renderSankeySection(unitEconomics: UnitEconomicsBreakdown) {
 function renderStressTable(scenarios: StressScenario[], baseCalculations: RoiCalculations) {
   const rows = scenarios
     .map((scenario) => {
+      if (!scenario.calculations) {
+        return `
+        <tr>
+          <td><strong>${escapeHtml(scenario.label)}</strong></td>
+          <td>${escapeHtml(scenario.description)}</td>
+          <td>–</td>
+          <td>–</td>
+          <td>–</td>
+          <td>–</td>
+          <td>–</td>
+        </tr>
+      `
+      }
+
       const roiDelta = scenario.calculations.roiPct - baseCalculations.roiPct
       const npvDelta = scenario.calculations.npv - baseCalculations.npv
       const profitDelta = scenario.calculations.profitPerUnit - baseCalculations.profitPerUnit
@@ -671,6 +690,14 @@ function buildStressScenarios({
   costEstimates: CostEstimateRecord[]
   baseCalculations: RoiCalculations
 }): StressScenario[] {
+  const priceTarget = findRequiredForecastChangeForTargetIrr({
+    forecasts,
+    costEstimates,
+    mode: 'price',
+    targetIrr: 0.1,
+    baseCalculations,
+  })
+
   return [
     {
       label: 'Base case',
@@ -688,6 +715,11 @@ function buildStressScenarios({
       calculations: calculateRoiMetrics(scaleForecasts(forecasts, { unitFactor: 0.8 }), costEstimates),
     },
     {
+      label: '10% IRR price target',
+      description: buildTargetIrrPriceDescription(priceTarget),
+      calculations: priceTarget?.calculations ?? null,
+    },
+    {
       label: 'Cost creep',
       description: 'Modeled BOM, labor, overhead, tooling, and engineering costs up 10%.',
       calculations: calculateRoiMetrics(forecasts, scaleCostEstimates(costEstimates, 1.1)),
@@ -698,40 +730,6 @@ function buildStressScenarios({
       calculations: calculateRoiMetrics(scaleForecasts(forecasts, { priceFactor: 0.9, unitFactor: 0.8 }), scaleCostEstimates(costEstimates, 1.1)),
     },
   ]
-}
-
-function scaleForecasts(
-  forecasts: ForecastRecord[],
-  { priceFactor = 1, unitFactor = 1 }: { priceFactor?: number; unitFactor?: number }
-) {
-  return forecasts.map((forecast) => ({
-    ...forecast,
-    monthlyVolumeEstimate: forecast.monthlyVolumeEstimate.map((month) => ({
-      ...month,
-      units: month.units * unitFactor,
-      price: month.price * priceFactor,
-    })),
-  }))
-}
-
-function scaleCostEstimates(costEstimates: CostEstimateRecord[], factor: number) {
-  return costEstimates.map((estimate) => ({
-    ...estimate,
-    toolingCost: estimate.toolingCost * factor,
-    engineeringRatePerHour: estimate.engineeringRatePerHour * factor,
-    overheadRate: estimate.overheadRate * factor,
-    bomParts: estimate.bomParts.map((part) => ({
-      ...part,
-      unitCost: part.unitCost * factor,
-    })),
-    laborEntries: estimate.laborEntries.map((entry) => ({
-      ...entry,
-      activity: {
-        ...entry.activity,
-        ratePerHour: entry.activity.ratePerHour * factor,
-      },
-    })),
-  }))
 }
 
 function buildSankeySvg(unitEconomics: UnitEconomicsBreakdown) {
@@ -982,6 +980,25 @@ function formatAssumptionValue(value: unknown) {
   }
 
   return String(value)
+}
+
+function buildTargetIrrPriceDescription(target: ReturnType<typeof findRequiredForecastChangeForTargetIrr>) {
+  if (!target) {
+    return '10% IRR is not reachable through price changes alone within the modeled search range.'
+  }
+
+  const targetPrice = Number(target.calculations.assumptions.averageSellingPrice ?? 0)
+  const absChange = Math.abs(target.changePct).toFixed(1)
+
+  if (Math.abs(target.changePct) < 0.05) {
+    return `Current saved pricing already lands at roughly 10% IRR, with a blended selling price of ${formatUnitCurrency(targetPrice)}.`
+  }
+
+  if (target.changePct > 0) {
+    return `Average selling price would need to rise ${absChange}% to ${formatUnitCurrency(targetPrice)} per unit to reach a 10% IRR.`
+  }
+
+  return `Average selling price could fall ${absChange}% to ${formatUnitCurrency(targetPrice)} per unit and still hold a 10% IRR.`
 }
 
 function hasBreakEven(calculations: RoiCalculations) {
