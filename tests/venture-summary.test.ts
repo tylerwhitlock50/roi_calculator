@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CostEstimateRecord, ForecastRecord } from '@/lib/api'
-import { buildVentureSummary } from '@/lib/venture-summary'
+import {
+  buildVentureSummary,
+  doesSavedVentureSummaryMatchCurrentModel,
+} from '@/lib/venture-summary'
+import type { VentureSummaryRecord } from '@/lib/api'
 
 function buildForecasts(
   count: number,
@@ -81,6 +85,14 @@ function buildEstimate(): CostEstimateRecord[] {
       ],
     },
   ]
+}
+
+function toSavedSummary(summary: ReturnType<typeof buildVentureSummary>): VentureSummaryRecord {
+  return {
+    id: 'venture-1',
+    ...summary,
+    createdAt: '2026-03-17T00:00:00.000Z',
+  }
 }
 
 describe('venture summary', () => {
@@ -198,5 +210,39 @@ describe('venture summary', () => {
     expect(summary.salesPerEngineeringHour).toBe(1_200)
     expect(summary.accessCapital).toBe(100_000)
     expect(summary.capitalEfficiencyRatio).toBe(20)
+  })
+
+  it('detects when the saved venture summary is stale relative to current costs', () => {
+    const forecasts = buildForecasts(24, 10, 100)
+    const estimates = buildEstimate()
+    const savedSummary = toSavedSummary(
+      buildVentureSummary(
+        {
+          marketCeiling24Month: 2_000_000,
+          marketCeiling36Month: 2_500_000,
+          probabilitySuccessPct: 0.4,
+          adjacencyScore: 3,
+          asymmetricUpsideScore: 8,
+          attentionDemandScore: 4,
+          speedToSignalDays: 60,
+          validationCapital: 25_000,
+          buildCapital: 75_000,
+          scaleCapital: 150_000,
+        },
+        forecasts,
+        estimates
+      )
+    )
+
+    expect(doesSavedVentureSummaryMatchCurrentModel(savedSummary, forecasts, estimates)).toBe(true)
+
+    const updatedEstimates = [
+      {
+        ...estimates[0],
+        fulfillmentCostPerUnit: 35,
+      },
+    ]
+
+    expect(doesSavedVentureSummaryMatchCurrentModel(savedSummary, forecasts, updatedEstimates)).toBe(false)
   })
 })

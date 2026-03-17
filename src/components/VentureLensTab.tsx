@@ -12,7 +12,9 @@ import type {
   VentureSummaryRecord,
 } from '@/lib/api'
 import {
+  doesSavedVentureSummaryMatchCurrentModel,
   buildVentureSummary,
+  getVentureManualInputsFromSummary,
   getVentureRecommendationTone,
   VENTURE_SCORE_BUCKETS,
   VENTURE_SCORE_MAX,
@@ -83,6 +85,30 @@ function toManualInputs(form: VentureFormState): VentureManualInputs {
   }
 }
 
+function toEditableInputSignature(inputs: {
+  marketCeiling24Month: number
+  probabilitySuccessPct: number
+  adjacencyScore: number
+  asymmetricUpsideScore: number
+  attentionDemandScore: number
+  speedToSignalDays: number
+  validationCapital: number
+  buildCapital: number
+  scaleCapital: number
+}) {
+  return {
+    marketCeiling24Month: inputs.marketCeiling24Month,
+    probabilitySuccessPct: inputs.probabilitySuccessPct,
+    adjacencyScore: inputs.adjacencyScore,
+    asymmetricUpsideScore: inputs.asymmetricUpsideScore,
+    attentionDemandScore: inputs.attentionDemandScore,
+    speedToSignalDays: inputs.speedToSignalDays,
+    validationCapital: inputs.validationCapital,
+    buildCapital: inputs.buildCapital,
+    scaleCapital: inputs.scaleCapital,
+  }
+}
+
 export default function VentureLensTab({
   forecasts,
   costEstimates,
@@ -102,6 +128,13 @@ export default function VentureLensTab({
     () => buildVentureSummary(manualInputs, forecasts, costEstimates),
     [costEstimates, forecasts, manualInputs]
   )
+  const savedSummaryMatchesCurrentModel = useMemo(
+    () =>
+      ventureSummary
+        ? doesSavedVentureSummaryMatchCurrentModel(ventureSummary, forecasts, costEstimates)
+        : false,
+    [costEstimates, forecasts, ventureSummary]
+  )
   const tone = getVentureRecommendationTone(preview.recommendationBucket)
   const bannerClasses =
     tone === 'positive'
@@ -109,19 +142,23 @@ export default function VentureLensTab({
       : tone === 'caution'
         ? 'border-amber-200 bg-amber-50 text-amber-900'
         : 'border-danger-200 bg-danger-50 text-danger-900'
-  const hasChanges =
+  const editableSavedInputs = ventureSummary ? getVentureManualInputsFromSummary(ventureSummary) : null
+  const manualInputsChanged =
     !ventureSummary ||
-    JSON.stringify({
-      marketCeiling24Month: ventureSummary.marketCeiling24Month,
-      probabilitySuccessPct: ventureSummary.probabilitySuccessPct,
-      adjacencyScore: ventureSummary.adjacencyScore,
-      asymmetricUpsideScore: ventureSummary.asymmetricUpsideScore,
-      attentionDemandScore: ventureSummary.attentionDemandScore,
-      speedToSignalDays: ventureSummary.speedToSignalDays,
-      validationCapital: ventureSummary.validationCapital,
-      buildCapital: ventureSummary.buildCapital,
-      scaleCapital: ventureSummary.scaleCapital,
-    }) !== JSON.stringify(manualInputs)
+    JSON.stringify(
+      toEditableInputSignature({
+        marketCeiling24Month: editableSavedInputs?.marketCeiling24Month ?? 0,
+        probabilitySuccessPct: editableSavedInputs?.probabilitySuccessPct ?? 0,
+        adjacencyScore: editableSavedInputs?.adjacencyScore ?? 0,
+        asymmetricUpsideScore: editableSavedInputs?.asymmetricUpsideScore ?? 0,
+        attentionDemandScore: editableSavedInputs?.attentionDemandScore ?? 0,
+        speedToSignalDays: editableSavedInputs?.speedToSignalDays ?? 0,
+        validationCapital: editableSavedInputs?.validationCapital ?? 0,
+        buildCapital: editableSavedInputs?.buildCapital ?? 0,
+        scaleCapital: editableSavedInputs?.scaleCapital ?? 0,
+      })
+    ) !== JSON.stringify(toEditableInputSignature(manualInputs))
+  const hasChanges = !ventureSummary || manualInputsChanged || !savedSummaryMatchesCurrentModel
   const hardGates = Array.isArray((preview.assumptions as { hardGates?: unknown[] }).hardGates)
     ? ((preview.assumptions as { hardGates: string[] }).hardGates ?? [])
     : []
@@ -381,7 +418,13 @@ export default function VentureLensTab({
 
             {!hasChanges && (
               <div className="rounded-2xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700">
-                The saved venture summary already matches the current scorecard inputs.
+                The saved venture summary matches the current scorecard inputs and the latest forecast and cost assumptions.
+              </div>
+            )}
+
+            {hasChanges && ventureSummary && !manualInputsChanged && !savedSummaryMatchesCurrentModel && (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Forecast or cost changes have shifted the venture score. Save the scorecard again to persist the current VC view.
               </div>
             )}
           </div>

@@ -146,4 +146,28 @@ describe('VentureLensTab', () => {
     expect(screen.getByText(/\$4,000,000 ceiling \/ \$100,000 access capital/i)).toBeInTheDocument()
     expect(screen.getByText(/\$24,000 forecast \/ 20 hr/i)).toBeInTheDocument()
   })
+
+  it('treats the venture scorecard as stale when forecast or cost assumptions have changed', () => {
+    const updatedEstimate = buildEstimate()
+    updatedEstimate[0] = {
+      ...updatedEstimate[0],
+      fulfillmentCostPerUnit: 35,
+    }
+
+    render(
+      <VentureLensTab
+        forecasts={buildForecasts()}
+        costEstimates={updatedEstimate}
+        ventureSummary={buildSavedSummary()}
+        onSave={vi.fn()}
+        saving={false}
+        saveError={null}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'Update venture scorecard' })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Forecast or cost changes have shifted the venture score/i)
+    ).toBeInTheDocument()
+  })
 })

@@ -3,6 +3,7 @@ import type {
   ForecastRecord,
   VentureRecommendationBucket,
   VentureRecommendedStage,
+  VentureSummaryRecord,
 } from '@/lib/api'
 import { calculateUnitEconomics } from '@/lib/roi-calculations'
 
@@ -71,6 +72,20 @@ export function getRecommendedStageCapital(
       return 0
   }
 }
+
+type VentureInputSource = Pick<
+  VentureSummaryRecord,
+  | 'marketCeiling24Month'
+  | 'marketCeiling36Month'
+  | 'probabilitySuccessPct'
+  | 'adjacencyScore'
+  | 'asymmetricUpsideScore'
+  | 'attentionDemandScore'
+  | 'speedToSignalDays'
+  | 'validationCapital'
+  | 'buildCapital'
+  | 'scaleCapital'
+>
 
 const EXPECTED_OPPORTUNITY_TARGET = 2_000_000
 const CAPITAL_EFFICIENCY_TARGET = 20
@@ -183,6 +198,98 @@ function mapStage(bucket: VentureRecommendationBucket): VentureRecommendedStage 
     default:
       return 'None'
   }
+}
+
+function buildComparableSummaryShape(
+  summary: Pick<
+    VentureComputedSummary,
+    | 'marketCeiling24Month'
+    | 'marketCeiling36Month'
+    | 'probabilitySuccessPct'
+    | 'adjacencyScore'
+    | 'asymmetricUpsideScore'
+    | 'attentionDemandScore'
+    | 'speedToSignalDays'
+    | 'validationCapital'
+    | 'buildCapital'
+    | 'scaleCapital'
+    | 'ventureScore'
+    | 'recommendationBucket'
+    | 'recommendedStage'
+    | 'forecastRevenue24Month'
+    | 'forecastRevenue36Month'
+    | 'expectedOpportunityValue'
+    | 'returnOnFocus'
+    | 'accessCapital'
+    | 'capitalEfficiencyRatio'
+    | 'salesPerEngineeringHour'
+    | 'contributionMarginPct'
+  >
+) {
+  return {
+    marketCeiling24Month: Number(summary.marketCeiling24Month.toFixed(2)),
+    marketCeiling36Month: Number(summary.marketCeiling36Month.toFixed(2)),
+    probabilitySuccessPct: Number(summary.probabilitySuccessPct.toFixed(4)),
+    adjacencyScore: summary.adjacencyScore,
+    asymmetricUpsideScore: summary.asymmetricUpsideScore,
+    attentionDemandScore: summary.attentionDemandScore,
+    speedToSignalDays: summary.speedToSignalDays,
+    validationCapital: Number(summary.validationCapital.toFixed(2)),
+    buildCapital: Number(summary.buildCapital.toFixed(2)),
+    scaleCapital: Number(summary.scaleCapital.toFixed(2)),
+    ventureScore: Number(summary.ventureScore.toFixed(2)),
+    recommendationBucket: summary.recommendationBucket,
+    recommendedStage: summary.recommendedStage,
+    forecastRevenue24Month: Number(summary.forecastRevenue24Month.toFixed(2)),
+    forecastRevenue36Month: Number(summary.forecastRevenue36Month.toFixed(2)),
+    expectedOpportunityValue: Number(summary.expectedOpportunityValue.toFixed(2)),
+    returnOnFocus: Number(summary.returnOnFocus.toFixed(2)),
+    accessCapital: Number(summary.accessCapital.toFixed(2)),
+    capitalEfficiencyRatio: Number(summary.capitalEfficiencyRatio.toFixed(4)),
+    salesPerEngineeringHour: Number(summary.salesPerEngineeringHour.toFixed(2)),
+    contributionMarginPct: Number(summary.contributionMarginPct.toFixed(4)),
+  }
+}
+
+export function getVentureManualInputsFromSummary(summary: VentureInputSource): VentureManualInputs {
+  return {
+    marketCeiling24Month: summary.marketCeiling24Month,
+    marketCeiling36Month: summary.marketCeiling36Month,
+    probabilitySuccessPct: summary.probabilitySuccessPct,
+    adjacencyScore: summary.adjacencyScore,
+    asymmetricUpsideScore: summary.asymmetricUpsideScore,
+    attentionDemandScore: summary.attentionDemandScore,
+    speedToSignalDays: summary.speedToSignalDays,
+    validationCapital: summary.validationCapital,
+    buildCapital: summary.buildCapital,
+    scaleCapital: summary.scaleCapital,
+  }
+}
+
+export function buildCurrentVentureSummary(
+  ventureSummary: VentureSummaryRecord | null,
+  forecasts: ForecastRecord[],
+  costEstimates: CostEstimateRecord[]
+) {
+  if (!ventureSummary) {
+    return null
+  }
+
+  return buildVentureSummary(getVentureManualInputsFromSummary(ventureSummary), forecasts, costEstimates)
+}
+
+export function doesSavedVentureSummaryMatchCurrentModel(
+  ventureSummary: VentureSummaryRecord,
+  forecasts: ForecastRecord[],
+  costEstimates: CostEstimateRecord[]
+) {
+  const currentSummary = buildCurrentVentureSummary(ventureSummary, forecasts, costEstimates)
+
+  if (!currentSummary) {
+    return false
+  }
+
+  return JSON.stringify(buildComparableSummaryShape(ventureSummary)) === JSON.stringify(buildComparableSummaryShape(currentSummary))
 }
 
 export function buildVentureSummary(

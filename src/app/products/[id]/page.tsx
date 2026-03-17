@@ -38,7 +38,13 @@ import {
   calculateTotalEstimateCost,
 } from '@/lib/roi-calculations'
 import { buildRoiExportFilename, buildRoiExportHtml } from '@/lib/roi-export'
-import { getVentureRecommendationTone, type VentureManualInputs } from '@/lib/venture-summary'
+import {
+  buildCurrentVentureSummary,
+  doesSavedVentureSummaryMatchCurrentModel,
+  getVentureRecommendationTone,
+  type VentureComputedSummary,
+  type VentureManualInputs,
+} from '@/lib/venture-summary'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -186,6 +192,8 @@ export default function ProductDetailPage() {
   const [statusError, setStatusError] = useState<string | null>(null)
   const [visibilitySaving, setVisibilitySaving] = useState(false)
   const [visibilityError, setVisibilityError] = useState<string | null>(null)
+  const [cloneLoading, setCloneLoading] = useState(false)
+  const [cloneError, setCloneError] = useState<string | null>(null)
   const [savingVenture, setSavingVenture] = useState(false)
   const [saveVentureError, setSaveVentureError] = useState<string | null>(null)
   const [savingROI, setSavingROI] = useState(false)
@@ -222,6 +230,17 @@ export default function ProductDetailPage() {
   const costEstimates = product?.costEstimates ?? []
   const roiSummary = product?.roiSummary ?? null
   const ventureSummary = product?.ventureSummary ?? null
+  const currentVentureSummary = useMemo(
+    () => buildCurrentVentureSummary(ventureSummary, forecasts, costEstimates),
+    [costEstimates, forecasts, ventureSummary]
+  )
+  const ventureSummaryNeedsRefresh = useMemo(
+    () =>
+      ventureSummary
+        ? !doesSavedVentureSummaryMatchCurrentModel(ventureSummary, forecasts, costEstimates)
+        : false,
+    [costEstimates, forecasts, ventureSummary]
+  )
 
   const closeForecastModal = () => {
     setShowForecastModal(false)
@@ -547,6 +566,38 @@ export default function ProductDetailPage() {
     }
   }
 
+  const cloneProject = async () => {
+    if (!product) {
+      return
+    }
+
+    const suggestedTitle = `${product.title} (Scenario)`
+    const requestedTitle = window.prompt(
+      'Name this cloned scenario. You can use labels like "$75 build" or "$150 build".',
+      suggestedTitle
+    )
+
+    if (requestedTitle === null) {
+      return
+    }
+
+    const nextTitle = requestedTitle.trim() || suggestedTitle
+
+    try {
+      setCloneLoading(true)
+      setCloneError(null)
+      const clone = await apiFetch<IdeaDetailRecord>(`/api/ideas/${product.id}/clone`, {
+        method: 'POST',
+        body: JSON.stringify({ title: nextTitle }),
+      })
+      router.push(`/products/${clone.id}`)
+    } catch (cloneFailure) {
+      setCloneError(cloneFailure instanceof Error ? cloneFailure.message : 'Failed to clone project')
+    } finally {
+      setCloneLoading(false)
+    }
+  }
+
   const saveRoiSummary = async (payload: {
     npv: number
     irr: number
@@ -659,9 +710,19 @@ export default function ProductDetailPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <button className="btn-secondary mb-6" onClick={() => router.push('/')}>
-        Back to dashboard
-      </button>
+      <div className="mb-6 flex flex-wrap gap-3">
+        <button className="btn-secondary" onClick={() => router.push('/')}>
+          Back to dashboard
+        </button>
+        <button className="btn-secondary" onClick={() => void cloneProject()} disabled={cloneLoading}>
+          {cloneLoading ? 'Cloning...' : 'Clone scenario'}
+        </button>
+      </div>
+      {cloneError && (
+        <div className="mb-6 rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+          {cloneError}
+        </div>
+      )}
 
       <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-8 shadow-sm">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -788,8 +849,8 @@ export default function ProductDetailPage() {
               <OverviewCard
                 title="Current venture snapshot"
                 body={
-                  product.ventureSummary
-                    ? `${product.ventureSummary.recommendationBucket} at score ${product.ventureSummary.ventureScore.toFixed(1)}. Recommended next stage: ${product.ventureSummary.recommendedStage}.`
+                  currentVentureSummary
+                    ? `${currentVentureSummary.recommendationBucket} at score ${currentVentureSummary.ventureScore.toFixed(1)}. Recommended next stage: ${currentVentureSummary.recommendedStage}.${ventureSummaryNeedsRefresh ? ' Based on current forecasts and cost assumptions; save Venture Lens to persist this score.' : ''}`
                     : 'No saved venture summary yet.'
                 }
               />
@@ -1683,7 +1744,8 @@ export default function ProductDetailPage() {
               forecasts={forecasts}
               costEstimates={costEstimates}
               roiSummary={roiSummary}
-              ventureSummary={ventureSummary}
+              ventureSummary={currentVentureSummary}
+              ventureSummaryNeedsRefresh={ventureSummaryNeedsRefresh}
               onSave={saveRoiSummary}
               saving={savingROI}
               saveError={saveROIError}
@@ -2038,6 +2100,7 @@ function ROICalculator({
   costEstimates,
   roiSummary,
   ventureSummary,
+  ventureSummaryNeedsRefresh,
   onSave,
   saving,
   saveError,
@@ -2046,7 +2109,8 @@ function ROICalculator({
   forecasts: ForecastRecord[]
   costEstimates: CostEstimateRecord[]
   roiSummary: RoiSummaryRecord | null
-  ventureSummary: VentureSummaryRecord | null
+  ventureSummary: VentureSummaryRecord | VentureComputedSummary | null
+  ventureSummaryNeedsRefresh: boolean
   onSave: (payload: {
     npv: number
     irr: number
@@ -2148,7 +2212,12 @@ function ROICalculator({
         </div>
       </div>
 
-      {ventureSummary && <VentureSnapshotCard ventureSummary={ventureSummary} />}
+      {ventureSummary && (
+        <VentureSnapshotCard
+          ventureSummary={ventureSummary}
+          needsRefresh={ventureSummaryNeedsRefresh}
+        />
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Metric label="NPV" value={formatCurrency(calculations.npv)} />
@@ -2303,7 +2372,13 @@ function ROICalculator({
   )
 }
 
-function VentureSnapshotCard({ ventureSummary }: { ventureSummary: VentureSummaryRecord }) {
+function VentureSnapshotCard({
+  ventureSummary,
+  needsRefresh,
+}: {
+  ventureSummary: VentureSummaryRecord | VentureComputedSummary
+  needsRefresh: boolean
+}) {
   const tone = getVentureRecommendationTone(ventureSummary.recommendationBucket)
   const classes =
     tone === 'positive'
@@ -2329,6 +2404,11 @@ function VentureSnapshotCard({ ventureSummary }: { ventureSummary: VentureSummar
           <Metric label="Access capital" value={formatCurrency(ventureSummary.accessCapital)} />
         </div>
       </div>
+      {needsRefresh && (
+        <p className="mt-3 text-sm">
+          This venture snapshot has been recalculated from the current forecasts and latest cost estimate. Save Venture Lens to persist it.
+        </p>
+      )}
     </div>
   )
 }

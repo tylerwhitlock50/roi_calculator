@@ -504,4 +504,150 @@ describe('API smoke flow', () => {
 
     expect(response.status).toBe(403)
   })
+
+  it('clones an idea into a new scenario owned by the requesting user', async () => {
+    const activityRate = await prisma.activityRate.findFirstOrThrow()
+    const idea = await prisma.idea.create({
+      data: {
+        title: 'Carbon Fiber Hood Scoop',
+        description: 'A lightweight hood scoop for performance builds.',
+        category: 'Exterior Accessories',
+        positioningStatement: 'For builders who want weight savings, this scoop improves airflow without steel weight.',
+        requiredAttributes: 'Carbon layup, OEM-style fit, and heat resistance.',
+        competitorOverview: 'Competes with fiberglass scoops and imported carbon kits.',
+        createdById: adminUser.id,
+        salesForecasts: {
+          create: {
+            contributorId: adminUser.id,
+            contributorRole: 'Sales',
+            channelOrCustomer: 'Direct',
+            priceBasisConfirmed: true,
+            monthlyMarketingSpend: 250,
+            marketingCostPerUnit: 18,
+            customerAcquisitionCostPerUnit: 30,
+            monthlyVolumeEstimate: [{ month_date: '2026-04', units: 12, price: 399 }],
+          },
+        },
+        costEstimates: {
+          create: {
+            createdById: adminUser.id,
+            toolingCost: 500,
+            engineeringHours: 8,
+            engineeringRatePerHour: 125,
+            launchCashRequirement: 400,
+            complianceCost: 150,
+            fulfillmentCostPerUnit: 20,
+            warrantyReservePct: 0.03,
+            scrapRate: 0.05,
+            overheadRate: 60,
+            supportTimePct: 0.2,
+            bomParts: {
+              create: [{ item: 'Carbon Cloth', unitCost: 75, quantity: 1, cashEffect: true }],
+            },
+            laborEntries: {
+              create: [{ activityId: activityRate.id, hours: 2, minutes: 30, seconds: 0 }],
+            },
+          },
+        },
+        roiSummary: {
+          create: {
+            npv: 15000,
+            irr: 0.31,
+            breakEvenMonth: 10,
+            paybackPeriod: 0.83,
+            contributionMarginPerUnit: 120,
+            profitPerUnit: 95,
+            assumptions: { scenario: 'base' },
+          },
+        },
+        ventureSummary: {
+          create: {
+            marketCeiling24Month: 750000,
+            marketCeiling36Month: 1000000,
+            probabilitySuccessPct: 0.4,
+            adjacencyScore: 6,
+            asymmetricUpsideScore: 7,
+            attentionDemandScore: 4,
+            speedToSignalDays: 45,
+            validationCapital: 15000,
+            buildCapital: 50000,
+            scaleCapital: 125000,
+            ventureScore: 6.8,
+            recommendationBucket: 'Stage build',
+            recommendedStage: 'Stage 2',
+            forecastRevenue24Month: 260000,
+            forecastRevenue36Month: 420000,
+            expectedOpportunityValue: 168000,
+            returnOnFocus: 3.2,
+            accessCapital: 100000,
+            capitalEfficiencyRatio: 2.1,
+            salesPerEngineeringHour: 32500,
+            contributionMarginPct: 0.3,
+            assumptions: { source: 'seeded' },
+          },
+        },
+      },
+      include: {
+        salesForecasts: true,
+        costEstimates: {
+          include: {
+            bomParts: true,
+            laborEntries: true,
+          },
+        },
+        roiSummary: true,
+        ventureSummary: true,
+      },
+    })
+
+    const cloneRoute = await loadRoute<typeof import('@/app/api/ideas/[id]/clone/route')>(
+      '@/app/api/ideas/[id]/clone/route',
+      { user: memberUser }
+    )
+
+    const firstCloneResponse = await cloneRoute.POST(
+      new Request('http://localhost/api/ideas/id/clone', {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Carbon Fiber Hood Scoop - $75 Build' }),
+      }),
+      { params: Promise.resolve({ id: idea.id }) }
+    )
+
+    expect(firstCloneResponse.status).toBe(201)
+    const firstClonePayload = await firstCloneResponse.json()
+    expect(firstClonePayload.id).not.toBe(idea.id)
+    expect(firstClonePayload.title).toBe('Carbon Fiber Hood Scoop - $75 Build')
+    expect(firstClonePayload.status).toBe('draft')
+    expect(firstClonePayload.isHidden).toBe(false)
+    expect(firstClonePayload.createdById).toBe(memberUser.id)
+    expect(firstClonePayload.forecasts).toHaveLength(1)
+    expect(firstClonePayload.forecasts[0].contributorId).toBe(memberUser.id)
+    expect(firstClonePayload.costEstimates).toHaveLength(1)
+    expect(firstClonePayload.costEstimates[0].createdById).toBe(memberUser.id)
+    expect(firstClonePayload.costEstimates[0].bomParts[0].unitCost).toBe(75)
+    expect(firstClonePayload.roiSummary.npv).toBe(15000)
+    expect(firstClonePayload.ventureSummary.recommendationBucket).toBe('Stage build')
+
+    const defaultCloneResponse = await cloneRoute.POST(
+      new Request('http://localhost/api/ideas/id/clone', {
+        method: 'POST',
+      }),
+      { params: Promise.resolve({ id: idea.id }) }
+    )
+
+    expect(defaultCloneResponse.status).toBe(201)
+    const defaultClonePayload = await defaultCloneResponse.json()
+    expect(defaultClonePayload.title).toBe('Carbon Fiber Hood Scoop (Scenario)')
+
+    const incrementedCloneResponse = await cloneRoute.POST(
+      new Request('http://localhost/api/ideas/id/clone', {
+        method: 'POST',
+      }),
+      { params: Promise.resolve({ id: idea.id }) }
+    )
+
+    expect(incrementedCloneResponse.status).toBe(201)
+    const incrementedClonePayload = await incrementedCloneResponse.json()
+    expect(incrementedClonePayload.title).toBe('Carbon Fiber Hood Scoop (Scenario 2)')
+  })
 })

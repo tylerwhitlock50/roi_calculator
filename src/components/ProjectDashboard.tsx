@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import LoadingSpinner from '@/components/LoadingSpinner'
 import VenturePortfolioSection from '@/components/VenturePortfolioSection'
@@ -12,6 +13,7 @@ interface ProjectDashboardProps {
 }
 
 export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps) {
+  const router = useRouter()
   const [projects, setProjects] = useState<IdeaRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -19,6 +21,7 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [visibilityFilter, setVisibilityFilter] = useState<'visible' | 'hidden' | 'all'>('visible')
+  const [cloneLoadingId, setCloneLoadingId] = useState<string | null>(null)
 
   useEffect(() => {
     void loadProjects()
@@ -51,6 +54,34 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
 
     return matchesSearch && matchesStatus && matchesVisibility
   })
+
+  const cloneProject = async (project: IdeaRecord) => {
+    const suggestedTitle = `${project.title} (Scenario)`
+    const requestedTitle = window.prompt(
+      'Name this cloned scenario. You can use labels like "$75 build" or "$150 build".',
+      suggestedTitle
+    )
+
+    if (requestedTitle === null) {
+      return
+    }
+
+    const nextTitle = requestedTitle.trim() || suggestedTitle
+
+    try {
+      setCloneLoadingId(project.id)
+      setError(null)
+      const clone = await apiFetch<IdeaRecord>(`/api/ideas/${project.id}/clone`, {
+        method: 'POST',
+        body: JSON.stringify({ title: nextTitle }),
+      })
+      router.push(`/products/${clone.id}`)
+    } catch (cloneError) {
+      setError(cloneError instanceof Error ? cloneError.message : 'Failed to clone idea')
+    } finally {
+      setCloneLoadingId(null)
+    }
+  }
 
   if (loading) {
     return <LoadingSpinner message="Loading projects..." size="md" />
@@ -196,44 +227,58 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
         ) : (
           <div className="grid gap-5 xl:grid-cols-2">
             {filteredProjects.map((project) => (
-              <Link
+              <article
                 key={project.id}
-                href={`/products/${project.id}`}
-                className="group rounded-[26px] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                className="rounded-[26px] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
-                        {project.status.replace('_', ' ')}
-                      </span>
-                      {project.isHidden && (
-                        <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-                          Hidden
+                <Link href={`/products/${project.id}`} className="group block">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
+                          {project.status.replace('_', ' ')}
                         </span>
-                      )}
+                        {project.isHidden && (
+                          <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+                            Hidden
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-xl font-semibold text-slate-900 transition group-hover:text-primary-700">
+                        {project.title}
+                      </h3>
+                      <p className="line-clamp-3 text-sm text-slate-600">{project.description}</p>
                     </div>
-                    <h3 className="text-xl font-semibold text-slate-900 transition group-hover:text-primary-700">
-                      {project.title}
-                    </h3>
-                    <p className="line-clamp-3 text-sm text-slate-600">{project.description}</p>
-                  </div>
-                  <div className="rounded-2xl bg-slate-950 px-4 py-3 text-right text-white">
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-slate-300">NPV</div>
-                    <div className="mt-1 text-lg font-semibold">
-                      {project.roiSummary ? formatCurrency(project.roiSummary.npv) : 'Pending'}
+                    <div className="rounded-2xl bg-slate-950 px-4 py-3 text-right text-white">
+                      <div className="text-[11px] uppercase tracking-[0.2em] text-slate-300">NPV</div>
+                      <div className="mt-1 text-lg font-semibold">
+                        {project.roiSummary ? formatCurrency(project.roiSummary.npv) : 'Pending'}
+                      </div>
                     </div>
                   </div>
+                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                    <MetaChip label="Category" value={project.category} />
+                    <MetaChip
+                      label="IRR"
+                      value={project.roiSummary ? `${(project.roiSummary.irr * 100).toFixed(1)}%` : 'Pending'}
+                    />
+                    <MetaChip label="Owner" value={project.owner.fullName} />
+                  </div>
+                </Link>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Link href={`/products/${project.id}`} className="btn-secondary">
+                    Open workspace
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => void cloneProject(project)}
+                    disabled={cloneLoadingId === project.id}
+                  >
+                    {cloneLoadingId === project.id ? 'Cloning...' : 'Clone scenario'}
+                  </button>
                 </div>
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  <MetaChip label="Category" value={project.category} />
-                  <MetaChip
-                    label="IRR"
-                    value={project.roiSummary ? `${(project.roiSummary.irr * 100).toFixed(1)}%` : 'Pending'}
-                  />
-                  <MetaChip label="Owner" value={project.owner.fullName} />
-                </div>
-              </Link>
+              </article>
             ))}
           </div>
         )}
