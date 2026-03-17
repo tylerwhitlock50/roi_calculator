@@ -262,6 +262,69 @@ describe('roi calculations', () => {
     expect(unitEconomics.sankeyData.nodes.some((node) => node.name === 'Funding needed / unit')).toBe(true)
   })
 
+  it('applies scrap yield loss across the revenue-flow sankey and roi cash costs', () => {
+    const estimate = buildEstimate()
+    estimate.toolingCost = 1000
+    estimate.scrapRate = 0.1
+    estimate.overheadRate = 10
+    estimate.supportTimePct = 0.2
+    estimate.laborEntries[0].hours = 0
+    estimate.laborEntries[0].minutes = 15
+    estimate.bomParts = [
+      {
+        id: 'bom-1',
+        item: 'Main housing',
+        unitCost: 20,
+        quantity: 2,
+        cashEffect: true,
+      },
+    ]
+
+    const forecasts = [
+      buildForecast('2026-01', 100, 100, {
+        monthlyMarketingSpend: 500,
+        marketingCostPerUnit: 3,
+        customerAcquisitionCostPerUnit: 5,
+      }),
+      buildForecast('2026-02', 100, 100, {
+        monthlyMarketingSpend: 500,
+        marketingCostPerUnit: 3,
+        customerAcquisitionCostPerUnit: 5,
+      }),
+    ]
+
+    const unitEconomics = calculateUnitEconomics(forecasts, [estimate])
+    const calculations = calculateRoiMetrics(forecasts, [estimate])
+
+    expect(unitEconomics.scrapRate).toBeCloseTo(0.1)
+    expect(unitEconomics.effectiveYieldRate).toBeCloseTo(0.9)
+    expect(unitEconomics.bomCostPerUnit).toBeCloseTo(44.4444, 3)
+    expect(unitEconomics.laborPerUnit).toBeCloseTo(6.9444, 3)
+    expect(unitEconomics.overheadPerUnit).toBeCloseTo(2.7778, 3)
+    expect(unitEconomics.supportPerUnit).toBeCloseTo(1.9444, 3)
+    expect(unitEconomics.bomParts[0]?.value).toBeCloseTo(44.4444, 3)
+    expect(unitEconomics.sankeyData.nodes.map((node) => node.name)).toEqual(
+      expect.arrayContaining([
+        'Revenue / unit',
+        'Cash BOM',
+        'Main housing',
+        'Marketing',
+        'CAC',
+        'Overhead',
+        'Support',
+        'Direct labor',
+        'Tooling + launch',
+        'Profit',
+      ])
+    )
+    expect(calculations.cashFlows[1].costOfSales).toBeCloseTo(-4444.4444, 3)
+    expect(calculations.cashFlows[1].labor).toBeCloseTo(-694.4444, 3)
+    expect(calculations.cashFlows[1].overhead).toBeCloseTo(-277.7778, 3)
+    expect(calculations.cashFlows[1].support).toBeCloseTo(-194.4444, 3)
+    expect(calculations.assumptions.scrapRate).toBeCloseTo(0.1)
+    expect(calculations.assumptions.effectiveYieldRate).toBeCloseTo(0.9)
+  })
+
   it('classifies the profit-vs-investment matrix from tooling burden and projected payback', () => {
     expect(
       calculateProfitInvestmentProfile({

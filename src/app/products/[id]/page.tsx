@@ -2051,7 +2051,7 @@ function ROICalculator({
         </div>
 
         <p className="text-sm text-slate-500">
-          Exports the current ROI snapshot as an HTML file Jason can open in any browser or print to PDF.
+          Exports the current ROI snapshot as an HTML file, including the revenue-flow Sankey and downside stress-test table.
         </p>
 
         {!hasChanges && (

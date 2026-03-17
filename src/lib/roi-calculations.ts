@@ -413,7 +413,7 @@ function buildUnitEconomicsFromSummary(
     label: part.label,
     value: part.value * yieldMultiplier,
     color: part.color,
-    pctOfRevenue: salesSummary.averagePrice > 0 ? part.value / salesSummary.averagePrice : 0,
+    pctOfRevenue: salesSummary.averagePrice > 0 ? (part.value * yieldMultiplier) / salesSummary.averagePrice : 0,
     unitCost: part.unitCost,
     quantity: part.quantity,
   }))
