@@ -176,6 +176,9 @@ export default function UnitEconomicsTab({ forecasts, costEstimates }: UnitEcono
           <p className="mt-3 leading-6">
             Overhead and support are derived from the modeled labor time and the saved support allocation percentage.
           </p>
+          <p className="mt-3 leading-6">
+            Scrap rate (cost of poor quality) increases cash BOM and labor-driven costs by the implied yield multiplier.
+          </p>
         </div>
       </div>
     </div>

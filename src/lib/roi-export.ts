@@ -158,6 +158,10 @@ export function buildRoiExportHtml({ project, forecasts, costEstimates, calculat
                   <div class="detail-value">${formatPercent(estimate.supportTimePct)}</div>
                 </div>
                 <div class="detail-card">
+                  <div class="detail-label">Scrap rate</div>
+                  <div class="detail-value">${formatPercent(estimate.scrapRate)}</div>
+                </div>
+                <div class="detail-card">
                   <div class="detail-label">Overhead rate</div>
                   <div class="detail-value">${formatUnitCurrency(estimate.overheadRate)}</div>
                 </div>

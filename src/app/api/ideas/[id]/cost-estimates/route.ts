@@ -95,6 +95,7 @@ export async function POST(request: Request, { params }: Params) {
       toolingCost: parseFiniteNumber(body.toolingCost, 0),
       engineeringHours: parseFiniteNumber(body.engineeringHours, 0),
       engineeringRatePerHour: parseFiniteNumber(body.engineeringRatePerHour, 125),
+      scrapRate: parseFiniteNumber(body.scrapRate, 0),
       overheadRate: parseFiniteNumber(body.overheadRate, 60),
       supportTimePct: parseFiniteNumber(body.supportTimePct, 0.2),
       bomParts: sanitizeBomParts(body.bomParts),
@@ -108,6 +109,7 @@ export async function POST(request: Request, { params }: Params) {
         toolingCost: payload.toolingCost,
         engineeringHours: payload.engineeringHours,
         engineeringRatePerHour: payload.engineeringRatePerHour,
+        scrapRate: payload.scrapRate,
         overheadRate: payload.overheadRate,
         supportTimePct: payload.supportTimePct,
         bomParts: {
@@ -163,6 +165,7 @@ export async function PATCH(request: Request, { params }: Params) {
           toolingCost: parseFiniteNumber(body.toolingCost, existing.toolingCost),
           engineeringHours: parseFiniteNumber(body.engineeringHours, existing.engineeringHours),
           engineeringRatePerHour: parseFiniteNumber(body.engineeringRatePerHour, existing.engineeringRatePerHour ?? 125),
+          scrapRate: parseFiniteNumber(body.scrapRate, existing.scrapRate),
           overheadRate: parseFiniteNumber(body.overheadRate, existing.overheadRate),
           supportTimePct: parseFiniteNumber(body.supportTimePct, existing.supportTimePct),
         },

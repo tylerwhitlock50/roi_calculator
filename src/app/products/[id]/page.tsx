@@ -55,6 +55,7 @@ type CostFormState = {
   toolingCost: BlankableNumber
   engineeringHours: BlankableNumber
   engineeringRatePerHour: BlankableNumber
+  scrapRate: BlankableNumber
   overheadRate: BlankableNumber
   supportTimePct: BlankableNumber
 }
@@ -100,6 +101,7 @@ function createInitialCostForm(): CostFormState {
     toolingCost: '',
     engineeringHours: '',
     engineeringRatePerHour: DEFAULT_ENGINEERING_RATE_PER_HOUR,
+    scrapRate: '',
     overheadRate: '',
     supportTimePct: '',
   }
@@ -308,6 +310,7 @@ export default function ProductDetailPage() {
         toolingCost: estimate.toolingCost,
         engineeringHours: estimate.engineeringHours,
         engineeringRatePerHour: estimate.engineeringRatePerHour ?? DEFAULT_ENGINEERING_RATE_PER_HOUR,
+        scrapRate: estimate.scrapRate,
         overheadRate: estimate.overheadRate,
         supportTimePct: estimate.supportTimePct,
       })
@@ -355,6 +358,7 @@ export default function ProductDetailPage() {
         toolingCost: blankableNumberToNumber(costForm.toolingCost),
         engineeringHours: blankableNumberToNumber(costForm.engineeringHours),
         engineeringRatePerHour: blankableNumberToNumber(costForm.engineeringRatePerHour),
+        scrapRate: blankableNumberToNumber(costForm.scrapRate),
         overheadRate: blankableNumberToNumber(costForm.overheadRate),
         supportTimePct: blankableNumberToNumber(costForm.supportTimePct),
       }
@@ -1178,6 +1182,7 @@ export default function ProductDetailPage() {
                     <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                       <Metric label="Tooling" value={formatCurrency(estimate.toolingCost)} />
                       <Metric label="Eng launch" value={formatCurrency(calculateEngineeringLaunchCost(estimate))} />
+                      <Metric label="Scrap" value={`${(estimate.scrapRate * 100).toFixed(1)}%`} />
                       <Metric label="Overhead / Hr" value={formatCurrency(estimate.overheadRate)} />
                       <Metric label="Support %" value={`${(estimate.supportTimePct * 100).toFixed(0)}%`} />
                     </div>
@@ -1223,6 +1228,16 @@ export default function ProductDetailPage() {
                       min={0}
                       step={0.01}
                       onChange={(value) => setCostForm((current) => ({ ...current, engineeringRatePerHour: value }))}
+                    />
+                    <FieldNumber
+                      id="cost-scrap-rate"
+                      label="Scrap rate (%)"
+                      hint="Cost of poor quality. Example: 1 scrapped out of 20 started = 5%."
+                      value={costForm.scrapRate === '' ? '' : costForm.scrapRate * 100}
+                      min={0}
+                      max={99}
+                      step={0.1}
+                      onChange={(value) => setCostForm((current) => ({ ...current, scrapRate: value === '' ? '' : value / 100 }))}
                     />
                     <FieldNumber
                       id="cost-overhead-rate"
@@ -1696,6 +1711,7 @@ function FieldNumber({
   hint,
   value,
   min,
+  max,
   step,
   onChange,
 }: {
@@ -1704,6 +1720,7 @@ function FieldNumber({
   hint?: string
   value: BlankableNumber
   min?: number
+  max?: number
   step?: number
   onChange: (value: BlankableNumber) => void
 }) {
@@ -1717,6 +1734,7 @@ function FieldNumber({
         id={id}
         className="input-field"
         min={min}
+        max={max}
         step={step}
         value={value}
         onChange={onChange}
@@ -1833,15 +1851,17 @@ function SuggestedMSRP({ costEstimates }: { costEstimates: CostEstimateRecord[] 
     .reduce((sum, part) => sum + part.unitCost * part.quantity, 0)
   const laborCost = calculateLaborCost(latest.laborEntries)
   const totalLaborHours = calculateLaborHours(latest.laborEntries)
-  const supportCost = totalLaborHours * latest.supportTimePct * latest.overheadRate
-  const overheadCost = totalLaborHours * latest.overheadRate
-  const msrp = (bomCost + laborCost + supportCost + overheadCost) / 0.45
+  const yieldMultiplier = 1 / (1 - Math.min(Math.max(latest.scrapRate, 0), 0.99))
+  const laborCostWithScrap = laborCost * yieldMultiplier
+  const overheadCost = totalLaborHours * latest.overheadRate * yieldMultiplier
+  const supportCost = latest.supportTimePct * (laborCostWithScrap + overheadCost)
+  const msrp = (bomCost * yieldMultiplier + laborCostWithScrap + supportCost + overheadCost) / 0.45
 
   return (
     <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
       <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Suggested MSRP</div>
       <div className="mt-2 text-3xl font-semibold text-primary-700">{formatCurrency(msrp)}</div>
-      <p className="mt-1 text-sm text-slate-500">Calculated from cash-affecting BOM, labor, support, and overhead at a 55% gross margin target.</p>
+      <p className="mt-1 text-sm text-slate-500">Calculated from cash-affecting BOM, labor, support, and overhead at a 55% gross margin target, including scrap/yield loss.</p>
     </div>
   )
 }

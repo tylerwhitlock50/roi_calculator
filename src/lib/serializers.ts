@@ -143,6 +143,7 @@ export function serializeCostEstimate(
     toolingCost: estimate.toolingCost,
     engineeringHours: estimate.engineeringHours,
     engineeringRatePerHour: estimate.engineeringRatePerHour,
+    scrapRate: estimate.scrapRate,
     overheadRate: estimate.overheadRate,
     supportTimePct: estimate.supportTimePct,
     createdAt: estimate.createdAt.toISOString(),

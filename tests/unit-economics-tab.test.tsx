@@ -43,6 +43,7 @@ function buildEstimate(): CostEstimateRecord[] {
       toolingCost: 0,
       engineeringHours: 0,
       engineeringRatePerHour: 125,
+      scrapRate: 0,
       overheadRate: 0,
       supportTimePct: 0,
       createdAt: '2026-03-16T00:00:00.000Z',

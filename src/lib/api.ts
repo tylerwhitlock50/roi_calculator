@@ -54,6 +54,7 @@ export type CostEstimateRecord = {
   toolingCost: number
   engineeringHours: number
   engineeringRatePerHour: number
+  scrapRate: number
   overheadRate: number
   supportTimePct: number
   createdAt: string
