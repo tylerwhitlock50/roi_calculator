@@ -6,6 +6,7 @@
     "postinstall": "prisma generate --schema prisma/schema.prisma",
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "npm run prisma:generate && npm run db:push && npm run db:seed && next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "rm -f tsconfig.tsbuildinfo && tsc --noEmit",

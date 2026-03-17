@@ -55,6 +55,19 @@ Default seeded credentials:
 - `admin@local.test` / `admin123`
 - `member@local.test` / `member123`
 
+## Vercel Testing Build (SQLite)
+
+If you want Vercel deployments to run Prisma setup against your local/testing SQLite DB, use the included build script:
+
+- `vercel-build` runs Prisma generate, pushes schema, seeds data, then builds Next.js.
+- `vercel.json` is configured to run this command during builds.
+
+```bash
+npm run vercel-build
+```
+
+> This is suitable for test/demo deployments only. For production, use a managed database instead of SQLite on Vercel.
+
 ## Useful Commands
 
 - `npm run dev`
