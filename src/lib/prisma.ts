@@ -4,6 +4,10 @@ declare global {
   var __prisma__: PrismaClient | undefined
 }
 
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = 'file:../data/roi-tool.db'
+}
+
 export const prisma =
   global.__prisma__ ??
   new PrismaClient({
