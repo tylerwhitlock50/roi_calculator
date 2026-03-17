@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 
 import BlankNumberInput, { blankableNumberToNumber, type BlankableNumber } from '@/components/BlankNumberInput'
 import ProductIdeaForm from '@/components/ProductIdeaForm'
+import StressTestTab from '@/components/StressTestTab'
 import UnitEconomicsTab from '@/components/UnitEconomicsTab'
 import {
   apiFetch,
@@ -31,6 +32,7 @@ const TABS = [
   { key: 'forecast', label: 'Forecast' },
   { key: 'cost', label: 'Cost' },
   { key: 'unit-economics', label: 'Unit Economics' },
+  { key: 'stress-test', label: 'Stress Test' },
   { key: 'finalize', label: 'Finalize ROI' },
 ] as const
 
@@ -1505,6 +1507,13 @@ export default function ProductDetailPage() {
         {activeTab === 'unit-economics' && (
           <section className="card space-y-6">
             <UnitEconomicsTab forecasts={forecasts} costEstimates={costEstimates} />
+          </section>
+        )}
+
+
+        {activeTab === 'stress-test' && (
+          <section className="card space-y-6">
+            <StressTestTab forecasts={forecasts} costEstimates={costEstimates} />
           </section>
         )}
 
