@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { startTransition, useEffect, useMemo, useState } from 'react'
 import { addMonths, format, parse } from 'date-fns'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 
@@ -169,6 +169,30 @@ function createInitialLevelLoadedForm(): LevelLoadedFormState {
 
 function isTabKey(value: string | null): value is WorkspaceTabKey {
   return TABS.some((tab) => tab.key === value)
+}
+
+function getRequestedTab(searchParams: { get: (name: string) => string | null }): WorkspaceTabKey {
+  const requestedTab = searchParams.get('tab')
+  return isTabKey(requestedTab) ? requestedTab : 'overview'
+}
+
+function replaceTabInBrowserUrl(tab: WorkspaceTabKey) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const nextParams = new URLSearchParams(window.location.search)
+
+  if (nextParams.get('tab') === tab) {
+    return
+  }
+
+  nextParams.set('tab', tab)
+
+  const nextSearch = nextParams.toString()
+  const nextUrl = nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname
+
+  window.history.replaceState(window.history.state, '', nextUrl)
 }
 
 type ForecastDraftSummary = {
@@ -363,7 +387,7 @@ export default function ProductDetailPage() {
   const searchParams = useSearchParams()
   const id = params?.id
 
-  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]['key']>('overview')
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]['key']>(() => getRequestedTab(searchParams))
   const [product, setProduct] = useState<IdeaDetailRecord | null>(null)
   const [activityRates, setActivityRates] = useState<ActivityRateRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -412,10 +436,12 @@ export default function ProductDetailPage() {
   }, [id])
 
   useEffect(() => {
-    const requestedTab = searchParams.get('tab')
+    const requestedTab = getRequestedTab(searchParams)
 
-    if (isTabKey(requestedTab) && requestedTab !== activeTab) {
-      setActiveTab(requestedTab)
+    if (requestedTab !== activeTab) {
+      startTransition(() => {
+        setActiveTab(requestedTab)
+      })
     }
   }, [activeTab, searchParams])
 
@@ -471,15 +497,15 @@ export default function ProductDetailPage() {
   )
 
   const activateTab = (tab: WorkspaceTabKey) => {
-    setActiveTab(tab)
-
-    if (!id) {
+    if (tab === activeTab) {
       return
     }
 
-    const nextParams = new URLSearchParams(searchParams.toString())
-    nextParams.set('tab', tab)
-    router.replace(`/products/${id}?${nextParams.toString()}`, { scroll: false })
+    startTransition(() => {
+      setActiveTab(tab)
+    })
+
+    replaceTabInBrowserUrl(tab)
   }
 
   const closeForecastModal = () => {
