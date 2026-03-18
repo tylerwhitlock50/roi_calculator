@@ -400,6 +400,8 @@ export default function ProductDetailPage() {
   const [saveVentureError, setSaveVentureError] = useState<string | null>(null)
   const [savingROI, setSavingROI] = useState(false)
   const [saveROIError, setSaveROIError] = useState<string | null>(null)
+  const [showProjectSummary, setShowProjectSummary] = useState(false)
+  const [showDecisionReadiness, setShowDecisionReadiness] = useState(false)
 
   useEffect(() => {
     if (!id) {
@@ -962,175 +964,227 @@ export default function ProductDetailPage() {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-8 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
+      <section className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white">
                 {product.category}
               </div>
+              <span className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800">
+                {workspaceReadiness.projectStateLabel}
+              </span>
               {product.isHidden && (
                 <div className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-800">
-                  Hidden from dashboard
+                  Hidden
                 </div>
               )}
             </div>
-            <div>
-              <h1 className="text-3xl font-semibold text-slate-950 sm:text-4xl">{product.title}</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{product.description}</p>
-            </div>
-            <div className="flex flex-wrap gap-4 text-sm text-slate-500">
-              <span>Owner: {product.owner.fullName}</span>
-              <span>Created: {new Date(product.createdAt).toLocaleDateString()}</span>
-              <span>Status: {product.status.replace('_', ' ')}</span>
-            </div>
-          </div>
-
-          <div className="w-full max-w-sm rounded-[24px] border border-slate-200 bg-white/90 p-5 shadow-sm">
-            <label className="form-label">Project status</label>
-            <select
-              className="input-field"
-              value={product.status}
-              disabled={statusSaving}
-              onChange={(event) => void updateStatus(event.target.value)}
-            >
-              {IDEA_STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            {statusSaving && <div className="mt-2 text-xs text-slate-500">Saving status…</div>}
-            {statusError && <div className="mt-2 text-xs text-danger-600">{statusError}</div>}
-            <div className="mt-4 border-t border-slate-200 pt-4">
-              <div className="text-sm font-medium text-slate-900">
-                {product.isHidden ? 'This project is hidden from the default dashboard view.' : 'This project appears in the default dashboard view.'}
+            <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-semibold text-slate-950 sm:text-3xl">{product.title}</h1>
+                <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-500">
+                  <span>Owner: {product.owner.fullName}</span>
+                  <span>Created: {new Date(product.createdAt).toLocaleDateString()}</span>
+                  <span>Status: {product.status.replace('_', ' ')}</span>
+                </div>
               </div>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                Hidden projects are still saved and can be reopened with the dashboard visibility filter.
-              </p>
               <button
-                className="btn-secondary mt-3 w-full"
-                onClick={() => void toggleVisibility()}
-                disabled={visibilitySaving}
+                type="button"
+                className="btn-secondary shrink-0"
+                onClick={() => setShowProjectSummary((value) => !value)}
+                aria-expanded={showProjectSummary}
               >
-                {visibilitySaving ? 'Saving...' : product.isHidden ? 'Unhide project' : 'Hide project'}
+                {showProjectSummary ? 'Hide project details' : 'Show project details'}
               </button>
-              {visibilityError && <div className="mt-2 text-xs text-danger-600">{visibilityError}</div>}
             </div>
           </div>
         </div>
+
+        {showProjectSummary && (
+          <div className="mt-5 grid gap-5 border-t border-slate-200 pt-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div>
+              <p className="max-w-3xl text-sm leading-7 text-slate-600">{product.description}</p>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-white/90 p-5 shadow-sm">
+              <label className="form-label">Project status</label>
+              <select
+                className="input-field"
+                value={product.status}
+                disabled={statusSaving}
+                onChange={(event) => void updateStatus(event.target.value)}
+              >
+                {IDEA_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {statusSaving && <div className="mt-2 text-xs text-slate-500">Saving status…</div>}
+              {statusError && <div className="mt-2 text-xs text-danger-600">{statusError}</div>}
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <div className="text-sm font-medium text-slate-900">
+                  {product.isHidden ? 'This project is hidden from the default dashboard view.' : 'This project appears in the default dashboard view.'}
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Hidden projects are still saved and can be reopened with the dashboard visibility filter.
+                </p>
+                <button
+                  className="btn-secondary mt-3 w-full"
+                  onClick={() => void toggleVisibility()}
+                  disabled={visibilitySaving}
+                >
+                  {visibilitySaving ? 'Saving...' : product.isHidden ? 'Unhide project' : 'Hide project'}
+                </button>
+                {visibilityError && <div className="mt-2 text-xs text-danger-600">{visibilityError}</div>}
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
-      <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-700">Decision readiness</div>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950">What is ready, what needs review, and where to go next.</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                The current model uses all saved forecasts plus the latest saved cost estimate. Review the workflow states below before treating this as a clean decision.
-              </p>
+      <section className="mt-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-700">Decision readiness</div>
+            <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
+              <div className="text-xl font-semibold text-slate-950">{workspaceReadiness.projectStateLabel}</div>
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  {forecasts.length} forecast{forecasts.length === 1 ? '' : 's'}
+                </span>
+                <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  {costEstimates.length} cost estimate{costEstimates.length === 1 ? '' : 's'}
+                </span>
+                <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  ROI {roiSummary ? (workspaceReadiness.roiSummaryStale ? 'stale' : 'saved') : 'pending'}
+                </span>
+                <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  Venture {ventureSummary ? (workspaceReadiness.ventureSummaryStale ? 'stale' : 'saved') : 'pending'}
+                </span>
+              </div>
             </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
             <button className="btn-primary shrink-0" onClick={() => activateTab(workspaceReadiness.nextActionTab)}>
               {workspaceReadiness.nextActionLabel}
             </button>
+            <button
+              type="button"
+              className="btn-secondary shrink-0"
+              onClick={() => setShowDecisionReadiness((value) => !value)}
+              aria-expanded={showDecisionReadiness}
+            >
+              {showDecisionReadiness ? 'Hide readiness details' : 'Show readiness details'}
+            </button>
           </div>
+        </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <ReadinessCard
-              label="Overview"
-              state={workspaceReadiness.tabs.overview}
-              detail="Core brief, positioning, requirements, and competitive context are in place."
-            />
-            <ReadinessCard
-              label="Forecast"
-              state={workspaceReadiness.tabs.forecast}
-              detail={
-                forecasts.length
-                  ? workspaceReadiness.hasUnconfirmedPricing
-                    ? 'Forecasts exist, but at least one price basis still needs review.'
-                    : `${forecasts.length} saved forecast${forecasts.length === 1 ? '' : 's'} are feeding the model.`
-                  : 'No forecast assumptions are saved yet.'
-              }
-            />
-            <ReadinessCard
-              label="Cost"
-              state={workspaceReadiness.tabs.cost}
-              detail={
-                costEstimates.length
-                  ? workspaceReadiness.costReviewItems.length
-                    ? `${workspaceReadiness.costReviewItems.length} cost review item${workspaceReadiness.costReviewItems.length === 1 ? '' : 's'} still need attention.`
-                    : 'The latest saved cost estimate is ready to drive calculations.'
-                  : 'No cost estimate is saved yet.'
-              }
-            />
-            <ReadinessCard
-              label="Venture Lens"
-              state={workspaceReadiness.tabs['venture-lens']}
-              detail={
-                ventureSummary
-                  ? workspaceReadiness.ventureSummaryStale
-                    ? 'The saved venture score no longer matches the current model.'
-                    : 'The saved venture score matches the current model.'
-                  : 'No venture score has been saved yet.'
-              }
-            />
-            <ReadinessCard
-              label="Finalize ROI"
-              state={workspaceReadiness.tabs.finalize}
-              detail={
-                roiSummary
-                  ? workspaceReadiness.roiSummaryStale
-                    ? 'The saved ROI summary is stale against the current assumptions.'
-                    : 'The saved ROI summary matches the current assumptions.'
-                  : 'No ROI summary has been saved yet.'
-              }
-            />
-          </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {workspaceReadiness.badges.map((badge) => (
+            <span key={badge} className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800">
+              {badge}
+            </span>
+          ))}
+        </div>
 
-          {(workspaceReadiness.costReviewItems.length > 0 || workspaceReadiness.hasUnconfirmedPricing) && (
-            <div className="mt-6 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">Blocking reviews</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {workspaceReadiness.hasUnconfirmedPricing && (
-                  <span className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-800">
-                    Confirm forecast net pricing
-                  </span>
-                )}
-                {workspaceReadiness.costReviewItems.map((item) => (
-                  <span key={item} className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-800">
-                    {item}
-                  </span>
-                ))}
+        {showDecisionReadiness && (
+          <div className="mt-5 grid gap-6 border-t border-slate-200 pt-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+            <div>
+              <p className="text-sm leading-6 text-slate-500">
+                The current model uses all saved forecasts plus the latest saved cost estimate. Review the workflow states below before treating this as a clean decision.
+              </p>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <ReadinessCard
+                  label="Overview"
+                  state={workspaceReadiness.tabs.overview}
+                  detail="Core brief, positioning, requirements, and competitive context are in place."
+                />
+                <ReadinessCard
+                  label="Forecast"
+                  state={workspaceReadiness.tabs.forecast}
+                  detail={
+                    forecasts.length
+                      ? workspaceReadiness.hasUnconfirmedPricing
+                        ? 'Forecasts exist, but at least one price basis still needs review.'
+                        : `${forecasts.length} saved forecast${forecasts.length === 1 ? '' : 's'} are feeding the model.`
+                      : 'No forecast assumptions are saved yet.'
+                  }
+                />
+                <ReadinessCard
+                  label="Cost"
+                  state={workspaceReadiness.tabs.cost}
+                  detail={
+                    costEstimates.length
+                      ? workspaceReadiness.costReviewItems.length
+                        ? `${workspaceReadiness.costReviewItems.length} cost review item${workspaceReadiness.costReviewItems.length === 1 ? '' : 's'} still need attention.`
+                        : 'The latest saved cost estimate is ready to drive calculations.'
+                      : 'No cost estimate is saved yet.'
+                  }
+                />
+                <ReadinessCard
+                  label="Venture Lens"
+                  state={workspaceReadiness.tabs['venture-lens']}
+                  detail={
+                    ventureSummary
+                      ? workspaceReadiness.ventureSummaryStale
+                        ? 'The saved venture score no longer matches the current model.'
+                        : 'The saved venture score matches the current model.'
+                      : 'No venture score has been saved yet.'
+                  }
+                />
+                <ReadinessCard
+                  label="Finalize ROI"
+                  state={workspaceReadiness.tabs.finalize}
+                  detail={
+                    roiSummary
+                      ? workspaceReadiness.roiSummaryStale
+                        ? 'The saved ROI summary is stale against the current assumptions.'
+                        : 'The saved ROI summary matches the current assumptions.'
+                      : 'No ROI summary has been saved yet.'
+                  }
+                />
+              </div>
+
+              {(workspaceReadiness.costReviewItems.length > 0 || workspaceReadiness.hasUnconfirmedPricing) && (
+                <div className="mt-6 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">Blocking reviews</div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {workspaceReadiness.hasUnconfirmedPricing && (
+                      <span className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-800">
+                        Confirm forecast net pricing
+                      </span>
+                    )}
+                    {workspaceReadiness.costReviewItems.map((item) => (
+                      <span key={item} className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-800">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-slate-950 p-5 text-white">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Current state</div>
+              <div className="mt-3 text-2xl font-semibold">{workspaceReadiness.projectStateLabel}</div>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                Use the workflow below to move from assumption entry to a saved, reviewable decision.
+              </p>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <Metric label="Forecasts" value={String(forecasts.length)} />
+                <Metric label="Cost estimates" value={String(costEstimates.length)} />
+                <Metric label="ROI summary" value={roiSummary ? 'Saved' : 'Pending'} />
+                <Metric label="Venture score" value={ventureSummary ? 'Saved' : 'Pending'} />
               </div>
             </div>
-          )}
-        </div>
-
-        <div className="rounded-[28px] border border-slate-200 bg-slate-950 p-6 text-white shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Current state</div>
-          <div className="mt-3 text-3xl font-semibold">{workspaceReadiness.projectStateLabel}</div>
-          <p className="mt-3 text-sm leading-6 text-slate-300">
-            Use the workflow below to move from assumption entry to a saved, reviewable decision.
-          </p>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <Metric label="Forecasts" value={String(forecasts.length)} />
-            <Metric label="Cost estimates" value={String(costEstimates.length)} />
-            <Metric label="ROI summary" value={roiSummary ? 'Saved' : 'Pending'} />
-            <Metric label="Venture score" value={ventureSummary ? 'Saved' : 'Pending'} />
           </div>
-          <div className="mt-6 flex flex-wrap gap-2">
-            {workspaceReadiness.badges.map((badge) => (
-              <span key={badge} className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-cyan-100">
-                {badge}
-              </span>
-            ))}
-          </div>
-        </div>
+        )}
       </section>
 
-      <div className="mt-8 overflow-x-auto pb-2">
+      <div className="mt-6 overflow-x-auto pb-2">
         <div className="flex min-w-max gap-3">
           {TABS.map((tab, index) => (
             <button
