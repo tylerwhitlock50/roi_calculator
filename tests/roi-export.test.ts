@@ -4,6 +4,7 @@ import type { CostEstimateRecord, ForecastRecord, IdeaDetailRecord } from '@/lib
 import { buildRoiExportFilename, buildRoiExportHtml } from '@/lib/roi-export'
 import { calculateRoiMetrics } from '@/lib/roi-calculations'
 import { buildVentureSummary } from '@/lib/venture-summary'
+import { buildWorkspaceReadiness } from '@/lib/workspace-readiness'
 
 function buildProject(): IdeaDetailRecord {
   const ventureSummary = buildVentureSummary(
@@ -22,6 +23,8 @@ function buildProject(): IdeaDetailRecord {
     buildForecasts(),
     buildEstimates()
   )
+  const forecasts = buildForecasts()
+  const costEstimates = buildEstimates()
 
   return {
     id: 'idea-1',
@@ -35,6 +38,8 @@ function buildProject(): IdeaDetailRecord {
     competitorOverview: 'Most competitors are heavier and more expensive.',
     createdAt: '2026-03-16T00:00:00.000Z',
     createdById: 'user-1',
+    forecastCount: forecasts.length,
+    costEstimateCount: costEstimates.length,
     owner: {
       id: 'user-1',
       fullName: 'Tyler Whitlock',
@@ -46,8 +51,18 @@ function buildProject(): IdeaDetailRecord {
       ...ventureSummary,
       createdAt: '2026-03-16T00:00:00.000Z',
     },
-    forecasts: buildForecasts(),
-    costEstimates: buildEstimates(),
+    workspaceReadiness: buildWorkspaceReadiness({
+      forecasts,
+      costEstimates,
+      roiSummary: null,
+      ventureSummary: {
+        id: 'venture-1',
+        ...ventureSummary,
+        createdAt: '2026-03-16T00:00:00.000Z',
+      },
+    }),
+    forecasts,
+    costEstimates,
   }
 }
 

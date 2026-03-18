@@ -2,13 +2,14 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { addMonths, format, parse } from 'date-fns'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 
 import BlankNumberInput, {
   blankableNumberToNullableNumber,
   blankableNumberToNumber,
   type BlankableNumber,
 } from '@/components/BlankNumberInput'
+import CalculationBasisBanner from '@/components/CalculationBasisBanner'
 import ProductIdeaForm from '@/components/ProductIdeaForm'
 import StressTestTab from '@/components/StressTestTab'
 import UnitEconomicsTab from '@/components/UnitEconomicsTab'
@@ -22,6 +23,8 @@ import {
   type MonthlyForecast,
   type RoiSummaryRecord,
   type VentureSummaryRecord,
+  type WorkspaceReadinessRecord,
+  type WorkspaceTabKey,
 } from '@/lib/api'
 import { IDEA_STATUS_OPTIONS } from '@/lib/constants'
 import {
@@ -48,6 +51,11 @@ import {
   type VentureComputedSummary,
   type VentureManualInputs,
 } from '@/lib/venture-summary'
+import {
+  buildWorkspaceReadiness,
+  getReadinessLabel,
+  getReadinessTone,
+} from '@/lib/workspace-readiness'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -159,9 +167,200 @@ function createInitialLevelLoadedForm(): LevelLoadedFormState {
   }
 }
 
+function isTabKey(value: string | null): value is WorkspaceTabKey {
+  return TABS.some((tab) => tab.key === value)
+}
+
+type ForecastDraftSummary = {
+  totalUnits: number
+  totalSales: number
+  averagePrice: number
+  marketingTotal: number
+  cacTotal: number
+  monthsCovered: number
+  duplicateMonths: string[]
+  rowWarnings: Record<number, string[]>
+}
+
+function summarizeForecastDraft(form: ForecastFormState): ForecastDraftSummary {
+  const monthCounts = form.monthlyVolumeEstimate.reduce<Record<string, number>>((counts, row) => {
+    if (!row.month_date) {
+      return counts
+    }
+
+    counts[row.month_date] = (counts[row.month_date] ?? 0) + 1
+    return counts
+  }, {})
+
+  const duplicateMonths = Object.entries(monthCounts)
+    .filter(([, count]) => count > 1)
+    .map(([month]) => month)
+
+  let totalUnits = 0
+  let totalSales = 0
+  let marketingTotal = 0
+  let cacTotal = 0
+  let monthsCovered = 0
+  const rowWarnings: Record<number, string[]> = {}
+
+  form.monthlyVolumeEstimate.forEach((row, index) => {
+    const warnings: string[] = []
+    const units = blankableNumberToNumber(row.units)
+    const price = blankableNumberToNumber(row.price)
+
+    if (!row.month_date) {
+      warnings.push('Add a month.')
+    }
+
+    if (units <= 0) {
+      warnings.push('Use units greater than 0.')
+    }
+
+    if (price <= 0) {
+      warnings.push('Use a net price greater than 0.')
+    }
+
+    if (row.month_date && duplicateMonths.includes(row.month_date)) {
+      warnings.push('This month is duplicated in another row.')
+    }
+
+    if (warnings.length) {
+      rowWarnings[index] = warnings
+    }
+
+    if (row.month_date && units > 0 && price > 0) {
+      monthsCovered += 1
+      totalUnits += units
+      totalSales += units * price
+      marketingTotal += blankableNumberToNumber(form.monthlyMarketingSpend) + blankableNumberToNumber(form.marketingCostPerUnit) * units
+      cacTotal += blankableNumberToNumber(form.customerAcquisitionCostPerUnit) * units
+    }
+  })
+
+  return {
+    totalUnits,
+    totalSales,
+    averagePrice: totalUnits > 0 ? totalSales / totalUnits : 0,
+    marketingTotal,
+    cacTotal,
+    monthsCovered,
+    duplicateMonths,
+    rowWarnings,
+  }
+}
+
+type LevelLoadedPreview = {
+  months: number
+  totalUnits: number
+  totalSales: number
+  averagePrice: number
+}
+
+function buildLevelLoadedPreview(form: LevelLoadedFormState): LevelLoadedPreview | null {
+  const months = blankableNumberToNumber(form.numberOfMonths)
+  const unitsPerMonth = blankableNumberToNumber(form.unitsPerMonth)
+  const pricePerUnit = blankableNumberToNumber(form.pricePerUnit)
+
+  if (!form.startMonth || months <= 0 || unitsPerMonth <= 0 || pricePerUnit <= 0) {
+    return null
+  }
+
+  return {
+    months,
+    totalUnits: months * unitsPerMonth,
+    totalSales: months * unitsPerMonth * pricePerUnit,
+    averagePrice: pricePerUnit,
+  }
+}
+
+type CostDraftSummary = {
+  cashBomPerUnit: number
+  laborPerUnit: number
+  launchInvestment: number
+  suggestedMsrp: number | null
+  reviewWarnings: string[]
+}
+
+function summarizeCostDraft(
+  costForm: CostFormState,
+  bomParts: BomDraft[],
+  laborEntries: LaborDraft[],
+  activityRates: ActivityRateRecord[]
+): CostDraftSummary {
+  const scrapRate = Math.min(Math.max(blankableNumberToNumber(costForm.scrapRate), 0), 0.99)
+  const yieldMultiplier = 1 / (1 - scrapRate)
+  const cashBomPerUnit =
+    bomParts
+      .filter((part) => part.cashEffect)
+      .reduce(
+        (sum, part) => sum + blankableNumberToNumber(part.unitCost) * blankableNumberToNumber(part.quantity),
+        0
+      ) * yieldMultiplier
+
+  const laborPerUnit = laborEntries.reduce((sum, entry) => {
+    const rate = activityRates.find((activityRate) => activityRate.id === entry.activityId)?.ratePerHour ?? 0
+    const hours =
+      blankableNumberToNumber(entry.hours) +
+      blankableNumberToNumber(entry.minutes) / 60 +
+      blankableNumberToNumber(entry.seconds) / 3600
+
+    return sum + hours * rate
+  }, 0) * yieldMultiplier
+
+  const laborHoursPerUnit = laborEntries.reduce(
+    (sum, entry) =>
+      sum +
+      blankableNumberToNumber(entry.hours) +
+      blankableNumberToNumber(entry.minutes) / 60 +
+      blankableNumberToNumber(entry.seconds) / 3600,
+    0
+  )
+  const overheadCost = laborHoursPerUnit * blankableNumberToNumber(costForm.overheadRate) * yieldMultiplier
+  const supportCost =
+    blankableNumberToNumber(costForm.supportTimePct) * (laborPerUnit + overheadCost)
+  const fulfillmentCost = blankableNumberToNumber(costForm.fulfillmentCostPerUnit)
+  const warrantyReservePct = blankableNumberToNumber(costForm.warrantyReservePct)
+  const baseCost = cashBomPerUnit + laborPerUnit + overheadCost + supportCost + fulfillmentCost
+  const suggestedMsrp =
+    baseCost > 0 ? baseCost / Math.max(0.01, 0.45 - warrantyReservePct) : null
+  const launchInvestment =
+    blankableNumberToNumber(costForm.toolingCost) +
+    blankableNumberToNumber(costForm.engineeringHours) *
+      blankableNumberToNumber(costForm.engineeringRatePerHour) +
+    blankableNumberToNumber(costForm.launchCashRequirement) +
+    blankableNumberToNumber(costForm.complianceCost)
+
+  const reviewWarnings: string[] = []
+
+  if (costForm.launchCashRequirement === '') {
+    reviewWarnings.push('Launch cash is still blank.')
+  }
+
+  if (costForm.complianceCost === '') {
+    reviewWarnings.push('Compliance cost is still blank.')
+  }
+
+  if (costForm.fulfillmentCostPerUnit === '') {
+    reviewWarnings.push('Fulfillment cost per unit is still blank.')
+  }
+
+  if (costForm.warrantyReservePct === '') {
+    reviewWarnings.push('Warranty reserve is still blank.')
+  }
+
+  return {
+    cashBomPerUnit,
+    laborPerUnit,
+    launchInvestment,
+    suggestedMsrp,
+    reviewWarnings,
+  }
+}
+
 export default function ProductDetailPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
   const id = params?.id
 
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]['key']>('overview')
@@ -210,6 +409,14 @@ export default function ProductDetailPage() {
     void loadPage(id)
   }, [id])
 
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab')
+
+    if (isTabKey(requestedTab) && requestedTab !== activeTab) {
+      setActiveTab(requestedTab)
+    }
+  }, [activeTab, searchParams])
+
   const loadPage = async (ideaId: string) => {
     try {
       setLoading(true)
@@ -229,8 +436,8 @@ export default function ProductDetailPage() {
     }
   }
 
-  const forecasts = product?.forecasts ?? []
-  const costEstimates = product?.costEstimates ?? []
+  const forecasts = useMemo(() => product?.forecasts ?? [], [product?.forecasts])
+  const costEstimates = useMemo(() => product?.costEstimates ?? [], [product?.costEstimates])
   const roiSummary = product?.roiSummary ?? null
   const ventureSummary = product?.ventureSummary ?? null
   const currentVentureSummary = useMemo(
@@ -244,6 +451,34 @@ export default function ProductDetailPage() {
         : false,
     [costEstimates, forecasts, ventureSummary]
   )
+  const workspaceReadiness = useMemo(
+    () =>
+      buildWorkspaceReadiness({
+        forecasts,
+        costEstimates,
+        roiSummary,
+        ventureSummary,
+      }),
+    [costEstimates, forecasts, roiSummary, ventureSummary]
+  )
+  const forecastDraftSummary = useMemo(() => summarizeForecastDraft(forecastForm), [forecastForm])
+  const levelLoadedPreview = useMemo(() => buildLevelLoadedPreview(levelLoadedForm), [levelLoadedForm])
+  const costDraftSummary = useMemo(
+    () => summarizeCostDraft(costForm, bomParts, laborEntries, activityRates),
+    [activityRates, bomParts, costForm, laborEntries]
+  )
+
+  const activateTab = (tab: WorkspaceTabKey) => {
+    setActiveTab(tab)
+
+    if (!id) {
+      return
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString())
+    nextParams.set('tab', tab)
+    router.replace(`/products/${id}?${nextParams.toString()}`, { scroll: false })
+  }
 
   const closeForecastModal = () => {
     setShowForecastModal(false)
@@ -787,20 +1022,137 @@ export default function ProductDetailPage() {
         </div>
       </section>
 
-      <div className="mt-8 flex flex-wrap gap-2 border-b border-slate-200">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            className={`rounded-t-2xl px-5 py-3 text-sm font-medium transition ${
-              activeTab === tab.key
-                ? 'border border-b-white border-slate-200 bg-white text-primary-700'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-700">Decision readiness</div>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-950">What is ready, what needs review, and where to go next.</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                The current model uses all saved forecasts plus the latest saved cost estimate. Review the workflow states below before treating this as a clean decision.
+              </p>
+            </div>
+            <button className="btn-primary shrink-0" onClick={() => activateTab(workspaceReadiness.nextActionTab)}>
+              {workspaceReadiness.nextActionLabel}
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <ReadinessCard
+              label="Overview"
+              state={workspaceReadiness.tabs.overview}
+              detail="Core brief, positioning, requirements, and competitive context are in place."
+            />
+            <ReadinessCard
+              label="Forecast"
+              state={workspaceReadiness.tabs.forecast}
+              detail={
+                forecasts.length
+                  ? workspaceReadiness.hasUnconfirmedPricing
+                    ? 'Forecasts exist, but at least one price basis still needs review.'
+                    : `${forecasts.length} saved forecast${forecasts.length === 1 ? '' : 's'} are feeding the model.`
+                  : 'No forecast assumptions are saved yet.'
+              }
+            />
+            <ReadinessCard
+              label="Cost"
+              state={workspaceReadiness.tabs.cost}
+              detail={
+                costEstimates.length
+                  ? workspaceReadiness.costReviewItems.length
+                    ? `${workspaceReadiness.costReviewItems.length} cost review item${workspaceReadiness.costReviewItems.length === 1 ? '' : 's'} still need attention.`
+                    : 'The latest saved cost estimate is ready to drive calculations.'
+                  : 'No cost estimate is saved yet.'
+              }
+            />
+            <ReadinessCard
+              label="Venture Lens"
+              state={workspaceReadiness.tabs['venture-lens']}
+              detail={
+                ventureSummary
+                  ? workspaceReadiness.ventureSummaryStale
+                    ? 'The saved venture score no longer matches the current model.'
+                    : 'The saved venture score matches the current model.'
+                  : 'No venture score has been saved yet.'
+              }
+            />
+            <ReadinessCard
+              label="Finalize ROI"
+              state={workspaceReadiness.tabs.finalize}
+              detail={
+                roiSummary
+                  ? workspaceReadiness.roiSummaryStale
+                    ? 'The saved ROI summary is stale against the current assumptions.'
+                    : 'The saved ROI summary matches the current assumptions.'
+                  : 'No ROI summary has been saved yet.'
+              }
+            />
+          </div>
+
+          {(workspaceReadiness.costReviewItems.length > 0 || workspaceReadiness.hasUnconfirmedPricing) && (
+            <div className="mt-6 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">Blocking reviews</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {workspaceReadiness.hasUnconfirmedPricing && (
+                  <span className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-800">
+                    Confirm forecast net pricing
+                  </span>
+                )}
+                {workspaceReadiness.costReviewItems.map((item) => (
+                  <span key={item} className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-800">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-[28px] border border-slate-200 bg-slate-950 p-6 text-white shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Current state</div>
+          <div className="mt-3 text-3xl font-semibold">{workspaceReadiness.projectStateLabel}</div>
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            Use the workflow below to move from assumption entry to a saved, reviewable decision.
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <Metric label="Forecasts" value={String(forecasts.length)} />
+            <Metric label="Cost estimates" value={String(costEstimates.length)} />
+            <Metric label="ROI summary" value={roiSummary ? 'Saved' : 'Pending'} />
+            <Metric label="Venture score" value={ventureSummary ? 'Saved' : 'Pending'} />
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {workspaceReadiness.badges.map((badge) => (
+              <span key={badge} className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                {badge}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="mt-8 overflow-x-auto pb-2">
+        <div className="flex min-w-max gap-3">
+          {TABS.map((tab, index) => (
+            <button
+              key={tab.key}
+              className={`min-w-[170px] rounded-[24px] border px-4 py-4 text-left transition ${
+                activeTab === tab.key
+                  ? 'border-primary-300 bg-primary-50 shadow-sm'
+                  : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+              }`}
+              onClick={() => activateTab(tab.key)}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-xs font-semibold text-white">
+                  {index + 1}
+                </span>
+                <ReadinessPill state={workspaceReadiness.tabs[tab.key]} />
+              </div>
+              <div className="mt-3 text-sm font-semibold text-slate-950">{tab.label}</div>
+              <div className="mt-1 text-xs text-slate-500">{getReadinessLabel(workspaceReadiness.tabs[tab.key])}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mt-8">
@@ -902,6 +1254,8 @@ export default function ProductDetailPage() {
               </button>
             </div>
 
+            <CalculationBasisBanner body="All saved forecast entries are included in the current model. Channel marketing spend, variable marketing, CAC, and monthly revenue all roll up together." />
+
             <ForecastSummary forecasts={forecasts} />
 
             {forecasts.length === 0 ? (
@@ -977,6 +1331,17 @@ export default function ProductDetailPage() {
                 title={editingForecastId ? 'Edit forecast' : 'Add forecast'}
               >
                 <div className="space-y-4">
+                  <div className="sticky top-0 z-10 -mx-2 rounded-[24px] border border-slate-200 bg-white/95 px-5 py-4 shadow-sm backdrop-blur">
+                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+                      <Metric label="Months" value={String(forecastDraftSummary.monthsCovered)} />
+                      <Metric label="Units" value={forecastDraftSummary.totalUnits.toLocaleString()} />
+                      <Metric label="Sales" value={formatCurrency(forecastDraftSummary.totalSales)} />
+                      <Metric label="Avg price" value={formatCurrency(forecastDraftSummary.averagePrice)} />
+                      <Metric label="Marketing" value={formatCurrency(forecastDraftSummary.marketingTotal)} />
+                      <Metric label="CAC" value={formatCurrency(forecastDraftSummary.cacTotal)} />
+                    </div>
+                  </div>
+
                   <p className="text-sm leading-6 text-slate-500">
                     Name the account or channel, capture any route-to-market costs tied to that revenue stream, and then enter the monthly units and price assumptions.
                   </p>
@@ -1159,6 +1524,17 @@ export default function ProductDetailPage() {
                             />
                           </div>
                         </div>
+                        {levelLoadedPreview && (
+                          <div className="mb-4 rounded-2xl border border-cyan-200 bg-white px-4 py-3 text-sm text-slate-700">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-700">Quick fill preview</div>
+                            <div className="mt-2 flex flex-wrap gap-4">
+                              <span>{levelLoadedPreview.months} months</span>
+                              <span>{levelLoadedPreview.totalUnits.toLocaleString()} units</span>
+                              <span>{formatCurrency(levelLoadedPreview.totalSales)} sales</span>
+                              <span>{formatCurrency(levelLoadedPreview.averagePrice)} avg price</span>
+                            </div>
+                          </div>
+                        )}
                         <button className="btn-primary mt-3" type="button" onClick={generateLevelLoadedForecast}>
                           Generate level-loaded plan
                         </button>
@@ -1187,6 +1563,11 @@ export default function ProductDetailPage() {
                               Remove
                             </button>
                           </div>
+                          {forecastDraftSummary.rowWarnings[index] && (
+                            <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                              {forecastDraftSummary.rowWarnings[index].join(' ')}
+                            </div>
+                          )}
                           <div className="grid gap-3 sm:grid-cols-3">
                             <div className="form-group mb-0">
                               <label className="form-label" htmlFor={`forecast-month-${index}`}>
@@ -1278,7 +1659,12 @@ export default function ProductDetailPage() {
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-2">
+                  <div className="sticky bottom-0 z-10 -mx-2 flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white/95 px-5 py-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-slate-500">
+                      {forecastDraftSummary.duplicateMonths.length > 0
+                        ? `Duplicate months: ${forecastDraftSummary.duplicateMonths.map((month) => formatMonth(month)).join(', ')}`
+                        : 'Review the live rollup before saving this forecast.'}
+                    </div>
                     <button className="btn-secondary" onClick={closeForecastModal} disabled={forecastLoading}>
                       Cancel
                     </button>
@@ -1304,6 +1690,8 @@ export default function ProductDetailPage() {
               </button>
             </div>
 
+            <CalculationBasisBanner body="Only the latest saved cost estimate drives the current calculations. Older estimates remain available as scenario history." />
+
             <SuggestedMSRP costEstimates={costEstimates} />
             <CostSummary costEstimates={costEstimates} />
 
@@ -1314,7 +1702,17 @@ export default function ProductDetailPage() {
               />
             ) : (
               <div className="space-y-4">
-                {costEstimates.map((estimate) => (
+                <div className="rounded-[26px] border border-primary-200 bg-primary-50/60 p-4">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.22em] text-primary-700">Latest estimate used in calculations</div>
+                      <p className="mt-1 text-sm text-slate-600">
+                        This is the active baseline for Unit Economics, Venture Lens, Stress Test, and Finalize ROI.
+                      </p>
+                    </div>
+                    <div className="text-sm font-medium text-slate-700">{new Date(costEstimates[0].createdAt).toLocaleDateString()}</div>
+                  </div>
+                  {[costEstimates[0]].map((estimate) => (
                   <div key={estimate.id} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
@@ -1356,13 +1754,65 @@ export default function ProductDetailPage() {
                       <CostOverviewCard estimate={estimate} />
                     </div>
                   </div>
-                ))}
+                  ))}
+                </div>
+
+                {costEstimates.slice(1).length > 0 && (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">Scenario history</h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        These older estimates stay available for reference, but they do not drive the current model.
+                      </p>
+                    </div>
+                    {costEstimates.slice(1).map((estimate) => (
+                      <div key={estimate.id} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <div className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
+                              {estimate.contributor.fullName}
+                            </div>
+                            <h3 className="mt-2 text-xl font-semibold text-slate-900">
+                              Historical estimate {formatCurrency(totalEstimateCost(estimate))}
+                            </h3>
+                            <p className="mt-1 text-sm text-slate-500">
+                              Created {new Date(estimate.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button className="btn-secondary text-sm" onClick={() => openCostModal(estimate)}>
+                              Edit
+                            </button>
+                            <button className="btn-danger text-sm" onClick={() => void deleteCostEstimate(estimate.id)}>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                          <Metric label="Tooling" value={formatCurrency(estimate.toolingCost)} />
+                          <Metric label="Launch cash" value={estimate.launchCashRequirement === null ? 'Review' : formatCurrency(estimate.launchCashRequirement)} />
+                          <Metric label="Compliance" value={estimate.complianceCost === null ? 'Review' : formatCurrency(estimate.complianceCost)} />
+                          <Metric label="Fulfillment / unit" value={estimate.fulfillmentCostPerUnit === null ? 'Review' : formatCurrency(estimate.fulfillmentCostPerUnit)} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
             {showCostModal && (
               <Modal onClose={closeCostModal} title={editingCostId ? 'Edit cost estimate' : 'Add cost estimate'}>
                 <div className="space-y-6">
+                  <div className="sticky top-0 z-10 -mx-2 rounded-[24px] border border-slate-200 bg-white/95 px-5 py-4 shadow-sm backdrop-blur">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <Metric label="Cash BOM / unit" value={formatUnitCurrency(costDraftSummary.cashBomPerUnit)} />
+                      <Metric label="Labor / unit" value={formatUnitCurrency(costDraftSummary.laborPerUnit)} />
+                      <Metric label="Launch investment" value={formatCurrency(costDraftSummary.launchInvestment)} />
+                      <Metric label="Suggested MSRP" value={costDraftSummary.suggestedMsrp === null ? 'Pending' : formatCurrency(costDraftSummary.suggestedMsrp)} />
+                    </div>
+                  </div>
+
                   <p className="text-sm leading-6 text-slate-500">
                     Enter the product-specific costs and labor assumptions that should feed this ROI model.
                   </p>
@@ -1688,13 +2138,31 @@ export default function ProductDetailPage() {
                     ))}
                   </div>
 
+                  {costDraftSummary.reviewWarnings.length > 0 && (
+                    <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">Still needs review</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {costDraftSummary.reviewWarnings.map((item) => (
+                          <span key={item} className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-800">
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {costError && (
                     <div className="rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
                       {costError}
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-2">
+                  <div className="sticky bottom-0 z-10 -mx-2 flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white/95 px-5 py-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-slate-500">
+                      {costDraftSummary.reviewWarnings.length
+                        ? 'Blank reviewed fields will stay flagged after save.'
+                        : 'The live rollup reflects the current draft before you save it.'}
+                    </div>
                     <button className="btn-secondary" onClick={closeCostModal} disabled={costLoading}>
                       Cancel
                     </button>
@@ -1710,6 +2178,7 @@ export default function ProductDetailPage() {
 
         {activeTab === 'unit-economics' && (
           <section className="card space-y-6">
+            <CalculationBasisBanner body="Unit economics uses all saved forecasts plus the latest saved cost estimate. Older cost estimates stay available as history only." />
             <UnitEconomicsTab forecasts={forecasts} costEstimates={costEstimates} />
           </section>
         )}
@@ -1723,6 +2192,7 @@ export default function ProductDetailPage() {
 
         {activeTab === 'venture-lens' && (
           <section className="card space-y-6">
+            <CalculationBasisBanner body="Venture Lens uses the current forecasts plus the latest saved cost estimate. Save again whenever those inputs change." />
             <VentureLensTab
               forecasts={forecasts}
               costEstimates={costEstimates}
@@ -1742,6 +2212,7 @@ export default function ProductDetailPage() {
                 Review the generated cash flow model, then save the latest ROI summary to the project record.
               </p>
             </div>
+            <CalculationBasisBanner body="Finalize ROI uses all saved forecasts plus the latest saved cost estimate. Save the ROI summary again after any forecast or cost change." />
             <ROICalculator
               project={product}
               forecasts={forecasts}
@@ -1783,6 +2254,54 @@ function OverviewCard({
       </div>
       <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">{body}</p>
     </div>
+  )
+}
+
+function ReadinessCard({
+  label,
+  state,
+  detail,
+}: {
+  label: string
+  state: WorkspaceReadinessRecord['tabs'][WorkspaceTabKey]
+  detail: string
+}) {
+  const tone = getReadinessTone(state)
+  const classes =
+    tone === 'positive'
+      ? 'border-success-200 bg-success-50'
+      : tone === 'caution'
+        ? 'border-amber-200 bg-amber-50'
+        : 'border-slate-200 bg-slate-50'
+
+  return (
+    <div className={`rounded-[24px] border px-4 py-4 ${classes}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-slate-950">{label}</div>
+        <ReadinessPill state={state} />
+      </div>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{detail}</p>
+    </div>
+  )
+}
+
+function ReadinessPill({
+  state,
+}: {
+  state: WorkspaceReadinessRecord['tabs'][WorkspaceTabKey]
+}) {
+  const tone = getReadinessTone(state)
+  const classes =
+    tone === 'positive'
+      ? 'bg-success-50 text-success-700'
+      : tone === 'caution'
+        ? 'bg-amber-100 text-amber-800'
+        : 'bg-slate-100 text-slate-600'
+
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${classes}`}>
+      {getReadinessLabel(state)}
+    </span>
   )
 }
 

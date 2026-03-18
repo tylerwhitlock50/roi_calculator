@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 
 import VenturePortfolioSection from '@/components/VenturePortfolioSection'
 import type { IdeaRecord, VentureSummaryRecord } from '@/lib/api'
+import { buildWorkspaceReadiness } from '@/lib/workspace-readiness'
 
 function buildVentureSummary(
   overrides: Partial<VentureSummaryRecord>
@@ -41,6 +42,23 @@ function buildVentureSummary(
 }
 
 function buildIdea(id: string, title: string, ventureSummary: VentureSummaryRecord): IdeaRecord {
+  const workspaceReadiness = buildWorkspaceReadiness({
+    forecasts: [],
+    costEstimates: [],
+    roiSummary: {
+      id: `roi-${id}`,
+      npv: 45_000,
+      irr: 0.42,
+      breakEvenMonth: 8,
+      paybackPeriod: 0.67,
+      contributionMarginPerUnit: 210,
+      profitPerUnit: 150,
+      assumptions: {},
+      createdAt: '2026-03-17T00:00:00.000Z',
+    },
+    ventureSummary,
+  })
+
   return {
     id,
     title,
@@ -53,6 +71,8 @@ function buildIdea(id: string, title: string, ventureSummary: VentureSummaryReco
     competitorOverview: 'Competition',
     createdAt: '2026-03-17T00:00:00.000Z',
     createdById: 'user-1',
+    forecastCount: 0,
+    costEstimateCount: 0,
     owner: {
       id: 'user-1',
       fullName: 'User One',
@@ -70,6 +90,7 @@ function buildIdea(id: string, title: string, ventureSummary: VentureSummaryReco
       createdAt: '2026-03-17T00:00:00.000Z',
     },
     ventureSummary,
+    workspaceReadiness,
   }
 }
 

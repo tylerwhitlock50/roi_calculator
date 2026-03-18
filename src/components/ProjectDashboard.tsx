@@ -21,6 +21,7 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [visibilityFilter, setVisibilityFilter] = useState<'visible' | 'hidden' | 'all'>('visible')
+  const [readinessFilter, setReadinessFilter] = useState<'all' | 'needs_review' | 'ready_for_roi' | 'roi_stale'>('all')
   const [cloneLoadingId, setCloneLoadingId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -51,8 +52,16 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
     const matchesVisibility =
       visibilityFilter === 'all' ||
       (visibilityFilter === 'hidden' ? project.isHidden : !project.isHidden)
+    const matchesReadiness =
+      readinessFilter === 'all' ||
+      (readinessFilter === 'needs_review'
+        ? project.workspaceReadiness.badges.includes('Pricing review') ||
+          project.workspaceReadiness.badges.includes('Cost review')
+        : readinessFilter === 'ready_for_roi'
+          ? project.workspaceReadiness.projectStateLabel === 'Ready for ROI'
+          : project.workspaceReadiness.roiSummaryStale)
 
-    return matchesSearch && matchesStatus && matchesVisibility
+    return matchesSearch && matchesStatus && matchesVisibility && matchesReadiness
   })
 
   const cloneProject = async (project: IdeaRecord) => {
@@ -198,6 +207,24 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
                 <option value="all">All projects</option>
               </select>
             </div>
+            <div className="form-group mb-0">
+              <label className="form-label" htmlFor="project-readiness-filter">
+                Quick filter
+              </label>
+              <select
+                id="project-readiness-filter"
+                value={readinessFilter}
+                onChange={(event) =>
+                  setReadinessFilter(event.target.value as 'all' | 'needs_review' | 'ready_for_roi' | 'roi_stale')
+                }
+                className="input-field min-w-[180px]"
+              >
+                <option value="all">All readiness</option>
+                <option value="needs_review">Needs review</option>
+                <option value="ready_for_roi">Ready for ROI</option>
+                <option value="roi_stale">ROI stale</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -238,19 +265,38 @@ export default function ProjectDashboard({ onCreateNew }: ProjectDashboardProps)
                         <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
                           {project.status.replace('_', ' ')}
                         </span>
+                        <span className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-800">
+                          {project.workspaceReadiness.projectStateLabel}
+                        </span>
                         {project.isHidden && (
                           <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
                             Hidden
                           </span>
                         )}
+                        {project.workspaceReadiness.badges.slice(0, 2).map((badge) => (
+                          <span
+                            key={badge}
+                            className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
+                          >
+                            {badge}
+                          </span>
+                        ))}
                       </div>
                       <h3 className="text-xl font-semibold text-slate-900 transition group-hover:text-primary-700">
                         {project.title}
                       </h3>
                       <p className="line-clamp-3 text-sm text-slate-600">{project.description}</p>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Next action</div>
+                        <div className="mt-2 font-medium text-slate-900">{project.workspaceReadiness.nextActionLabel}</div>
+                      </div>
                     </div>
                     <div className="rounded-2xl bg-slate-950 px-4 py-3 text-right text-white">
-                      <div className="text-[11px] uppercase tracking-[0.2em] text-slate-300">NPV</div>
+                      <div className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Decision</div>
+                      <div className="mt-1 text-lg font-semibold">
+                        {project.roiSummary ? (project.workspaceReadiness.roiSummaryStale ? 'Stale' : 'Saved') : 'Pending'}
+                      </div>
+                      <div className="mt-3 text-[11px] uppercase tracking-[0.2em] text-slate-300">NPV</div>
                       <div className="mt-1 text-lg font-semibold">
                         {project.roiSummary ? formatCurrency(project.roiSummary.npv) : 'Pending'}
                       </div>

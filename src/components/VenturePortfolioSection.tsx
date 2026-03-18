@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
+import Link from 'next/link'
 
 import BlankNumberInput, { type BlankableNumber } from '@/components/BlankNumberInput'
 import type { IdeaRecord } from '@/lib/api'
@@ -10,6 +11,7 @@ import {
   getVentureRecommendationTone,
   VENTURE_STAGE_ORDER,
 } from '@/lib/venture-summary'
+import { hasVentureLensPrereqs } from '@/lib/workspace-readiness'
 
 type VenturePortfolioSectionProps = {
   ideas: IdeaRecord[]
@@ -25,6 +27,10 @@ export default function VenturePortfolioSection({ ideas }: VenturePortfolioSecti
         .sort((left, right) => (right.ventureSummary?.ventureScore ?? 0) - (left.ventureSummary?.ventureScore ?? 0)),
     [ideas]
   )
+  const ventureCandidates = useMemo(
+    () => ideas.filter((idea) => !idea.ventureSummary && hasVentureLensPrereqs(idea)),
+    [ideas]
+  )
 
   if (!rankedIdeas.length) {
     return (
@@ -35,6 +41,11 @@ export default function VenturePortfolioSection({ ideas }: VenturePortfolioSecti
             Save a venture scorecard on an idea to rank staged bets against the rest of the pipeline.
           </p>
         </div>
+        {ventureCandidates[0] && (
+          <Link href={`/products/${ventureCandidates[0].id}?tab=venture-lens`} className="btn-primary w-full sm:max-w-sm">
+            Open Venture Lens on {ventureCandidates[0].title}
+          </Link>
+        )}
       </section>
     )
   }

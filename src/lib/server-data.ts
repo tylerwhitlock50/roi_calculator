@@ -4,6 +4,28 @@ export const ideaSummaryInclude = {
   createdBy: true,
   roiSummary: true,
   ventureSummary: true,
+  salesForecasts: {
+    include: {
+      contributor: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  },
+  costEstimates: {
+    include: {
+      createdBy: true,
+      bomParts: true,
+      laborEntries: {
+        include: {
+          activity: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  },
 } as const
 
 export const ideaDetailInclude = {

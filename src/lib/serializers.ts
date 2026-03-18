@@ -20,6 +20,7 @@ import type {
   RoiSummaryRecord,
   VentureSummaryRecord,
 } from '@/lib/api'
+import { buildWorkspaceReadiness } from '@/lib/workspace-readiness'
 
 function serializeStatus(status: IdeaStatus): IdeaRecord['status'] {
   switch (status) {
@@ -106,8 +107,33 @@ export function serializeIdea(
     createdBy: User
     roiSummary: RoiSummary | null
     ventureSummary: VentureSummary | null
+    salesForecasts?: Array<
+      SalesForecast & {
+        contributor: User
+      }
+    >
+    costEstimates?: Array<
+      CostEstimate & {
+        createdBy: User
+        bomParts: BomPart[]
+        laborEntries: Array<
+          LaborEntry & {
+            activity: ActivityRate
+          }
+        >
+      }
+    >
   }
 ): IdeaRecord {
+  const forecasts = (idea.salesForecasts ?? []).map(serializeForecast)
+  const costEstimates = (idea.costEstimates ?? []).map(serializeCostEstimate)
+  const workspaceReadiness = buildWorkspaceReadiness({
+    forecasts,
+    costEstimates,
+    roiSummary: serializeRoiSummary(idea.roiSummary),
+    ventureSummary: serializeVentureSummary(idea.ventureSummary),
+  })
+
   return {
     id: idea.id,
     title: idea.title,
@@ -120,6 +146,8 @@ export function serializeIdea(
     competitorOverview: idea.competitorOverview,
     createdAt: idea.createdAt.toISOString(),
     createdById: idea.createdById,
+    forecastCount: forecasts.length,
+    costEstimateCount: costEstimates.length,
     owner: {
       id: idea.createdBy.id,
       fullName: idea.createdBy.fullName,
@@ -127,6 +155,7 @@ export function serializeIdea(
     },
     roiSummary: serializeRoiSummary(idea.roiSummary),
     ventureSummary: serializeVentureSummary(idea.ventureSummary),
+    workspaceReadiness,
   }
 }
 

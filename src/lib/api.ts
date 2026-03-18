@@ -5,6 +5,29 @@ export type AppUser = {
   role: 'admin' | 'member'
 }
 
+export type WorkspaceTabKey =
+  | 'overview'
+  | 'forecast'
+  | 'cost'
+  | 'unit-economics'
+  | 'stress-test'
+  | 'venture-lens'
+  | 'finalize'
+
+export type ReadinessState = 'not_started' | 'needs_attention' | 'ready'
+
+export type WorkspaceReadinessRecord = {
+  tabs: Record<WorkspaceTabKey, ReadinessState>
+  hasUnconfirmedPricing: boolean
+  costReviewItems: string[]
+  roiSummaryStale: boolean
+  ventureSummaryStale: boolean
+  projectStateLabel: string
+  nextActionLabel: string
+  nextActionTab: WorkspaceTabKey
+  badges: string[]
+}
+
 export type SessionPayload = {
   authenticated: boolean
   user: AppUser | null
@@ -145,6 +168,8 @@ export type IdeaRecord = {
   competitorOverview: string
   createdAt: string
   createdById: string
+  forecastCount: number
+  costEstimateCount: number
   owner: {
     id: string
     fullName: string
@@ -152,6 +177,7 @@ export type IdeaRecord = {
   }
   roiSummary: RoiSummaryRecord | null
   ventureSummary: VentureSummaryRecord | null
+  workspaceReadiness: WorkspaceReadinessRecord
 }
 
 export type IdeaDetailRecord = IdeaRecord & {
