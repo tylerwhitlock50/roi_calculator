@@ -438,12 +438,10 @@ export default function ProductDetailPage() {
   useEffect(() => {
     const requestedTab = getRequestedTab(searchParams)
 
-    if (requestedTab !== activeTab) {
-      startTransition(() => {
-        setActiveTab(requestedTab)
-      })
-    }
-  }, [activeTab, searchParams])
+    startTransition(() => {
+      setActiveTab((currentTab) => (currentTab === requestedTab ? currentTab : requestedTab))
+    })
+  }, [searchParams])
 
   const loadPage = async (ideaId: string) => {
     try {
